@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginEnd="@dimen/_5sdp"
+    android:id="@+id/mainLayout"
+    android:background="@drawable/bg_edittext"
+    android:orientation="horizontal"
+    android:padding="@dimen/_8sdp">
+
+    <ImageView
+        android:id="@+id/ivConditionIcon"
+        android:layout_width="@dimen/_13sdp"
+        android:layout_height="@dimen/_12sdp"
+        android:src="@drawable/svg_excellent" />
+
+    <TextView
+        android:id="@+id/tvCondition"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/_3sdp"
+        android:fontFamily="@font/sofiasans_regular"
+        android:text="Excellent"
+        android:textColor="@color/black"
+        android:textSize="@dimen/_11ssp" />
+</LinearLayout>

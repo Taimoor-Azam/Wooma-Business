@@ -1,0 +1,74 @@
+package com.wooma.business.adapter
+
+import android.content.Context
+import android.content.Intent
+import android.content.res.ColorStateList
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.LinearLayout
+import android.widget.TextView
+import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
+import androidx.recyclerview.widget.RecyclerView
+import com.wooma.business.R
+import com.wooma.business.activities.report.EditTenantActivity
+import com.wooma.business.model.Rooms
+import com.wooma.business.model.RoomsResponse
+import com.wooma.business.model.TenantReview
+
+class ReportTenantsAdapter(
+    val context: Context,
+    private val originalList: MutableList<TenantReview>,
+) : RecyclerView.Adapter<ReportTenantsAdapter.ViewHolder>() {
+
+    inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        //        val tvRoom: TextView = view.findViewById(R.id.tvRoom)
+        val tenantLayout: LinearLayout = view.findViewById(R.id.tenantLayout)
+        val tvName: TextView = view.findViewById(R.id.tvName)
+        val tvTenantEmail: TextView = view.findViewById(R.id.tvTenantEmail)
+        val tvTenantPhone: TextView = view.findViewById(R.id.tvTenantPhone)
+        val tvStatus: TextView = view.findViewById(R.id.tvStatus)
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_report_tenant, parent, false)
+        return ViewHolder(view)
+    }
+
+    override fun getItemCount() = originalList.size
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        val item = originalList.get(position)
+        holder.tvName.text = item.first_name + " " + item.last_name
+        holder.tvTenantEmail.text = item.email_address
+        if (item.mobile_number.isNotEmpty()) {
+            holder.tvTenantPhone.visibility = View.VISIBLE
+            holder.tvTenantPhone.text = item.mobile_number
+        } else {
+            holder.tvTenantPhone.visibility = View.GONE
+        }
+
+        if (item.is_submitted) {
+            holder.tvStatus.text = "Signed"
+            ViewCompat.setBackgroundTintList(
+                holder.tvStatus,
+                ColorStateList.valueOf(ContextCompat.getColor(context, R.color.complete_clr))
+            )
+        } else {
+            ViewCompat.setBackgroundTintList(
+                holder.tvStatus,
+                ColorStateList.valueOf(ContextCompat.getColor(context, R.color.complete_clr))
+            )
+
+            holder.tvStatus.text = "Not Signed"
+
+        }
+
+        holder.tenantLayout.setOnClickListener {
+            context.startActivity(Intent(context, EditTenantActivity::class.java))
+        }
+    }
+}

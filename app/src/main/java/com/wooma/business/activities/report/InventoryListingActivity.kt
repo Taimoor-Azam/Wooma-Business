@@ -1,0 +1,312 @@
+package com.wooma.business.activities.report
+
+import android.content.Intent
+import android.os.Build
+import android.os.Bundle
+import android.util.Log
+import android.view.View
+import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
+import com.wooma.business.R
+import com.wooma.business.activities.BaseActivity
+import com.wooma.business.activities.report.complete.CompleteReportActivity
+import com.wooma.business.activities.report.complete.ExtendTimerActivity
+import com.wooma.business.activities.report.inventorysettings.InventoryReportSettingActivity
+import com.wooma.business.adapter.InventoryOtherItemsAdapter
+import com.wooma.business.adapter.InventoryRoomsAdapter
+import com.wooma.business.adapter.ReportTenantsAdapter
+import com.wooma.business.customs.AddCustomRoomDialog
+import com.wooma.business.customs.GridSpacingItemDecoration
+import com.wooma.business.customs.Utils
+import com.wooma.business.data.network.ApiResponseListener
+import com.wooma.business.data.network.MyApi
+import com.wooma.business.data.network.makeApiRequest
+import com.wooma.business.data.network.showToast
+import com.wooma.business.databinding.ActivityInventoryListingBinding
+import com.wooma.business.model.AddNewRoomsRequest
+import com.wooma.business.model.ApiResponse
+import com.wooma.business.model.ErrorResponse
+import com.wooma.business.model.ReportData
+import com.wooma.business.model.RoomsResponse
+import com.wooma.business.model.TenantReview
+import com.wooma.business.model.enums.TenantReportStatus
+import com.wooma.business.model.toCountItemList
+
+class InventoryListingActivity : BaseActivity() {
+    private lateinit var adapter: InventoryRoomsAdapter
+    private val roomsList = mutableListOf<RoomsResponse>()
+    private lateinit var binding: ActivityInventoryListingBinding
+    var reportId = ""
+    var reportStatus = ""
+    var reportTypeName = ""
+    var reportTypeId = ""
+    var reportData: ReportData? = null
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        binding = ActivityInventoryListingBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        applyWindowInsetsToBinding(binding.root)
+
+        reportId = intent.getStringExtra("reportId") ?: ""
+        reportStatus = intent.getStringExtra("reportStatus") ?: ""
+        reportTypeName = intent.getStringExtra("reportTypeName") ?: ""
+        reportTypeId = intent.getStringExtra("reportTypeId") ?: ""
+
+        adapter = InventoryRoomsAdapter(this, roomsList, reportId, reportStatus)
+        binding.rvRooms.adapter = adapter
+
+        updateViewAccToStatus()
+        binding.ivBack.setOnClickListener { finish() }
+
+        binding.tvExtendTime.setOnClickListener {
+            startActivity(
+                Intent(this, ExtendTimerActivity::class.java).putExtra(
+                    "reportId",
+                    reportId
+                ).putExtra(
+                    "expiryDate",
+                    if (reportData?.extendReviewExpiry != null) reportData?.extendReviewExpiry else reportData?.tenantReviewExpiry
+                )
+            )
+        }
+
+        val spacingInDp = 16
+        val spacingInPx = spacingInDp * resources.displayMetrics.density.toInt()
+
+        binding.rvOtherItems.addItemDecoration(
+            GridSpacingItemDecoration(
+                spanCount = 2,
+                spacing = spacingInPx,
+                includeEdge = true
+            )
+        )
+
+        binding.ivSettings.setOnClickListener {
+            startActivity(
+                Intent(
+                    this,
+                    InventoryReportSettingActivity::class.java
+                ).putExtra("reportStatus", reportStatus)
+                    .putExtra("reportId", reportId)
+                    .putExtra("reportTypeName", reportTypeName)
+                    .putExtra("reportTypeId", reportTypeId)
+            )
+        }
+
+        binding.btnCompleteReport.setOnClickListener {
+            startActivity(
+                Intent(this, CompleteReportActivity::class.java).putExtra(
+                    "reportId",
+                    reportId
+                )
+            )
+        }
+
+        binding.ivAddRoom.setOnClickListener {
+            AddCustomRoomDialog().show(
+                supportFragmentManager,
+                "InputBottomSheet"
+            )
+        }
+
+        supportFragmentManager.setFragmentResultListener(
+            "sheet_key",
+            this
+        ) { requestKey, bundle ->
+
+            val value = bundle.getString("added_room")
+            roomsList.add(0, RoomsResponse("", "", value ?: "", "", true, ArrayList()))
+            println(value)
+
+            val request = AddNewRoomsRequest(
+                rooms = listOf(value ?: "")
+            )
+
+            addNewRoomApi(request)
+            adapter.updateList(roomsList)
+        }
+    }
+
+
+    private fun updateViewAccToStatus() {
+        if (reportStatus == TenantReportStatus.IN_PROGRESS.value) {
+            binding.ivAddRoom.visibility = View.VISIBLE
+            binding.btnCompleteReport.visibility = View.VISIBLE
+        } else {
+            binding.ivAddRoom.visibility = View.GONE
+            binding.btnCompleteReport.visibility = View.GONE
+
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        getReportByIdApi()
+    }
+
+    /* private fun loadProperties() {
+         roomsList.addAll(
+             listOf(
+                 Rooms("Meter"),
+                 Rooms("Keys"),
+                 Rooms("Detectors"),
+                 Rooms("Checklist")
+             )
+         )
+         adapter.updateList(roomsList)
+     }*/
+
+    private fun addNewRoomApi(request: AddNewRoomsRequest) {
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = true,
+            requestAction = { apiService -> apiService.addRomToReport(reportId, request) },
+            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
+                override fun onSuccess(response: ApiResponse<ReportData>) {
+                    if (response.success) {
+                    } else {
+                    }
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    // Handle API error
+//                    Log.e("API", errorMessage?.error?.message ?: "")
+//                    showToast(errorMessage?.error?.message ?: "")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    // Handle network error
+//                    Log.e("API", "Error: ${throwable.message}")
+//                    showToast("Error: ${throwable.message}")
+                }
+            }
+        )
+    }
+
+    private fun getReportByIdApi() {
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = true,
+            requestAction = { apiService -> apiService.getReportById(reportId, true, true) },
+            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
+                override fun onSuccess(response: ApiResponse<ReportData>) {
+                    if (response.success) {
+                        reportData = response.data
+                        roomsList.clear()
+                        roomsList.addAll(response.data.rooms ?: ArrayList())
+                        adapter.updateList(roomsList)
+
+                        binding.rvOtherItems.adapter =
+                            InventoryOtherItemsAdapter(
+                                this@InventoryListingActivity,
+                                response.data.counts.toCountItemList(),
+                                reportId
+                            )
+
+                        if (response.data.status == TenantReportStatus.TENANT_REVIEW.value) {
+                            getTenantReviewsApi()
+                            binding.tvDate.text = "Tenant Review"
+
+                            binding.tvDate.setTextColor(
+                                ContextCompat.getColor(
+                                    this@InventoryListingActivity,
+                                    R.color.blue
+                                )
+                            )
+
+                            binding.tvDate.background = ContextCompat.getDrawable(
+                                this@InventoryListingActivity,
+                                R.drawable.bg_report_status
+                            )
+                        } else if (response.data.status == TenantReportStatus.COMPLETED.value) {
+                            binding.tvDate.text = "Completed"
+                            binding.tvDate.setTextColor(
+                                ContextCompat.getColor(
+                                    this@InventoryListingActivity,
+                                    R.color.green
+                                )
+                            )
+
+                            binding.tvDate.background = ContextCompat.getDrawable(
+                                this@InventoryListingActivity,
+                                R.drawable.bg_report_status
+                            )
+
+                            updateViewForCompletedReport()
+                        }
+                    } else {
+                    }
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    // Handle API error
+                    Log.e("API", errorMessage?.error?.message ?: "")
+                    showToast(errorMessage?.error?.message ?: "")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    // Handle network error
+                    Log.e("API", "Error: ${throwable.message}")
+                    showToast("Error: ${throwable.message}")
+                }
+            }
+        )
+    }
+
+    private fun getTenantReviewsApi() {
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = true,
+            requestAction = { apiService -> apiService.getTenantsForReportReview(reportId) },
+            listener = object : ApiResponseListener<ApiResponse<ArrayList<TenantReview>>> {
+                @RequiresApi(Build.VERSION_CODES.O)
+                override fun onSuccess(response: ApiResponse<ArrayList<TenantReview>>) {
+                    if (response.success) {
+                        updateViewForTenantReview(response.data)
+                    } else {
+                    }
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    // Handle API error
+                    Log.e("API", errorMessage?.error?.message ?: "")
+                    showToast(errorMessage?.error?.message ?: "")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    // Handle network error
+                    Log.e("API", "Error: ${throwable.message}")
+                    showToast("Error: ${throwable.message}")
+                }
+            }
+        )
+    }
+
+    private fun updateViewForCompletedReport() {
+        binding.completedReportLayout.visibility = View.VISIBLE
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun updateViewForTenantReview(data: ArrayList<TenantReview>) {
+        binding.tenantReviewLayout.visibility = View.VISIBLE
+        val adapter = ReportTenantsAdapter(this, data)
+        binding.rvTenants.adapter = adapter
+
+        val expiryDate =
+            if (reportData?.extendReviewExpiry != null) reportData?.extendReviewExpiry else reportData?.tenantReviewExpiry
+        binding.daysRemaining.text = Utils.getDaysDifference(expiryDate ?: "")
+            .toString() + " days remaining"
+        val count = data.count { it.is_submitted }
+
+        binding.signProgress.max = data.size
+        binding.signProgress.progress = count
+
+        binding.tvReceivedSigns.text = "${count}/${data.size}"
+        binding.tvTotalTenants.text = "Tenant (${data.size})"
+    }
+}

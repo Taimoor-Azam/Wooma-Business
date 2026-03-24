@@ -1,0 +1,175 @@
+package com.wooma.business.activities.report.otherItems
+
+import android.os.Bundle
+import android.util.Log
+import android.view.View
+import com.wooma.business.activities.BaseActivity
+import com.wooma.business.adapter.SuggestionsAdapter
+import com.wooma.business.customs.Utils
+import com.wooma.business.data.network.ApiResponseListener
+import com.wooma.business.data.network.MyApi
+import com.wooma.business.data.network.makeApiRequest
+import com.wooma.business.data.network.showToast
+import com.wooma.business.databinding.ActivityAddEditMeterBinding
+import com.wooma.business.model.AddMeterRequest
+import com.wooma.business.model.ApiResponse
+import com.wooma.business.model.ErrorResponse
+import com.wooma.business.model.Meter
+import com.wooma.business.model.ReportData
+
+class AddEditMeterActivity : BaseActivity() {
+    private lateinit var binding: ActivityAddEditMeterBinding
+    var meterItem: Meter? = null
+
+    var reportId = ""
+    val suggestionList =
+        mutableListOf("Gas", "Electric", "Water", "Heating Oil", "Liquid Petroleum Gas (LPG)")
+
+    var isEdit = false
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        binding = ActivityAddEditMeterBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        applyWindowInsetsToBinding(binding.root)
+        meterItem = intent.getParcelableExtra("meterItem")
+
+        reportId = intent.getStringExtra("reportId") ?: ""
+        isEdit = intent.getBooleanExtra("isEdit", false)
+
+        binding.btnSave.setOnClickListener {
+            if (isValid()) {
+                addNewMeterApi()
+            }
+        }
+
+        binding.ivDelete.visibility = if (meterItem != null) {
+            View.VISIBLE
+        } else {
+            View.GONE
+        }
+
+        binding.ivDelete.setOnClickListener {
+            Utils.showDialogBox(
+                this,
+                "Delete Meter",
+                "Do you want to delete this ? This action can't be undone"
+            ) {
+                deleteMeterApi(meterItem?.id ?: "")
+            }
+        }
+
+        binding.rvSuggestions.adapter = SuggestionsAdapter(
+            this,
+            suggestionList,
+            object : SuggestionsAdapter.OnItemClickInterface {
+                override fun onItemClick(item: String) {
+                    binding.etType.setText(item)
+                }
+
+            })
+
+        binding.ivBack.setOnClickListener { finish() }
+        setMeterData()
+    }
+
+    fun setMeterData() {
+        if (meterItem != null) {
+            binding.etType.setText(meterItem?.name)
+            binding.etReading.setText(meterItem?.reading)
+            binding.etSerialNumber.setText(meterItem?.serial_number)
+            binding.etLocation.setText(meterItem?.location)
+        }
+    }
+
+    private fun isValid(): Boolean {
+        if (binding.etType.text.toString().isEmpty()) {
+            showToast("Please enter Meter Type")
+            return false
+        } else if (binding.etReading.text.toString().isEmpty()) {
+            showToast("Please enter Meter Reading")
+
+            return false
+        } else if (binding.etSerialNumber.text.toString().isEmpty()) {
+            showToast("Please enter Serial Number")
+
+            return false
+        } else if (binding.etLocation.text.toString().isEmpty()) {
+            showToast("Please enter Meter Location")
+            return false
+        }
+        return true
+    }
+
+    private fun deleteMeterApi(meterId: String) {
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = true,
+            requestAction = { apiService -> apiService.deleteMeter(reportId, meterId) },
+            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
+                override fun onSuccess(response: ApiResponse<ReportData>) {
+                    if (response.success) {
+                        showToast("Meter Deleted successfully")
+                        finish()
+                    }
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    // Handle API error
+                    Log.e("API", errorMessage?.error?.message ?: "")
+                    showToast(errorMessage?.error?.message ?: "")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    // Handle network error
+                    Log.e("API", "Error: ${throwable.message}")
+                    showToast("Error: ${throwable.message}")
+                }
+            }
+        )
+    }
+
+    private fun addNewMeterApi() {
+        val body = AddMeterRequest(
+            binding.etType.text.toString(),
+            binding.etReading.text.toString(),
+            binding.etLocation.text.toString(),
+            binding.etSerialNumber.text.toString()
+        )
+
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = true,
+            requestAction = { apiService ->
+                if (meterItem != null) apiService.updateMeter(
+                    reportId,
+                    meterItem?.id ?: "",
+                    body
+                ) else apiService.addNewMeter(reportId, body)
+            },
+            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
+                override fun onSuccess(response: ApiResponse<ReportData>) {
+                    if (response.success) {
+                        showToast("Meter Added successfully")
+                        finish()
+                    }
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    // Handle API error
+                    Log.e("API", errorMessage?.error?.message ?: "")
+                    showToast(errorMessage?.error?.message ?: "")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    // Handle network error
+                    Log.e("API", "Error: ${throwable.message}")
+                    showToast("Error: ${throwable.message}")
+                }
+            }
+        )
+    }
+
+}
