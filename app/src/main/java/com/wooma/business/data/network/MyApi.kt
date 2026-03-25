@@ -7,6 +7,9 @@ import com.wooma.business.model.AddNewRoomItemsRequest
 import com.wooma.business.model.AddNewRoomsRequest
 import com.wooma.business.model.AddReportResponse
 import com.wooma.business.model.ApiResponse
+import com.wooma.business.model.AssessorUsers
+import com.wooma.business.model.ChangeAssessor
+import com.wooma.business.model.ChangeDateRequest
 import com.wooma.business.model.CheckListActiveStatus
 import com.wooma.business.model.ChecklistData
 import com.wooma.business.model.CompleteReportRequest
@@ -18,6 +21,7 @@ import com.wooma.business.model.ExtendTimeRequest
 import com.wooma.business.model.KeyItem
 import com.wooma.business.model.Meter
 import com.wooma.business.model.OnboardingResponse
+import com.wooma.business.model.PostalAddress
 import com.wooma.business.model.PropertiesRequest
 import com.wooma.business.model.Property
 import com.wooma.business.model.PropertyDetailResponse
@@ -90,16 +94,26 @@ interface MyApi {
         @Query("include_counts") include_counts: Boolean,
     ): Call<ApiResponse<ReportData>>
 
+    @GET("/api/v1/postcodes/{postcode}")
+    fun getPostCodes(
+        @Path("postcode") postcode: String,
+    ): Call<ApiResponse<ArrayList<PostalAddress>>>
+
     @DELETE("/api/v1/tenant-reports/{id}")
     fun archiveReport(
         @Path("id") id: String,
     ): Call<ApiResponse<ReportData>>
 
-    @GET("api/v1/tenant-reports/{report_id}/tenant-reviews")
+    @GET("/api/v1/tenant-reports/{report_id}/tenant-reviews")
     fun getTenantsForReportReview(
         @Path("report_id") report_id: String,
         @Query("is_agreed") is_agreed: Boolean = false,
     ): Call<ApiResponse<ArrayList<TenantReview>>>
+
+    @GET("/api/v1/tenant-users")
+    fun getAssessors(
+        @Query("is_active") is_active: Boolean = true,
+    ): Call<ApiResponse<ArrayList<AssessorUsers>>>
 
     @GET("/api/v1/tenant-report/{report_id}/rooms/{id}")
     fun getRoomById(
@@ -153,6 +167,18 @@ interface MyApi {
         @Body request: changeReportType
     ): Call<ApiResponse<ReportData>>
 
+    @PATCH("/api/v1/tenant-reports/{id}/change-assessor")
+    fun changeAssessor(
+        @Path("id") id: String,
+        @Body request: ChangeAssessor
+    ): Call<ApiResponse<ReportData>>
+
+    @PATCH("/api/v1/tenant-reports/{id}")
+    fun changeDate(
+        @Path("id") id: String,
+        @Body request: ChangeDateRequest
+    ): Call<ApiResponse<ReportData>>
+
     @POST("/api/v1/tenant-reports/{id}/extend-expiry")
     fun extendReviewTime(
         @Path("id") id: String,
@@ -175,7 +201,7 @@ interface MyApi {
     fun sendReportForApproval(
         @Path("id") id: String,
         @Body request: TenantsRequest
-    ): Call<ApiResponse<ReportData>>
+    ): Call<ApiResponse<ArrayList<ReportData>>>
 
     @POST("/api/v1/tenant-report/{report_id}/keys")
     fun addNewKey(

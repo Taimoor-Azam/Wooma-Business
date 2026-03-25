@@ -35,7 +35,7 @@
             android:layout_weight="1"
             android:fontFamily="@font/sofiasans_bold"
             android:gravity="center"
-            android:text="@string/change_assessor"
+            android:text="@string/change_date"
             android:textColor="@color/black"
             android:textSize="@dimen/_16ssp" />
 
@@ -61,6 +61,7 @@
             android:layout_marginTop="@dimen/_8sdp"
             android:fontFamily="@font/sofiasans_bold"
             android:text="@string/current_assessor"
+            android:visibility="gone"
             android:textColor="@color/lbls_color"
             android:textSize="@dimen/_13ssp" />
 
@@ -70,6 +71,7 @@
             android:layout_marginTop="@dimen/_5sdp"
             android:background="@drawable/bg_border_info"
             android:orientation="horizontal"
+            android:visibility="gone"
             android:padding="@dimen/_10sdp">
 
             <TextView
@@ -96,10 +98,14 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/_12sdp"
             android:fontFamily="@font/sofiasans_bold"
-            android:text="@string/change_to"
+            android:text="@string/change_completion_date"
             android:textColor="@color/lbls_color"
             android:textSize="@dimen/_13ssp" />
 
+        <CalendarView
+            android:id="@+id/calendarView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
       <!--  <com.prolificinteractive.materialcalendarview.MaterialCalendarView
             android:id="@+id/calendarView"
             android:layout_width="match_parent"

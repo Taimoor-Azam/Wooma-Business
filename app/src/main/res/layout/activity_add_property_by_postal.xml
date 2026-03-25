@@ -72,7 +72,7 @@
             android:layout_marginTop="@dimen/_4sdp"
             android:background="@drawable/bg_edittext"
             android:hint="Enter Postal Code"
-            android:imeOptions="actionDone"
+            android:imeOptions="actionSearch"
             android:inputType="text"
             android:maxLines="1"
             android:paddingStart="@dimen/_10sdp"
@@ -83,12 +83,14 @@
             android:textSize="@dimen/_12ssp" />
 
         <LinearLayout
+            android:id="@+id/searchLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/_12sdp"
             android:layout_marginBottom="@dimen/_12sdp"
             android:background="@drawable/bg_edittext"
             android:orientation="vertical"
+            android:visibility="gone"
             android:padding="@dimen/_8sdp">
             <!-- RecyclerView -->
             <androidx.recyclerview.widget.RecyclerView
@@ -107,10 +109,10 @@
         android:id="@+id/btnManualAddress"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:paddingTop="@dimen/_10sdp"
-        android:paddingBottom="@dimen/_10sdp"
         android:layout_margin="@dimen/_16sdp"
         android:background="@drawable/bg_edittext"
+        android:paddingTop="@dimen/_10sdp"
+        android:paddingBottom="@dimen/_10sdp"
         android:text="@string/enter_address_manually"
         android:textAllCaps="false"
         android:textColor="@color/green"

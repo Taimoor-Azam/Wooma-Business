@@ -19,6 +19,7 @@ import com.wooma.business.model.ReportData
 import com.wooma.business.model.ReportType
 import com.wooma.business.model.ReportTypeResponse
 import com.wooma.business.model.changeReportType
+import com.wooma.business.model.enums.ReportTypes
 
 class ChangeReportTypeActivity : BaseActivity() {
     private lateinit var binding: ActivityChangeReportTypeBinding
@@ -158,7 +159,7 @@ class ChangeReportTypeActivity : BaseActivity() {
                     if (response.data.data.isNotEmpty()) {
                         reportTypeList.clear()
                         for (item in response.data.data) {
-                            if (item.type_code == "check_out" || item.type_code == "inventory") {
+                            if (item.type_code == ReportTypes.CHECK_OUT.value || item.type_code == ReportTypes.INVENTORY.value) {
                                 if (item.id != reportTypeId)
                                     reportTypeList.add(item)
                             }

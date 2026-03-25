@@ -18,3 +18,6 @@ data class ReportType(
 data class changeReportType(
     val report_type_id: String
 )
+data class ChangeAssessor(
+    val assigned_to: String
+)

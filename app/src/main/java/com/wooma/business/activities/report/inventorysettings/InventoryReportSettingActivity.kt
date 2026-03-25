@@ -15,8 +15,11 @@ import com.wooma.business.data.network.makeApiRequest
 import com.wooma.business.data.network.showToast
 import com.wooma.business.databinding.ActivityInventoryReportSettingBinding
 import com.wooma.business.model.ApiResponse
+import com.wooma.business.model.Assessor
 import com.wooma.business.model.ErrorResponse
+import com.wooma.business.model.PropertyReportType
 import com.wooma.business.model.ReportData
+import com.wooma.business.model.enums.ReportTypes
 import com.wooma.business.model.enums.TenantReportStatus
 
 class InventoryReportSettingActivity : BaseActivity() {
@@ -25,8 +28,8 @@ class InventoryReportSettingActivity : BaseActivity() {
     var reportStatus = ""
     var reportId = ""
 
-    var reportTypeName = ""
-    var reportTypeId = ""
+    var assessor: Assessor? = null
+    var reportType: PropertyReportType? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -37,8 +40,8 @@ class InventoryReportSettingActivity : BaseActivity() {
         reportStatus = intent.getStringExtra("reportStatus") ?: ""
         reportId = intent.getStringExtra("reportId") ?: ""
 
-        reportTypeName = intent.getStringExtra("reportTypeName") ?: ""
-        reportTypeId = intent.getStringExtra("reportTypeId") ?: ""
+        assessor = intent.getParcelableExtra("assessor")
+        reportType = intent.getParcelableExtra("reportType")
 
         if (reportId.isNotEmpty()) {
             binding.tvReportId.text = reportId
@@ -48,6 +51,12 @@ class InventoryReportSettingActivity : BaseActivity() {
             binding.reportTypeLayout.visibility = View.GONE
             binding.assessorLayout.visibility = View.GONE
             binding.dateLayout.visibility = View.GONE
+        }
+
+        if (reportType?.type_code?.equals(ReportTypes.INSPECTION.value) == true
+            || reportType?.type_code?.equals(ReportTypes.CHECK_IN.value) == true
+        ) {
+            binding.reportTypeLayout.visibility = View.GONE
         }
 
         binding.ivBack.setOnClickListener { finish() }
@@ -69,20 +78,26 @@ class InventoryReportSettingActivity : BaseActivity() {
         binding.reportTypeLayout.setOnClickListener {
             val intent = Intent(this, ChangeReportTypeActivity::class.java).putExtra(
                 "reportTypeName",
-                reportTypeName
+                reportType?.display_name
             )
-                .putExtra("reportTypeId", reportTypeId)
+                .putExtra("reportTypeId", reportType?.id)
                 .putExtra("reportId", reportId)
             startActivity(intent)
         }
+
         binding.assessorLayout.setOnClickListener {
-            val intent = Intent(this, ChangeAssessorActivity::class.java)
+            val intent =
+                Intent(this, ChangeAssessorActivity::class.java).putExtra("assessor", assessor)
+                    .putExtra("reportId", reportId)
             startActivity(intent)
         }
+
         binding.dateLayout.setOnClickListener {
-            val intent = Intent(this, ChangeReportDateActivity::class.java)
+            val intent =
+                Intent(this, ChangeReportDateActivity::class.java).putExtra("reportId", reportId)
             startActivity(intent)
         }
+
         binding.archiveReportLayout.setOnClickListener {
             Utils.showDialogBox(this, "Archive Report", "Do you want to archive this report?") {
                 archiveReportApi()

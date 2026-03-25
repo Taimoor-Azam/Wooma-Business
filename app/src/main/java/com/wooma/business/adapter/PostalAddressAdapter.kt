@@ -5,26 +5,30 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.wooma.business.R
-import com.wooma.business.model.InfoField
+import com.wooma.business.model.PostalAddress
 
-class CheckListInfoAdapter(
+class PostalAddressAdapter(
     val context: Context,
-    private val originalList: MutableList<InfoField>,
-    val reportId: String,
-) : RecyclerView.Adapter<CheckListInfoAdapter.ViewHolder>() {
+    private val originalList: MutableList<PostalAddress>,
+    val itemClick: OnItemClickInterface
+) : RecyclerView.Adapter<PostalAddressAdapter.ViewHolder>() {
 
     private var filteredList = originalList.toMutableList()
 
+    interface OnItemClickInterface {
+        fun onItemClick(item: PostalAddress)
+    }
+
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val tvInfoQuestion: TextView = view.findViewById(R.id.tvInfoQuestion)
-        val tvInfoAnswer: TextView = view.findViewById(R.id.tvInfoAnswer)
+        val tvAddress: TextView = view.findViewById(R.id.tvAddress)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_checklist_info, parent, false)
+            .inflate(R.layout.item_postal_address, parent, false)
         return ViewHolder(view)
     }
 
@@ -32,21 +36,16 @@ class CheckListInfoAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = filteredList[position]
+        holder.tvAddress.text =
+            item.line_1 + ", " + item.line_2 + ", " + item.district + ", " + item.postcode
 
-        holder.tvInfoQuestion.text = item.label
-        holder.tvInfoAnswer.text = item.answerText ?: ""
-
-        holder.itemView.setOnClickListener {
-            /*context.startActivity(
-                Intent(context, AddEditMeterActivity::class.java).putExtra(
-                    "checkListInfoItem",
-                    filteredList[position]
-                ).putExtra("reportId", reportId)
-            )*/
+        holder.tvAddress.setOnClickListener {
+            itemClick.onItemClick(item)
         }
+
     }
 
-    fun updateList(list: List<InfoField>) {
+    fun updateList(list: List<PostalAddress>) {
         filteredList = list.toMutableList()
         notifyDataSetChanged()
     }
@@ -56,7 +55,7 @@ class CheckListInfoAdapter(
             originalList.toMutableList()
         } else {
             originalList.filter {
-                it.label.contains(query, true)
+                it.line_1?.contains(query, true) == true
             }.toMutableList()
         }
         notifyDataSetChanged()

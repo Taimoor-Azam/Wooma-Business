@@ -16,7 +16,6 @@ import com.wooma.business.databinding.ActivityCompleteReportBinding
 import com.wooma.business.model.ApiResponse
 import com.wooma.business.model.CompleteReportRequest
 import com.wooma.business.model.ErrorResponse
-import com.wooma.business.model.PropertyDetailResponse
 import com.wooma.business.model.ReportData
 import com.wooma.business.model.Tenant
 import com.wooma.business.model.TenantsRequest
@@ -106,10 +105,10 @@ class CompleteReportActivity : BaseActivity() {
             context = this,
             showLoading = true,
             requestAction = { apiService -> apiService.sendReportForApproval(reportId, body) },
-            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
-                override fun onSuccess(response: ApiResponse<ReportData>) {
+            listener = object : ApiResponseListener<ApiResponse<ArrayList<ReportData>>> {
+                override fun onSuccess(response: ApiResponse<ArrayList<ReportData>>) {
                     if (response.success) {
-                        showToast("Report sent for approval successfully")
+                        showToast(response.message)
                         val intent =
                             Intent(this@CompleteReportActivity, MainActivity::class.java).apply {
                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)

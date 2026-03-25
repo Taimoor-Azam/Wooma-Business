@@ -1,5 +1,7 @@
 package com.wooma.business.activities.property
 
+import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import com.wooma.business.activities.BaseActivity
@@ -11,6 +13,7 @@ import com.wooma.business.databinding.ActivityAddPropertyBinding
 import com.wooma.business.databinding.ActivityEditPropertyBinding
 import com.wooma.business.model.ApiResponse
 import com.wooma.business.model.ErrorResponse
+import com.wooma.business.model.PostalAddress
 import com.wooma.business.model.PropertiesRequest
 import com.wooma.business.model.Property
 import com.wooma.business.model.TenantPropertiesWrapper
@@ -19,6 +22,8 @@ import com.wooma.business.storage.Prefs
 class AddPropertyActivity : BaseActivity() {
     private lateinit var binding: ActivityAddPropertyBinding
 
+    var postalAddress: PostalAddress? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -26,8 +31,14 @@ class AddPropertyActivity : BaseActivity() {
         setContentView(binding.root)
         applyWindowInsetsToBinding(binding.root)
 
+        postalAddress = intent.getParcelableExtra("postalAddress")
+
+        if (postalAddress != null) {
+            initView()
+        }
+
         binding.btnSave.setOnClickListener {
-            if (isValid()){
+            if (isValid()) {
                 createPropertyApi()
             }
         }
@@ -36,16 +47,22 @@ class AddPropertyActivity : BaseActivity() {
 
     }
 
-    fun isValid(): Boolean {
+    private fun initView() {
+        binding.etAddressOne.setText(postalAddress?.line_1)
+        binding.etAddressTwo.setText(postalAddress?.line_2)
+        binding.etCity.setText(postalAddress?.post_town)
+        binding.etPostalCode.setText(postalAddress?.postcode)
+    }
+
+    private fun isValid(): Boolean {
 
         if (binding.etAddressOne.text.toString().isEmpty()) {
             showToast("Please enter address one")
             return false
-        } else if (binding.etAddressTwo.text.toString().isEmpty()) {
+        } /*else if (binding.etAddressTwo.text.toString().isEmpty()) {
             showToast("Please enter address two")
-
             return false
-        } else if (binding.etCity.text.toString().isEmpty()) {
+        } */ else if (binding.etCity.text.toString().isEmpty()) {
             showToast("Please enter city name")
 
             return false
@@ -75,6 +92,9 @@ class AddPropertyActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<Property>) {
                     if (response.success) {
                         showToast("Property Added successfully")
+                        val resultIntent = Intent()
+                        resultIntent.putExtra("propertyAdded", true)
+                        setResult(Activity.RESULT_OK, resultIntent)
                         finish()
                     }
                 }

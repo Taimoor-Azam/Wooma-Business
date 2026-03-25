@@ -73,13 +73,13 @@
             android:padding="@dimen/_10sdp">
 
             <TextView
+                android:id="@+id/tvCurrentAssessor"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:layout_marginEnd="@dimen/_8sdp"
                 android:layout_weight="1"
                 android:fontFamily="@font/sofiasans_regular"
-                android:text="Kevin Fraser"
                 android:textColor="@color/black"
                 android:textSize="@dimen/_14ssp" />
 

@@ -75,6 +75,7 @@ fun <T, R> Activity.makeApiRequest(
     if (showLoading) progressBar.show()
 
     progressBar.setMessage("Please Wait...")
+    progressBar.setCancelable(false)
 
     val apiService = RetrofitClient.getClient(ApiClient.BASE_URL, context).create(apiServiceClass)
     val call = requestAction(apiService)

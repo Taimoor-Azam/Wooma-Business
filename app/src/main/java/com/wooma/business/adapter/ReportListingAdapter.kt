@@ -39,7 +39,7 @@ class ReportListingAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = filteredList[position]
 
-        if (item.report_type != null && item.report_type.display_name != null)
+        if (item.report_type?.display_name != null)
             holder.tvReportType.text = item.report_type.display_name
 
         holder.tvStatus.text = item.status
@@ -51,8 +51,8 @@ class ReportListingAdapter(
                 Intent(context, InventoryListingActivity::class.java)
                     .putExtra("reportStatus", item.status)
                     .putExtra("reportId", item.id)
-                    .putExtra("reportTypeName", item.report_type?.display_name)
-                    .putExtra("reportTypeId", item.report_type?.id)
+                    .putExtra("reportType", item.report_type)
+                    .putExtra("assessor", item.assessor)
             )
         }
 

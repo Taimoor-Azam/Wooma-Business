@@ -72,13 +72,11 @@ class EditPropertyActivity : BaseActivity() {
 
 
     private fun isValid(): Boolean {
-
         if (binding.etAddressOne.text.toString().isEmpty()) {
             showToast("Please enter address one")
             return false
         } else if (binding.etCity.text.toString().isEmpty()) {
             showToast("Please enter city name")
-
             return false
         } else if (binding.etPostalCode.text.toString().isEmpty()) {
             showToast("Please enter Postal Code")

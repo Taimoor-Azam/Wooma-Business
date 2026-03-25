@@ -127,3 +127,18 @@ data class TenantReview(
 data class ExtendTimeRequest(
     var new_expiry_date: String
 )
+
+data class AssessorUsers(
+    val id: String,
+    val user_id: String,
+    val email: String,
+    val first_name: String,
+    val last_name: String,
+    val role: String,
+    val role_id: String,
+    val created_at: String,
+    val is_active: Boolean,
+    val is_invited: Boolean,
+    val is_accepted_invitation: Boolean,
+    val invitation_link_expires_at: String?
+)

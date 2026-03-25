@@ -11,3 +11,7 @@ data class AddReportResponse(
     val assessor: Assessor,
     val status: String
 )
+
+data class ChangeDateRequest(
+    val completion_date: String
+)

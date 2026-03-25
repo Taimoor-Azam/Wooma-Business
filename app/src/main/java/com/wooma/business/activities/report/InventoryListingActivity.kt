@@ -25,8 +25,11 @@ import com.wooma.business.data.network.showToast
 import com.wooma.business.databinding.ActivityInventoryListingBinding
 import com.wooma.business.model.AddNewRoomsRequest
 import com.wooma.business.model.ApiResponse
+import com.wooma.business.model.Assessor
 import com.wooma.business.model.ErrorResponse
+import com.wooma.business.model.PropertyReportType
 import com.wooma.business.model.ReportData
+import com.wooma.business.model.ReportType
 import com.wooma.business.model.RoomsResponse
 import com.wooma.business.model.TenantReview
 import com.wooma.business.model.enums.TenantReportStatus
@@ -38,8 +41,7 @@ class InventoryListingActivity : BaseActivity() {
     private lateinit var binding: ActivityInventoryListingBinding
     var reportId = ""
     var reportStatus = ""
-    var reportTypeName = ""
-    var reportTypeId = ""
+    var reportType: PropertyReportType? = null
     var reportData: ReportData? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,8 +53,7 @@ class InventoryListingActivity : BaseActivity() {
 
         reportId = intent.getStringExtra("reportId") ?: ""
         reportStatus = intent.getStringExtra("reportStatus") ?: ""
-        reportTypeName = intent.getStringExtra("reportTypeName") ?: ""
-        reportTypeId = intent.getStringExtra("reportTypeId") ?: ""
+        reportType = intent.getParcelableExtra("reportType")
 
         adapter = InventoryRoomsAdapter(this, roomsList, reportId, reportStatus)
         binding.rvRooms.adapter = adapter
@@ -90,8 +91,8 @@ class InventoryListingActivity : BaseActivity() {
                     InventoryReportSettingActivity::class.java
                 ).putExtra("reportStatus", reportStatus)
                     .putExtra("reportId", reportId)
-                    .putExtra("reportTypeName", reportTypeName)
-                    .putExtra("reportTypeId", reportTypeId)
+                    .putExtra("reportType", reportType)
+                    .putExtra("assessor", reportData?.assessor)
             )
         }
 
