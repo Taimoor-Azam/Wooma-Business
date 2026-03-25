@@ -38,6 +38,7 @@ import com.wooma.business.model.UpdateRoomItemRequest
 import com.wooma.business.model.UserOnBoardRequest
 import com.wooma.business.model.VerifyOTPRequest
 import com.wooma.business.model.VerifyOtpData
+import com.wooma.business.model.ChangeReportDateRequest
 import com.wooma.business.model.changeReportType
 import retrofit2.Call
 import retrofit2.http.Body
@@ -165,6 +166,12 @@ interface MyApi {
     fun changeReportType(
         @Path("id") id: String,
         @Body request: changeReportType
+    ): Call<ApiResponse<ReportData>>
+
+    @PATCH("/api/v1/tenant-reports/{id}/change-report-date")
+    fun changeReportDate(
+        @Path("id") id: String,
+        @Body request: ChangeReportDateRequest
     ): Call<ApiResponse<ReportData>>
 
     @PATCH("/api/v1/tenant-reports/{id}/change-assessor")

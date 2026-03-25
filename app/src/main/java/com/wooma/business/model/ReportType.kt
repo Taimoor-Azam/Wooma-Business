@@ -21,3 +21,7 @@ data class changeReportType(
 data class ChangeAssessor(
     val assigned_to: String
 )
+
+data class ChangeReportDateRequest(
+    val inspection_date: String
+)
