@@ -35,6 +35,11 @@ class CameraActivity : BaseActivity() {
 
     private var flashEnabled = false
 
+    companion object {
+        /** Populated when the activity finishes — calling activities read this after RESULT_OK. */
+        val pendingUris = mutableListOf<Uri>()
+    }
+
     private val cameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
 
@@ -65,7 +70,12 @@ class CameraActivity : BaseActivity() {
         binding.btnGallery.setOnClickListener { openGallery() }
 
         binding.btnFlash.setOnClickListener { toggleFlash() }
-        binding.btnBack.setOnClickListener { finish() }
+        binding.btnBack.setOnClickListener {
+            pendingUris.clear()
+            pendingUris.addAll(images)
+            setResult(RESULT_OK)
+            finish()
+        }
 
 //        binding.zoomHalf.setOnClickListener { zoom(0.5f) }
 //        binding.zoom1.setOnClickListener { zoom(1f) }

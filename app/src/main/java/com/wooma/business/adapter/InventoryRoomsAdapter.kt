@@ -17,6 +17,7 @@ class InventoryRoomsAdapter(
     private val originalList: MutableList<RoomsResponse>,
     val reportId: String,
     val reportStatus: String,
+    private val onDeleteRoom: ((roomId: String, position: Int) -> Unit)? = null,
 ) : RecyclerView.Adapter<InventoryRoomsAdapter.ViewHolder>() {
 
     private var filteredList = originalList.toMutableList()
@@ -35,19 +36,25 @@ class InventoryRoomsAdapter(
     override fun getItemCount() = filteredList.size
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.address.text = filteredList[position].name
+        val room = filteredList[position]
+        holder.address.text = room.name
 
         holder.roomMainLayout.setOnClickListener {
             context.startActivity(
                 Intent(
                     context,
                     InventoryRoomItemsListActivity::class.java
-                ).putParcelableArrayListExtra("roomItems", filteredList[position].items)
-                    .putExtra("roomName", filteredList[position].name)
-                    .putExtra("roomId", filteredList[position].id)
+                ).putParcelableArrayListExtra("roomItems", room.items)
+                    .putExtra("roomName", room.name)
+                    .putExtra("roomId", room.id)
                     .putExtra("reportId", reportId)
                     .putExtra("reportStatus", reportStatus)
             )
+        }
+
+        holder.roomMainLayout.setOnLongClickListener {
+            onDeleteRoom?.invoke(room.id, holder.adapterPosition)
+            true
         }
     }
 

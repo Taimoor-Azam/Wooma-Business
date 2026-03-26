@@ -55,7 +55,21 @@ class InventoryListingActivity : BaseActivity() {
         reportStatus = intent.getStringExtra("reportStatus") ?: ""
         reportType = intent.getParcelableExtra("reportType")
 
-        adapter = InventoryRoomsAdapter(this, roomsList, reportId, reportStatus)
+        adapter = InventoryRoomsAdapter(
+            context = this,
+            originalList = roomsList,
+            reportId = reportId,
+            reportStatus = reportStatus,
+            onDeleteRoom = { roomId, position ->
+                Utils.showDialogBox(
+                    this,
+                    "Delete Room",
+                    "Are you sure you want to remove this room from the report?"
+                ) {
+                    deleteRoomApi(roomId, position)
+                }
+            }
+        )
         binding.rvRooms.adapter = adapter
 
         updateViewAccToStatus()
@@ -158,6 +172,29 @@ class InventoryListingActivity : BaseActivity() {
          )
          adapter.updateList(roomsList)
      }*/
+
+    private fun deleteRoomApi(roomId: String, position: Int) {
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = true,
+            requestAction = { apiService -> apiService.deleteRoom(reportId, roomId) },
+            listener = object : ApiResponseListener<ApiResponse<Any>> {
+                override fun onSuccess(response: ApiResponse<Any>) {
+                    roomsList.removeAt(position)
+                    adapter.updateList(roomsList)
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    showToast(errorMessage?.error?.message ?: "Failed to delete room")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    showToast("Error: ${throwable.message}")
+                }
+            }
+        )
+    }
 
     private fun addNewRoomApi(request: AddNewRoomsRequest) {
         makeApiRequest(
