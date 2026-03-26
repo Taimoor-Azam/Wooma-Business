@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="@dimen/_16sdp"
+    android:background="@color/white">
+
+    <!-- Close button -->
+    <ImageView
+        android:id="@+id/ivClose"
+        android:layout_width="@dimen/_24sdp"
+        android:layout_height="@dimen/_24sdp"
+        android:src="@drawable/ic_back"
+        app:tint="@color/green" />
+
+    <!-- Warning text -->
+    <TextView
+        android:id="@+id/tvWarning"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/_16sdp"
+        android:fontFamily="@font/sofiasans_bold"
+        android:text="Completing this report will lock it and prevent future edits"
+        android:textColor="@color/black"
+        android:textSize="@dimen/_14ssp" />
+
+    <!-- Checkbox row -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/_16sdp"
+        android:background="@drawable/bg_edittext"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="@dimen/_12sdp">
+
+        <CheckBox
+            android:id="@+id/cbConfirm"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:button="@drawable/check_selector" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="@dimen/_8sdp"
+            android:layout_weight="1"
+            android:fontFamily="@font/sofiasans_regular"
+            android:text="This report is finished and I'm ready to lock it"
+            android:textColor="@color/black"
+            android:textSize="@dimen/_12ssp" />
+
+    </LinearLayout>
+
+    <!-- Complete report button -->
+    <Button
+        android:id="@+id/btnCompleteReport"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/_16sdp"
+        android:background="@drawable/bg_button_green"
+        android:enabled="false"
+        android:alpha="0.5"
+        android:fontFamily="@font/sofiasans_semibold"
+        android:text="Complete report"
+        android:textColor="@color/white"
+        android:textSize="@dimen/_14ssp" />
+
+</LinearLayout>
