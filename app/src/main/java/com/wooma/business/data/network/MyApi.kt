@@ -13,7 +13,11 @@ import com.wooma.business.model.ChangeAssessor
 import com.wooma.business.model.ChangeDateRequest
 import com.wooma.business.model.CheckListActiveStatus
 import com.wooma.business.model.ChecklistData
+import com.wooma.business.model.ChecklistAnswerAttachmentRequest
+import com.wooma.business.model.ChecklistAnswerAttachmentResponse
 import com.wooma.business.model.ChecklistStatusRequest
+import com.wooma.business.model.UpsertFieldAnswerRequest
+import com.wooma.business.model.UpsertQuestionAnswerRequest
 import com.wooma.business.model.CompleteReportRequest
 import com.wooma.business.model.CreateAttachmentRequest
 import com.wooma.business.model.CreateDuplicateReport
@@ -360,4 +364,19 @@ interface MyApi {
         @Path("id") id: String,
         @Body request: ChecklistStatusRequest
     ): Call<ApiResponse<Any>>
+
+    @POST("/api/v1/report-checklist-question-answer")
+    fun upsertQuestionAnswer(
+        @Body request: UpsertQuestionAnswerRequest
+    ): Call<ApiResponse<Any>>
+
+    @POST("/api/v1/report-checklist-field-answer")
+    fun upsertFieldAnswer(
+        @Body request: UpsertFieldAnswerRequest
+    ): Call<ApiResponse<Any>>
+
+    @POST("/api/v1/report-checklist-question-answer-attachment")
+    fun findOrCreateAnswerAttachment(
+        @Body request: ChecklistAnswerAttachmentRequest
+    ): Call<ApiResponse<ChecklistAnswerAttachmentResponse>>
 }
