@@ -1,16 +1,22 @@
 package com.wooma.business.activities.report.otherItems
 
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import com.wooma.business.activities.BaseActivity
+import com.wooma.business.activities.report.CameraActivity
 import com.wooma.business.adapter.SuggestionsAdapter
+import com.wooma.business.customs.AttachmentUploadHelper
 import com.wooma.business.customs.Utils
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
 import com.wooma.business.data.network.makeApiRequest
 import com.wooma.business.data.network.showToast
 import com.wooma.business.databinding.ActivityAddEditMeterBinding
+import com.wooma.business.databinding.AddImageLayoutBinding
 import com.wooma.business.model.AddMeterRequest
 import com.wooma.business.model.ApiResponse
 import com.wooma.business.model.ErrorResponse
@@ -19,7 +25,12 @@ import com.wooma.business.model.ReportData
 
 class AddEditMeterActivity : BaseActivity() {
     private lateinit var binding: ActivityAddEditMeterBinding
+    private lateinit var cameraBinding: AddImageLayoutBinding
     var meterItem: Meter? = null
+    var savedMeterId = ""
+
+    private val capturedUris = mutableListOf<Uri>()
+    private val CAMERA_REQUEST = 1001
 
     var reportId = ""
     val suggestionList =
@@ -31,11 +42,18 @@ class AddEditMeterActivity : BaseActivity() {
 
         binding = ActivityAddEditMeterBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        cameraBinding = binding.cameraLayout
         applyWindowInsetsToBinding(binding.root)
         meterItem = intent.getParcelableExtra("meterItem")
+        savedMeterId = meterItem?.id ?: ""
 
         reportId = intent.getStringExtra("reportId") ?: ""
         isEdit = intent.getBooleanExtra("isEdit", false)
+
+        cameraBinding.ivAddImage.setOnClickListener {
+            CameraActivity.pendingUris.clear()
+            startActivityForResult(Intent(this, CameraActivity::class.java), CAMERA_REQUEST)
+        }
 
         binding.btnSave.setOnClickListener {
             if (isValid()) {
@@ -73,6 +91,13 @@ class AddEditMeterActivity : BaseActivity() {
         setMeterData()
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
+            capturedUris.addAll(CameraActivity.pendingUris)
+        }
+    }
+
     fun setMeterData() {
         if (meterItem != null) {
             binding.etType.setText(meterItem?.name)
@@ -88,11 +113,9 @@ class AddEditMeterActivity : BaseActivity() {
             return false
         } else if (binding.etReading.text.toString().isEmpty()) {
             showToast("Please enter Meter Reading")
-
             return false
         } else if (binding.etSerialNumber.text.toString().isEmpty()) {
             showToast("Please enter Serial Number")
-
             return false
         } else if (binding.etLocation.text.toString().isEmpty()) {
             showToast("Please enter Meter Location")
@@ -116,13 +139,11 @@ class AddEditMeterActivity : BaseActivity() {
                 }
 
                 override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
                     Log.e("API", errorMessage?.error?.message ?: "")
                     showToast(errorMessage?.error?.message ?: "")
                 }
 
                 override fun onError(throwable: Throwable) {
-                    // Handle network error
                     Log.e("API", "Error: ${throwable.message}")
                     showToast("Error: ${throwable.message}")
                 }
@@ -153,18 +174,16 @@ class AddEditMeterActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
                         showToast("Meter Added successfully")
-                        finish()
+                        uploadPhotosIfNeeded(savedMeterId)
                     }
                 }
 
                 override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
                     Log.e("API", errorMessage?.error?.message ?: "")
                     showToast(errorMessage?.error?.message ?: "")
                 }
 
                 override fun onError(throwable: Throwable) {
-                    // Handle network error
                     Log.e("API", "Error: ${throwable.message}")
                     showToast("Error: ${throwable.message}")
                 }
@@ -172,4 +191,18 @@ class AddEditMeterActivity : BaseActivity() {
         )
     }
 
+    private fun uploadPhotosIfNeeded(entityId: String) {
+        if (capturedUris.isEmpty() || entityId.isEmpty()) {
+            finish()
+            return
+        }
+        AttachmentUploadHelper.uploadImages(
+            activity = this,
+            imageUris = capturedUris,
+            entityId = entityId,
+            entityType = "METER",
+            onComplete = { finish() },
+            onError = { finish() }
+        )
+    }
 }

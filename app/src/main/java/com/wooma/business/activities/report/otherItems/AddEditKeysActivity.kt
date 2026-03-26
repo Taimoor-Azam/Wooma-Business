@@ -1,16 +1,22 @@
 package com.wooma.business.activities.report.otherItems
 
+import android.app.Activity
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import com.wooma.business.activities.BaseActivity
+import com.wooma.business.activities.report.CameraActivity
 import com.wooma.business.adapter.SuggestionsAdapter
+import com.wooma.business.customs.AttachmentUploadHelper
 import com.wooma.business.customs.Utils
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
 import com.wooma.business.data.network.makeApiRequest
 import com.wooma.business.data.network.showToast
 import com.wooma.business.databinding.ActivityAddEditKeysBinding
+import com.wooma.business.databinding.AddImageLayoutBinding
 import com.wooma.business.model.AddKeyRequest
 import com.wooma.business.model.ApiResponse
 import com.wooma.business.model.ErrorResponse
@@ -19,8 +25,13 @@ import com.wooma.business.model.ReportData
 
 class AddEditKeysActivity : BaseActivity() {
     private lateinit var binding: ActivityAddEditKeysBinding
+    private lateinit var cameraBinding: AddImageLayoutBinding
     var keyItem: KeyItem? = null
+    var savedKeyId = ""
     var count = 1
+
+    private val capturedUris = mutableListOf<Uri>()
+    private val CAMERA_REQUEST = 1001
 
     var reportId = ""
     val suggestionList =
@@ -48,15 +59,22 @@ class AddEditKeysActivity : BaseActivity() {
 
         binding = ActivityAddEditKeysBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        cameraBinding = binding.cameraLayout
         applyWindowInsetsToBinding(binding.root)
         keyItem = intent.getParcelableExtra("keyItem")
+        savedKeyId = keyItem?.id ?: ""
 
         reportId = intent.getStringExtra("reportId") ?: ""
         isEdit = intent.getBooleanExtra("isEdit", false)
 
+        cameraBinding.ivAddImage.setOnClickListener {
+            CameraActivity.pendingUris.clear()
+            startActivityForResult(Intent(this, CameraActivity::class.java), CAMERA_REQUEST)
+        }
+
         binding.btnSave.setOnClickListener {
             if (isValid()) {
-                addNewMeterApi()
+                addNewKeyApi()
             }
         }
 
@@ -100,13 +118,19 @@ class AddEditKeysActivity : BaseActivity() {
         setMeterData()
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
+            capturedUris.addAll(CameraActivity.pendingUris)
+        }
+    }
+
     private fun setMeterData() {
         if (keyItem != null) {
             binding.etType.setText(keyItem?.name)
             count = keyItem?.no_of_keys ?: 1
-
-            binding.tvQty.text = (keyItem?.no_of_keys?: 0).toString()
-            binding.etNote.setText(keyItem?.note?: "")
+            binding.tvQty.text = (keyItem?.no_of_keys ?: 0).toString()
+            binding.etNote.setText(keyItem?.note ?: "")
         }
     }
 
@@ -121,12 +145,12 @@ class AddEditKeysActivity : BaseActivity() {
         return true
     }
 
-    private fun deleteKeyApi(meterId: String) {
+    private fun deleteKeyApi(keyId: String) {
         makeApiRequest(
             apiServiceClass = MyApi::class.java,
             context = this,
             showLoading = true,
-            requestAction = { apiService -> apiService.deleteKey(reportId, meterId) },
+            requestAction = { apiService -> apiService.deleteKey(reportId, keyId) },
             listener = object : ApiResponseListener<ApiResponse<ReportData>> {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
@@ -136,13 +160,11 @@ class AddEditKeysActivity : BaseActivity() {
                 }
 
                 override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
                     Log.e("API", errorMessage?.error?.message ?: "")
                     showToast(errorMessage?.error?.message ?: "")
                 }
 
                 override fun onError(throwable: Throwable) {
-                    // Handle network error
                     Log.e("API", "Error: ${throwable.message}")
                     showToast("Error: ${throwable.message}")
                 }
@@ -150,7 +172,7 @@ class AddEditKeysActivity : BaseActivity() {
         )
     }
 
-    private fun addNewMeterApi() {
+    private fun addNewKeyApi() {
         val body = AddKeyRequest(
             binding.etType.text.toString(),
             binding.tvQty.text.toString().toInt(),
@@ -172,23 +194,19 @@ class AddEditKeysActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
                         showToast(
-                            if (keyItem != null) {
-                                "Key Updated successfully"
-                            } else "Key Added successfully"
+                            if (keyItem != null) "Key Updated successfully"
+                            else "Key Added successfully"
                         )
-
-                        finish()
+                        uploadPhotosIfNeeded(savedKeyId)
                     }
                 }
 
                 override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
                     Log.e("API", errorMessage?.error?.message ?: "")
                     showToast(errorMessage?.error?.message ?: "")
                 }
 
                 override fun onError(throwable: Throwable) {
-                    // Handle network error
                     Log.e("API", "Error: ${throwable.message}")
                     showToast("Error: ${throwable.message}")
                 }
@@ -196,4 +214,18 @@ class AddEditKeysActivity : BaseActivity() {
         )
     }
 
+    private fun uploadPhotosIfNeeded(entityId: String) {
+        if (capturedUris.isEmpty() || entityId.isEmpty()) {
+            finish()
+            return
+        }
+        AttachmentUploadHelper.uploadImages(
+            activity = this,
+            imageUris = capturedUris,
+            entityId = entityId,
+            entityType = "KEY",
+            onComplete = { finish() },
+            onError = { finish() }
+        )
+    }
 }

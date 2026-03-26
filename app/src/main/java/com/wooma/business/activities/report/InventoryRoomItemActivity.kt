@@ -1,10 +1,13 @@
 package com.wooma.business.activities.report
 
+import android.app.Activity
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import com.wooma.business.R
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.adapter.ItemCondtionAdapter
+import com.wooma.business.customs.AttachmentUploadHelper
 import com.wooma.business.customs.Utils
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
@@ -27,6 +30,10 @@ class InventoryRoomItemActivity : BaseActivity() {
     var roomItems: RoomItem? = null
     var reportId = ""
     var roomId = ""
+
+    private val capturedUris = mutableListOf<Uri>()
+    private val CAMERA_REQUEST = 1001
+
     val conditionItems = mutableListOf(
         ConditionDAO(R.drawable.svg_excellent, "Excellent"),
         ConditionDAO(R.drawable.svg_excellent, "Good"),
@@ -45,7 +52,8 @@ class InventoryRoomItemActivity : BaseActivity() {
         applyWindowInsetsToBinding(binding.root)
 
         cameraBinding.ivAddImage.setOnClickListener {
-            startActivity(Intent(this, CameraActivity::class.java))
+            CameraActivity.pendingUris.clear()
+            startActivityForResult(Intent(this, CameraActivity::class.java), CAMERA_REQUEST)
         }
 
         roomItems = intent.getParcelableExtra("roomItem")
@@ -94,6 +102,13 @@ class InventoryRoomItemActivity : BaseActivity() {
         binding.ivBack.setOnClickListener { finish() }
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
+            capturedUris.addAll(CameraActivity.pendingUris)
+        }
+    }
+
     private fun deleteRoomItemApi() {
         makeApiRequest(
             apiServiceClass = MyApi::class.java,
@@ -110,21 +125,11 @@ class InventoryRoomItemActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
                         finish()
-                    } else {
                     }
                 }
 
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-//                    Log.e("API", errorMessage?.error?.message ?: "")
-//                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    // Handle network error
-//                    Log.e("API", "Error: ${throwable.message}")
-//                    showToast("Error: ${throwable.message}")
-                }
+                override fun onFailure(errorMessage: ErrorResponse?) {}
+                override fun onError(throwable: Throwable) {}
             }
         )
     }
@@ -145,24 +150,29 @@ class InventoryRoomItemActivity : BaseActivity() {
             listener = object : ApiResponseListener<ApiResponse<ReportData>> {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
-                        finish()
-                    } else {
+                        uploadPhotosIfNeeded()
                     }
                 }
 
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-//                    Log.e("API", errorMessage?.error?.message ?: "")
-//                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    // Handle network error
-//                    Log.e("API", "Error: ${throwable.message}")
-//                    showToast("Error: ${throwable.message}")
-                }
+                override fun onFailure(errorMessage: ErrorResponse?) {}
+                override fun onError(throwable: Throwable) {}
             }
         )
     }
 
+    private fun uploadPhotosIfNeeded() {
+        val itemId = roomItems?.id ?: return finish()
+        if (capturedUris.isEmpty()) {
+            finish()
+            return
+        }
+        AttachmentUploadHelper.uploadImages(
+            activity = this,
+            imageUris = capturedUris,
+            entityId = itemId,
+            entityType = "ROOM_ITEM",
+            onComplete = { finish() },
+            onError = { finish() }
+        )
+    }
 }

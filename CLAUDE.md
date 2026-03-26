@@ -28,8 +28,9 @@ Activity-based architecture (no ViewModel/MVVM pattern). All business logic live
 app/src/main/java/com/wooma/business/
 ├── activities/         # All UI — grouped by feature (auth/, property/, report/)
 │   ├── BaseActivity    # Common window inset handling; all activities extend this
-│   └── MainActivity    # Main dashboard post-login
-├── adapter/            # 24+ RecyclerView adapters for all list views
+│   └── MainActivity    # Main dashboard post-login (3 fragments via BottomNavigationView)
+├── adapter/            # 23 RecyclerView adapters for all list views
+├── fragment/           # PropertiesFragment, SettingsFragment, MessagesFragment
 ├── model/              # Data classes for API requests/responses; ApiResponse<T> wraps all API calls
 ├── data/network/       # MyApi.kt (Retrofit interface) + RetrofitClient.kt (Bearer token auto-injected)
 ├── storage/Prefs.kt    # SharedPreferences wrapper — persists user/auth data
@@ -38,24 +39,53 @@ app/src/main/java/com/wooma/business/
 
 ### Key Patterns
 
-- **API layer**: Retrofit with Gson. All responses use `ApiResponse<T> { success, message, errors, data }`. The access token stored in `Prefs` is automatically injected as a Bearer token via an OkHttp interceptor in `RetrofitClient`.
-- **Pagination**: `GenericPagingSource<T>` is a reusable Paging 3 source used across listings (reports, templates, properties).
-- **View Binding**: Enabled globally — use `ActivityXxxBinding` / `ItemXxxBinding` generated classes, not `findViewById`.
-- **Responsive sizing**: Use `sdp` (scalable dp) and `ssp` (scalable sp) resource dimensions instead of raw dp/sp values for layout sizing.
-- **Image loading**: Glide for all image loading/display.
+**Making API calls** — use the `makeApiRequest<T, R>()` Activity extension from `RetrofitClient.kt`:
+```kotlin
+makeApiRequest(
+    apiServiceClass = MyApi::class.java,
+    context = this,
+    showLoading = true,
+    requestAction = { api -> api.someEndpoint(param) },
+    listener = object : ApiResponseListener<ApiResponse<SomeModel>> {
+        override fun onSuccess(response: ApiResponse<SomeModel>) { /* handle */ }
+        override fun onFailure(errorMessage: ErrorResponse?) { /* handle API error */ }
+        override fun onError(throwable: Throwable) { /* handle network error */ }
+    }
+)
+```
+`showLoading = true` automatically shows/dismisses a `ProgressDialog`. Always use this pattern — never call Retrofit directly.
+
+**RetrofitClient singleton caveat** — `RetrofitClient` lazily creates one Retrofit instance on first call. If the base URL ever needs to change, `retrofit` must be set to `null` first to force re-creation.
+
+**All API responses** use `ApiResponse<T> { success: Boolean, message: String, errors: String, data: T }`.
+
+**Pagination** — `GenericPagingSource<T>` wraps any `suspend (page: Int, limit: Int) -> List<T>` lambda into a Paging 3 source. Use this for any infinite-scroll list.
+
+**View Binding** — enabled globally; use `ActivityXxxBinding` / `ItemXxxBinding` / `FragmentXxxBinding`. Never use `findViewById`.
+
+**Responsive sizing** — use `@dimen/` resources from `sdp` (scalable dp) and `ssp` (scalable sp) libraries, never raw `dp`/`sp` values in XML.
+
+**Image loading** — always use Glide; never `ImageView.setImageBitmap()` directly for remote images.
+
+**BaseActivity** — sets status bar to amber (`#FFC107`) with light icons and handles window insets. Call `applyWindowInsetsToBinding()` in `onCreate` for correct edge-to-edge padding.
 
 ### Auth Flow
 
-`SplashActivity` → `GetStartedActivity` → `LoginActivity` → `OTPActivity` → `ActivateAccountActivity` (if needed) → `MainActivity`
+`SplashActivity` (checks `Prefs` for valid token, 2-second delay) → `GetStartedActivity` → `LoginActivity` → `OTPActivity` → `ActivateAccountActivity` (if needed) → `MainActivity`
 
 ### Report Flow
 
-Reports are central to the app. Key activities under `activities/report/`:
-- `ReportListingActivity` — lists reports per property
-- `CompleteReportActivity` — main report editing hub; manages rooms, items, meters, detectors, keys, checklists
-- `CameraActivity` — in-app camera capture for inventory photos
-- `otherItems/` — dedicated activities for meters, detectors, keys, checklists
-- `inventorysettings/` — configure report type, dates, assessors, tenant info
+`SelectPropertyForReportActivity` → `SelectReportTypeActivity` → `ConfigureReportActivity` → `CompleteReportActivity`
+
+Key report activities under `activities/report/`:
+- `CompleteReportActivity` — main report editing hub; manages rooms, items, meters, detectors, keys, checklists; two submission modes (digital signature via tenant list, or manual signature)
+- `CameraActivity` — in-app camera capture for inventory photos (uses CameraX)
+- `otherItems/` — dedicated add/edit/list activities for meters, detectors, keys, checklists
+- `inventorysettings/` — change report type, dates, assessors, duplicate report
+
+### Storage / Auth Token
+
+`Prefs.kt` serializes the full `Users` object (including `access_token`) to SharedPreferences as JSON. `RetrofitClient` reads `Prefs.getUser(context)?.access_token` on every request via the OkHttp interceptor — no manual header management needed.
 
 ### Dependencies Reference
 

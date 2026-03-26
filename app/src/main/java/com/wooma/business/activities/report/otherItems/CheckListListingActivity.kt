@@ -14,6 +14,7 @@ import com.wooma.business.databinding.ActivityInventoryChecklistBinding
 import com.wooma.business.model.ApiResponse
 import com.wooma.business.model.CheckListActiveStatus
 import com.wooma.business.model.ChecklistData
+import com.wooma.business.model.ChecklistStatusRequest
 import com.wooma.business.model.ErrorResponse
 import com.wooma.business.model.InfoField
 import com.wooma.business.model.Question
@@ -25,6 +26,8 @@ class CheckListListingActivity : BaseActivity() {
     private val checkListQuestionItems = mutableListOf<Question>()
     private lateinit var binding: ActivityInventoryChecklistBinding
     var reportId = ""
+    private var checklistId = ""
+    private var isInitializingSwitch = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,9 +46,10 @@ class CheckListListingActivity : BaseActivity() {
 
         binding.ivBack.setOnClickListener { finish() }
 
-        binding.switchButton.setOnCheckedChangeListener { view, isChecked ->
-            if (isChecked) {
-
+        binding.switchButton.setOnCheckedChangeListener { _, isChecked ->
+            if (isInitializingSwitch) return@setOnCheckedChangeListener
+            if (checklistId.isNotEmpty()) {
+                updateChecklistStatusApi(checklistId, isChecked)
             }
         }
     }
@@ -90,6 +94,39 @@ class CheckListListingActivity : BaseActivity() {
         )
     }
 
+    private fun updateChecklistStatusApi(id: String, isActive: Boolean) {
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = false,
+            requestAction = { apiService ->
+                apiService.updateChecklistStatus(id, ChecklistStatusRequest(isActive))
+            },
+            listener = object : ApiResponseListener<ApiResponse<Any>> {
+                override fun onSuccess(response: ApiResponse<Any>) {
+                    if (isActive) {
+                        getReportByIdApi(id)
+                        binding.tvInfo.visibility = View.VISIBLE
+                        binding.tvQuestion.visibility = View.VISIBLE
+                    } else {
+                        binding.tvInfo.visibility = View.GONE
+                        binding.tvQuestion.visibility = View.GONE
+                    }
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    Log.e("API", errorMessage?.error?.message ?: "")
+                    showToast(errorMessage?.error?.message ?: "Failed to update checklist status")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    Log.e("API", "Error: ${throwable.message}")
+                    showToast("Error: ${throwable.message}")
+                }
+            }
+        )
+    }
+
     private fun getReportCheckListStatusApi() {
         makeApiRequest(
             apiServiceClass = MyApi::class.java,
@@ -98,19 +135,21 @@ class CheckListListingActivity : BaseActivity() {
             requestAction = { apiService -> apiService.getReportCheckListStatus(reportId) },
             listener = object : ApiResponseListener<ApiResponse<CheckListActiveStatus>> {
                 override fun onSuccess(response: ApiResponse<CheckListActiveStatus>) {
-                    if (response.success) {
-                        if (!response.data.checklists.isNullOrEmpty()
-                            && response.data.checklists[0].is_active
-                        ) {
-                            getReportByIdApi(response.data.checklists[0].id)
+                    if (response.success && !response.data.checklists.isNullOrEmpty()) {
+                        checklistId = response.data.checklists[0].id
+                        val isActive = response.data.checklists[0].is_active
+
+                        isInitializingSwitch = true
+                        binding.switchButton.isChecked = isActive
+                        isInitializingSwitch = false
+
+                        if (isActive) {
+                            getReportByIdApi(checklistId)
                             binding.tvInfo.visibility = View.VISIBLE
                             binding.tvQuestion.visibility = View.VISIBLE
-                            binding.switchButton.isChecked = true
                         } else {
                             binding.tvInfo.visibility = View.GONE
                             binding.tvQuestion.visibility = View.GONE
-                            binding.switchButton.isChecked = false
-
                         }
                     }
                 }

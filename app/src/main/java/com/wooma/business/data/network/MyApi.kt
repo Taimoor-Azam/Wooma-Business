@@ -8,11 +8,14 @@ import com.wooma.business.model.AddNewRoomsRequest
 import com.wooma.business.model.AddReportResponse
 import com.wooma.business.model.ApiResponse
 import com.wooma.business.model.AssessorUsers
+import com.wooma.business.model.AttachmentRecord
 import com.wooma.business.model.ChangeAssessor
 import com.wooma.business.model.ChangeDateRequest
 import com.wooma.business.model.CheckListActiveStatus
 import com.wooma.business.model.ChecklistData
+import com.wooma.business.model.ChecklistStatusRequest
 import com.wooma.business.model.CompleteReportRequest
+import com.wooma.business.model.CreateAttachmentRequest
 import com.wooma.business.model.CreateDuplicateReport
 import com.wooma.business.model.CreateReportFromPreviousRequest
 import com.wooma.business.model.CreateReportRequest
@@ -22,6 +25,7 @@ import com.wooma.business.model.KeyItem
 import com.wooma.business.model.Meter
 import com.wooma.business.model.OnboardingResponse
 import com.wooma.business.model.PostalAddress
+import com.wooma.business.model.PresignedUrlResponse
 import com.wooma.business.model.PropertiesRequest
 import com.wooma.business.model.Property
 import com.wooma.business.model.PropertyDetailResponse
@@ -325,4 +329,35 @@ interface MyApi {
     fun archiveProperty(
         @Path("id") id: String
     ): Call<ApiResponse<Property>>
+
+    // Attachments
+    @GET("/api/v1/attachments/presigned-url")
+    fun getPresignedUrl(
+        @Query("filename") filename: String,
+        @Query("mimeType") mimeType: String
+    ): Call<ApiResponse<PresignedUrlResponse>>
+
+    @POST("/api/v1/attachments")
+    fun createAttachment(
+        @Body request: CreateAttachmentRequest
+    ): Call<ApiResponse<AttachmentRecord>>
+
+    @DELETE("/api/v1/attachments/{id}")
+    fun deleteAttachment(
+        @Path("id") id: String
+    ): Call<ApiResponse<Any>>
+
+    // Room management
+    @DELETE("/api/v1/tenant-report/{report_id}/rooms/{id}")
+    fun deleteRoom(
+        @Path("report_id") reportId: String,
+        @Path("id") roomId: String
+    ): Call<ApiResponse<Any>>
+
+    // Checklist status
+    @PATCH("/api/v1/report-checklists/{id}/status")
+    fun updateChecklistStatus(
+        @Path("id") id: String,
+        @Body request: ChecklistStatusRequest
+    ): Call<ApiResponse<Any>>
 }
