@@ -20,7 +20,8 @@ import com.wooma.business.model.Rooms
 class InventoryOtherItemsAdapter(
     val context: Context,
     private val originalList: MutableList<CountItem>,
-    private val reportId: String
+    private val reportId: String,
+    private val reportStatus: String = ""
 ) : RecyclerView.Adapter<InventoryOtherItemsAdapter.ViewHolder>() {
     private var filteredList = originalList.toMutableList()
 
@@ -48,6 +49,7 @@ class InventoryOtherItemsAdapter(
                 "Keys" -> Intent(context, KeysListingActivity::class.java)
                 "Detectors" -> Intent(context, DetectorListingActivity::class.java)
                 else -> Intent(context, CheckListListingActivity::class.java)
+                    .putExtra("reportStatus", reportStatus)
             }
             context.startActivity(intent.putExtra("reportId", reportId))
         }

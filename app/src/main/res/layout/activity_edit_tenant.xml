@@ -36,7 +36,7 @@
             android:textSize="@dimen/_16ssp" />
 
         <androidx.appcompat.widget.AppCompatImageView
-            android:id="@+id/ivReportEdit"
+            android:id="@+id/ivTenantDelete"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
@@ -119,7 +119,7 @@
             android:textSize="@dimen/_11ssp" />
 
         <androidx.appcompat.widget.AppCompatEditText
-            android:id="@+id/etPhone"
+            android:id="@+id/etEmail"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/_4sdp"
@@ -146,14 +146,14 @@
             android:textSize="@dimen/_11ssp" />
 
         <androidx.appcompat.widget.AppCompatEditText
-            android:id="@+id/etCompany"
+            android:id="@+id/etPhone"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/_4sdp"
             android:background="@drawable/bg_edittext"
             android:hint="Enter Phone Number"
             android:imeOptions="actionDone"
-            android:inputType="text"
+            android:inputType="number"
             android:maxLines="1"
             android:paddingStart="@dimen/_10sdp"
             android:paddingTop="@dimen/_10sdp"

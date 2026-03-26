@@ -11,17 +11,17 @@ data class ChecklistData(
 )
 
 data class InfoField(
-    val checklistFieldId: String,
+    val checklist_field_id: String?,
     val label: String,
     val type: String,
-    val isRequired: Boolean,
-    val checklistInfoFieldAnswerId: String,
-    val answerText: String?
+    val is_required: Boolean,
+    val checklist_info_field_answer_id: String?,
+    val answer_text: String?
 )
 
 @Parcelize
 data class Question(
-    val checklistQuestionId: String,
+    val checklist_question_id: String?,
     val text: String,
     val type: String,
     val displayOrder: Int,
@@ -30,13 +30,13 @@ data class Question(
     val answer_option: String?,
     val answer_text: String?,
     val note: String?,
-    val checklist_question_answer_attachment: AnswerAttachment
+    val checklist_question_answer_attachment: AnswerAttachment?
 ) : Parcelable
 
 @Parcelize
 data class AnswerAttachment(
     val id: String,
-    val attachments: ArrayList<Attachment>
+    val attachments: ArrayList<Attachment>?
 ) : Parcelable
 
 data class CheckListActiveStatus(

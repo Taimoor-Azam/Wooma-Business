@@ -101,4 +101,5 @@
     <string name="report_completed">Report Completed</string>
     <string name="change_date">Change Date</string>
     <string name="change_completion_date">Change Completion Date</string>
+    <string name="view_final_report">View final report</string>
 </resources>

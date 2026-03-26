@@ -4,8 +4,10 @@ import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.business.R
 import com.wooma.business.activities.BaseActivity
+import com.wooma.business.adapter.ImageAdapter
 import com.wooma.business.adapter.ItemCondtionAdapter
 import com.wooma.business.customs.AttachmentUploadHelper
 import com.wooma.business.customs.Utils
@@ -32,7 +34,9 @@ class InventoryRoomItemActivity : BaseActivity() {
     var roomId = ""
 
     private val capturedUris = mutableListOf<Uri>()
+    private val allImages = mutableListOf<Any>()
     private val CAMERA_REQUEST = 1001
+    private val S3_BASE_URL = "https://wooma-business.s3.eu-north-1.amazonaws.com/"
 
     val conditionItems = mutableListOf(
         ConditionDAO(R.drawable.svg_excellent, "Excellent"),
@@ -50,6 +54,7 @@ class InventoryRoomItemActivity : BaseActivity() {
         cameraBinding = binding.cameraLayout
 
         applyWindowInsetsToBinding(binding.root)
+        setupCapturedImagesRecycler()
 
         cameraBinding.ivAddImage.setOnClickListener {
             CameraActivity.pendingUris.clear()
@@ -68,6 +73,13 @@ class InventoryRoomItemActivity : BaseActivity() {
 
             binding.etDescription.setText(roomItems?.description ?: "")
             binding.etNote.setText(roomItems?.note ?: "")
+
+            // Load existing images from API
+            roomItems?.attachments?.forEach { attachment ->
+                val url = "$S3_BASE_URL${attachment.storageKey}"
+                allImages.add(url)
+            }
+            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
 
             binding.rvCondition.adapter =
                 ItemCondtionAdapter(this, conditionItems, selectedCondition) {
@@ -102,10 +114,19 @@ class InventoryRoomItemActivity : BaseActivity() {
         binding.ivBack.setOnClickListener { finish() }
     }
 
+    private fun setupCapturedImagesRecycler() {
+        cameraBinding.rvRoomItems.layoutManager =
+            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
-            capturedUris.addAll(CameraActivity.pendingUris)
+            val newUris = CameraActivity.pendingUris.toList()
+            capturedUris.addAll(newUris)
+            allImages.addAll(newUris)
+            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
         }
     }
 

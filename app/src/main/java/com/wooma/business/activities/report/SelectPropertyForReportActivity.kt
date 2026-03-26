@@ -21,6 +21,7 @@ class SelectPropertyForReportActivity : BaseActivity() {
     private lateinit var adapter: SelectPropertyAdapter
     private val properties = mutableListOf<Property>()
 
+    var isFromProperty = false
     private lateinit var binding: ActivitySelectPropertyForReportBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,8 +30,9 @@ class SelectPropertyForReportActivity : BaseActivity() {
         binding = ActivitySelectPropertyForReportBinding.inflate(layoutInflater)
         setContentView(binding.root)
         applyWindowInsetsToBinding(binding.root)
+        isFromProperty = intent.getBooleanExtra("isFromProperty", false)
 
-        adapter = SelectPropertyAdapter(this, properties, false,
+        adapter = SelectPropertyAdapter(this, properties, isFromProperty,
             object : SelectPropertyAdapter.onPropertyClickInterface {
                 override fun onPropertyClick(item: Property) {
                     val resultIntent = Intent()
@@ -51,6 +53,14 @@ class SelectPropertyForReportActivity : BaseActivity() {
                 return true
             }
         })
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (ConfigureReportActivity.reportCreated) {
+            ConfigureReportActivity.reportCreated = false
+            finish()
+        }
     }
 
     /*private fun loadProperties() {

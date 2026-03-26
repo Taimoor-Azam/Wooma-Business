@@ -144,7 +144,7 @@ class InventoryRoomItemsListActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<RoomsResponse>) {
                     if (response.success) {
                         roomItems.clear()
-                        roomItems.addAll(response.data.items)
+                        roomItems.addAll(response.data.items ?: emptyList())
                         adapter.updateList(roomItems)
                     }
                 }

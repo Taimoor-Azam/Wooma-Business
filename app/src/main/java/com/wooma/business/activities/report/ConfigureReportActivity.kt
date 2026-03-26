@@ -36,6 +36,10 @@ import java.util.Collections
 class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListener {
     private lateinit var binding: ActivityConfigureReportBinding
 
+    companion object {
+        var reportCreated = false
+    }
+
     private lateinit var adapter: ReportRoomsAdapter
     private var roomsList = mutableListOf<Room>()
     private var templateList = mutableListOf<Template>()
@@ -75,7 +79,7 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
           }*/
 
         binding.ivEdit.setOnClickListener {
-/*               val intent = Intent(this, EditRoomNamesActivity::class.java)
+            /*               val intent = Intent(this, EditRoomNamesActivity::class.java)
                intent.putParcelableArrayListExtra("roomNamesList", ArrayList(roomsList))
                startActivity(intent)*/
             AddCustomRoomDialog().show(
@@ -143,6 +147,7 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
                 override fun onSuccess(response: ApiResponse<AddReportResponse>) {
                     if (response.success) {
                         showToast("Report Created Successfully")
+                        reportCreated = true
                         startActivity(
                             Intent(
                                 this@ConfigureReportActivity,
@@ -150,6 +155,7 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
                             ).putExtra("reportId", response.data.report_id)
                                 .putExtra("reportStatus", response.data.status)
                         )
+                        finish()
                     }
                 }
 

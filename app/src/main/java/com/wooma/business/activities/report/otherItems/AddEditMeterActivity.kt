@@ -6,8 +6,10 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.activities.report.CameraActivity
+import com.wooma.business.adapter.ImageAdapter
 import com.wooma.business.adapter.SuggestionsAdapter
 import com.wooma.business.customs.AttachmentUploadHelper
 import com.wooma.business.customs.Utils
@@ -30,7 +32,9 @@ class AddEditMeterActivity : BaseActivity() {
     var savedMeterId = ""
 
     private val capturedUris = mutableListOf<Uri>()
+    private val allImages = mutableListOf<Any>()
     private val CAMERA_REQUEST = 1001
+    private val S3_BASE_URL = "https://wooma-business.s3.eu-north-1.amazonaws.com/"
 
     var reportId = ""
     val suggestionList =
@@ -44,6 +48,7 @@ class AddEditMeterActivity : BaseActivity() {
         setContentView(binding.root)
         cameraBinding = binding.cameraLayout
         applyWindowInsetsToBinding(binding.root)
+        setupCapturedImagesRecycler()
         meterItem = intent.getParcelableExtra("meterItem")
         savedMeterId = meterItem?.id ?: ""
 
@@ -91,10 +96,19 @@ class AddEditMeterActivity : BaseActivity() {
         setMeterData()
     }
 
+    private fun setupCapturedImagesRecycler() {
+        cameraBinding.rvRoomItems.layoutManager =
+            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
-            capturedUris.addAll(CameraActivity.pendingUris)
+            val newUris = CameraActivity.pendingUris.toList()
+            capturedUris.addAll(newUris)
+            allImages.addAll(newUris)
+            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
         }
     }
 
@@ -104,6 +118,13 @@ class AddEditMeterActivity : BaseActivity() {
             binding.etReading.setText(meterItem?.reading)
             binding.etSerialNumber.setText(meterItem?.serial_number)
             binding.etLocation.setText(meterItem?.location)
+
+            // Load existing images from API
+            meterItem?.attachments?.forEach { attachment ->
+                val url = "$S3_BASE_URL${attachment.storageKey}"
+                allImages.add(url)
+            }
+            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
         }
     }
 

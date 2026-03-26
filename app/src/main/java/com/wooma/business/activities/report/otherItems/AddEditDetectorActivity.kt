@@ -6,8 +6,10 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.activities.report.CameraActivity
+import com.wooma.business.adapter.ImageAdapter
 import com.wooma.business.adapter.SuggestionsAdapter
 import com.wooma.business.customs.AttachmentUploadHelper
 import com.wooma.business.customs.Utils
@@ -29,7 +31,7 @@ class AddEditDetectorActivity : BaseActivity() {
     var detectorItem: DetectorItem? = null
     var savedDetectorId = ""
 
-    private val capturedUris = mutableListOf<Uri>()
+    private val capturedUris = mutableListOf<Any>()
     private val CAMERA_REQUEST = 1001
 
     var reportId = ""
@@ -59,6 +61,7 @@ class AddEditDetectorActivity : BaseActivity() {
         setContentView(binding.root)
         cameraBinding = binding.cameraLayout
         applyWindowInsetsToBinding(binding.root)
+        setupCapturedImagesRecycler()
         detectorItem = intent.getParcelableExtra("detectorItem")
         savedDetectorId = detectorItem?.id ?: ""
 
@@ -106,10 +109,17 @@ class AddEditDetectorActivity : BaseActivity() {
         setMeterData()
     }
 
+    private fun setupCapturedImagesRecycler() {
+        cameraBinding.rvRoomItems.layoutManager =
+            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        cameraBinding.rvRoomItems.adapter = ImageAdapter(capturedUris)
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
             capturedUris.addAll(CameraActivity.pendingUris)
+            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
         }
     }
 
@@ -211,7 +221,7 @@ class AddEditDetectorActivity : BaseActivity() {
         }
         AttachmentUploadHelper.uploadImages(
             activity = this,
-            imageUris = capturedUris,
+            imageUris = capturedUris.filterIsInstance<Uri>(),
             entityId = entityId,
             entityType = "DETECTOR",
             onComplete = { finish() },

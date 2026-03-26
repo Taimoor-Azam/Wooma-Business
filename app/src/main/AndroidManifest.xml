@@ -83,6 +83,10 @@
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
+            android:name=".activities.report.InspectionRoomActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+        <activity
             android:name=".activities.auth.LoginActivity"
             android:exported="false"
             android:screenOrientation="portrait"

@@ -16,7 +16,8 @@ class CheckListInfoAdapter(
     val context: Context,
     private val originalList: MutableList<InfoField>,
     val reportId: String,
-    private val onFieldAnswerChanged: (checklistFieldId: String, answerText: String) -> Unit
+    private val isReadOnly: Boolean = false,
+    private val onFieldAnswerChanged: (checklistFieldId: String?, answerText: String) -> Unit
 ) : RecyclerView.Adapter<CheckListInfoAdapter.ViewHolder>() {
 
     private var filteredList = originalList.toMutableList()
@@ -43,16 +44,23 @@ class CheckListInfoAdapter(
         if (existingWatcher != null) {
             holder.etInfoAnswer.removeTextChangedListener(existingWatcher)
         }
-        holder.etInfoAnswer.setText(item.answerText ?: "")
+        holder.etInfoAnswer.setText(item.answer_text ?: "")
+        holder.etInfoAnswer.isEnabled = !isReadOnly
+        holder.etInfoAnswer.isFocusable = !isReadOnly
+        holder.etInfoAnswer.isFocusableInTouchMode = !isReadOnly
 
-        // Reset focus listener to avoid stale captures from recycled views
-        holder.etInfoAnswer.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
-                val text = holder.etInfoAnswer.text.toString()
-                if (text != (item.answerText ?: "")) {
-                    onFieldAnswerChanged(item.checklistFieldId, text)
+        if (!isReadOnly) {
+            // Reset focus listener to avoid stale captures from recycled views
+            holder.etInfoAnswer.setOnFocusChangeListener { _, hasFocus ->
+                if (!hasFocus) {
+                    val text = holder.etInfoAnswer.text.toString()
+                    if (text != (item.answer_text ?: "")) {
+                        onFieldAnswerChanged(item.checklist_field_id, text)
+                    }
                 }
             }
+        } else {
+            holder.etInfoAnswer.setOnFocusChangeListener(null)
         }
     }
 

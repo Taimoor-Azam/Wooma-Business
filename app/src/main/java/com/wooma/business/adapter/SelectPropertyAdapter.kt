@@ -44,20 +44,22 @@ class SelectPropertyAdapter(
 
         holder.propertyMainLayout.setOnClickListener {
             if (isFromProperty) {
+
                 context.startActivity(
+                  Intent(
+                      context,
+                      SelectReportTypeActivity::class.java
+                  ).putExtra("propertyId", filteredList[position].id)
+              )
+                /*context.startActivity(
                     Intent(
                         context,
                         ReportListingActivity::class.java
                     ).putExtra("propertyId", filteredList[position].id)
-                )
+                )*/
             } else {
                 itemClick?.onPropertyClick(filteredList[position])
-                /*context.startActivity(
-                    Intent(
-                        context,
-                        SelectReportTypeActivity::class.java
-                    ).putExtra("propertyId", filteredList[position].id)
-                )*/
+
             }
         }
     }

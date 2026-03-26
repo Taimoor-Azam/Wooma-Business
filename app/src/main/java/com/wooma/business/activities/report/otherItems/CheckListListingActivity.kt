@@ -27,6 +27,7 @@ import com.wooma.business.model.InfoField
 import com.wooma.business.model.Question
 import com.wooma.business.model.UpsertFieldAnswerRequest
 import com.wooma.business.model.UpsertQuestionAnswerRequest
+import com.wooma.business.model.enums.TenantReportStatus
 
 class CheckListListingActivity : BaseActivity() {
     private lateinit var infoAdapter: CheckListInfoAdapter
@@ -37,6 +38,7 @@ class CheckListListingActivity : BaseActivity() {
     var reportId = ""
     private var checklistId = ""
     private var isInitializingSwitch = false
+    private var isReadOnly = false
 
     private val CAMERA_REQUEST = 1001
     private var pendingCameraQuestionId = ""
@@ -49,13 +51,18 @@ class CheckListListingActivity : BaseActivity() {
         applyWindowInsetsToBinding(binding.root)
 
         reportId = intent.getStringExtra("reportId") ?: ""
+        val reportStatus = intent.getStringExtra("reportStatus") ?: ""
+        isReadOnly = reportStatus == TenantReportStatus.COMPLETED.value ||
+                reportStatus == TenantReportStatus.HISTORICAL.value ||
+                reportStatus == TenantReportStatus.TENANT_REVIEW.value
 
         infoAdapter = CheckListInfoAdapter(
             context = this,
             originalList = checkListInfoItems,
             reportId = reportId,
+            isReadOnly = isReadOnly,
             onFieldAnswerChanged = { fieldId, answerText ->
-                upsertFieldAnswerApi(fieldId, answerText)
+                if (fieldId != null) upsertFieldAnswerApi(fieldId, answerText)
             }
         )
 
@@ -63,6 +70,7 @@ class CheckListListingActivity : BaseActivity() {
             context = this,
             originalList = checkListQuestionItems,
             reportId = reportId,
+            isReadOnly = isReadOnly,
             onAnswerSelected = { question, answerOption ->
                 upsertQuestionAnswerApi(question, answerOption, question.note)
             },
@@ -80,6 +88,8 @@ class CheckListListingActivity : BaseActivity() {
         binding.rvQuestions.adapter = questionAdapter
 
         binding.ivBack.setOnClickListener { finish() }
+
+        if (isReadOnly) binding.switchButton.isEnabled = false
 
         binding.switchButton.setOnCheckedChangeListener { _, isChecked ->
             if (isInitializingSwitch) return@setOnCheckedChangeListener
@@ -153,7 +163,7 @@ class CheckListListingActivity : BaseActivity() {
                 api.upsertQuestionAnswer(
                     UpsertQuestionAnswerRequest(
                         report_checklist_id = checklistId,
-                        checklist_question_id = question.checklistQuestionId,
+                        checklist_question_id = question.checklist_question_id ?: "",
                         answer_option = answerOption,
                         note = note
                     )
@@ -212,6 +222,9 @@ class CheckListListingActivity : BaseActivity() {
                         checkListQuestionItems.addAll(response.data.questions)
                         infoAdapter.updateList(checkListInfoItems)
                         questionAdapter.updateList(checkListQuestionItems)
+                        val hasQuestions = checkListQuestionItems.isNotEmpty()
+                        binding.tvQuestion.visibility = if (hasQuestions) View.VISIBLE else View.GONE
+                        binding.rvQuestions.visibility = if (hasQuestions) View.VISIBLE else View.GONE
                     }
                 }
 

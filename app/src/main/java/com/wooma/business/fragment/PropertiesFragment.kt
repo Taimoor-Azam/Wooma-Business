@@ -52,7 +52,7 @@ class PropertiesFragment : Fragment() {
         }
 
         binding.btnCreateReport.setOnClickListener {
-            startActivity(Intent(requireActivity(), SelectPropertyForReportActivity::class.java))
+            startActivity(Intent(requireActivity(), SelectPropertyForReportActivity::class.java).putExtra("isFromProperty",true))
         }
 
         binding.ivAddProperty.setOnClickListener {

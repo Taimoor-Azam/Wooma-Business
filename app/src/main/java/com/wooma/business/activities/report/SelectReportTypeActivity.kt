@@ -38,6 +38,13 @@ class SelectReportTypeActivity : BaseActivity() {
         binding.ivBack.setOnClickListener { finish() }
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (ConfigureReportActivity.reportCreated) {
+            finish()
+        }
+    }
+
     private fun getReportTypeListApi() {
         makeApiRequest(
             apiServiceClass = MyApi::class.java,

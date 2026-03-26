@@ -20,6 +20,7 @@ class InventoryCheckListQuestionAdapter(
     val context: Context,
     private val originalList: MutableList<Question>,
     val reportId: String,
+    private val isReadOnly: Boolean = false,
     private val onAnswerSelected: (question: Question, answerOption: String) -> Unit,
     private val onNoteChanged: (question: Question, note: String) -> Unit,
     private val onCameraClick: (questionId: String) -> Unit
@@ -51,7 +52,7 @@ class InventoryCheckListQuestionAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = filteredList[position]
-        val questionId = item.checklistQuestionId
+        val questionId = item.checklist_question_id
 
         holder.tvQuestion.text = item.text
 
@@ -64,48 +65,71 @@ class InventoryCheckListQuestionAdapter(
         holder.ivChevron.rotation = if (isExpanded) 270f else 90f
 
         holder.ivChevron.setOnClickListener {
-            val expanded = !(expandedStates[questionId] ?: false)
-            expandedStates[questionId] = expanded
-            notifyItemChanged(position)
+            val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnClickListener
+            val qId = filteredList.getOrNull(pos)?.checklist_question_id ?: return@setOnClickListener
+            val expanded = !(expandedStates[qId] ?: false)
+            expandedStates[qId] = expanded
+            notifyItemChanged(pos)
         }
 
-        // Yes / No / N/A click listeners — update local copy so toggling persists across scroll
-        holder.btnYes.setOnClickListener {
-            updateAnswerButtons(holder, "yes")
-            filteredList[position] = item.copy(answer_option = "yes")
-            onAnswerSelected(filteredList[position], "yes")
-        }
-        holder.btnNo.setOnClickListener {
-            updateAnswerButtons(holder, "no")
-            filteredList[position] = item.copy(answer_option = "no")
-            onAnswerSelected(filteredList[position], "no")
-        }
-        holder.btnNA.setOnClickListener {
-            updateAnswerButtons(holder, "na")
-            filteredList[position] = item.copy(answer_option = "na")
-            onAnswerSelected(filteredList[position], "na")
+        // Yes / No / N/A click listeners
+        if (!isReadOnly) {
+            holder.btnYes.setOnClickListener {
+                val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnClickListener
+                updateAnswerButtons(holder, "yes")
+                filteredList[pos] = filteredList[pos].copy(answer_option = "yes")
+                onAnswerSelected(filteredList[pos], "yes")
+            }
+            holder.btnNo.setOnClickListener {
+                val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnClickListener
+                updateAnswerButtons(holder, "no")
+                filteredList[pos] = filteredList[pos].copy(answer_option = "no")
+                onAnswerSelected(filteredList[pos], "no")
+            }
+            holder.btnNA.setOnClickListener {
+                val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnClickListener
+                updateAnswerButtons(holder, "na")
+                filteredList[pos] = filteredList[pos].copy(answer_option = "na")
+                onAnswerSelected(filteredList[pos], "na")
+            }
+        } else {
+            holder.btnYes.setOnClickListener(null)
+            holder.btnNo.setOnClickListener(null)
+            holder.btnNA.setOnClickListener(null)
         }
 
         // Note field — reset listener before setting text to avoid recycled-view interference
         holder.etNote.setOnFocusChangeListener(null)
         holder.etNote.setText(item.note ?: "")
-        holder.etNote.setOnFocusChangeListener { _, hasFocus ->
-            if (!hasFocus) {
-                val note = holder.etNote.text.toString()
-                if (note != (item.note ?: "")) {
-                    onNoteChanged(item, note)
+        holder.etNote.isEnabled = !isReadOnly
+        holder.etNote.isFocusable = !isReadOnly
+        holder.etNote.isFocusableInTouchMode = !isReadOnly
+        if (!isReadOnly) {
+            holder.etNote.setOnFocusChangeListener { _, hasFocus ->
+                if (!hasFocus) {
+                    val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnFocusChangeListener
+                    val current = filteredList.getOrNull(pos) ?: return@setOnFocusChangeListener
+                    val note = holder.etNote.text.toString()
+                    if (note != (current.note ?: "")) {
+                        onNoteChanged(current, note)
+                    }
                 }
             }
         }
 
         // Camera button
-        holder.ivAddImage.setOnClickListener {
-            onCameraClick(questionId)
+        holder.ivAddImage.visibility = if (isReadOnly) View.GONE else View.VISIBLE
+        if (!isReadOnly) {
+            holder.ivAddImage.setOnClickListener {
+                val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnClickListener
+                val qId = filteredList.getOrNull(pos)?.checklist_question_id ?: return@setOnClickListener
+                onCameraClick(qId)
+            }
         }
 
         // Photos — merge remote URLs from the model with locally captured URIs
-        val remoteUrls = item.checklist_question_answer_attachment.attachments
-            .mapNotNull { it.url }
+        val remoteUrls = item.checklist_question_answer_attachment?.attachments
+            ?.mapNotNull { it.url } ?: emptyList()
         val localUris = localPhotos[questionId] ?: emptyList<Uri>()
         val photoList = mutableListOf<Any>().apply {
             addAll(remoteUrls)
@@ -120,7 +144,7 @@ class InventoryCheckListQuestionAdapter(
     /** Called by the Activity after CameraActivity returns photos for a specific question. */
     fun deliverPhotos(questionId: String, uris: List<Uri>) {
         localPhotos.getOrPut(questionId) { mutableListOf() }.addAll(uris)
-        val position = filteredList.indexOfFirst { it.checklistQuestionId == questionId }
+        val position = filteredList.indexOfFirst { it.checklist_question_id == questionId }
         if (position != -1) notifyItemChanged(position)
     }
 

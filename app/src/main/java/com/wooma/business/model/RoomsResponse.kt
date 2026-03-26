@@ -18,32 +18,46 @@ data class ReportData(
     val counts: Counts
 )
 
+@Parcelize
 data class RoomsResponse(
-    val id: String,
+    val id: String? = null,
     @SerializedName("template_id")
-    val templateId: String,
-    val name: String,
+    val templateId: String? = null,
+    val name: String? = null,
     @SerializedName("display_order")
-    val displayOrder: String,
+    val displayOrder: String? = null,
     var isSelected: Boolean = true,
-    val items: ArrayList<RoomItem>
-)
+    val items: ArrayList<RoomItem>? = null,
+    val inspection: ArrayList<RoomInspection>? = null
+) : Parcelable
+
+@Parcelize
+data class RoomInspection(
+    val id: String? = null,
+    @SerializedName("room_id")
+    val roomId: String? = null,
+    @SerializedName("is_issue")
+    val isIssue: Boolean? = null,
+    val note: String? = null,
+    val priority: String? = null,
+    val attachments: List<Attachment>? = null
+) : Parcelable
 
 @Parcelize
 data class RoomItem(
-    val id: String,
-    val is_active: Boolean,
-    val is_deleted: Boolean,
-    val created_at: String,
-    val updated_at: String,
-    val room_id: String,
-    val name: String,
-    val general_condition: String?,
-    val general_cleanliness: String?,
-    val description: String?,
-    val note: String?,
-    val display_order: String,
-    val attachments: List<Attachment>?
+    val id: String? = null,
+    val is_active: Boolean? = null,
+    val is_deleted: Boolean? = null,
+    val created_at: String? = null,
+    val updated_at: String? = null,
+    val room_id: String? = null,
+    val name: String? = null,
+    val general_condition: String? = null,
+    val general_cleanliness: String? = null,
+    val description: String? = null,
+    val note: String? = null,
+    val display_order: String? = null,
+    val attachments: List<Attachment>? = null
 ) : Parcelable
 
 data class UpdateRoomItemRequest(
@@ -53,10 +67,18 @@ data class UpdateRoomItemRequest(
     val note: String?
 )
 
+data class UpsertRoomInspectionRequest(
+    val room_id: String,
+    val is_issue: Boolean,
+    val note: String? = null,
+    val priority: String? = null
+)
+
 @Parcelize
 data class Attachment(
     val id: String? = null,
-    val url: String? = null
+    val url: String? = null,
+    val storageKey: String? = null
 ) : Parcelable
 
 data class Inspection(

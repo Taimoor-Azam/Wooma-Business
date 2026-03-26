@@ -9,8 +9,10 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.wooma.business.R
 
-class ImageAdapter(private val list: MutableList<Uri>) :
-    RecyclerView.Adapter<ImageAdapter.Holder>() {
+class ImageAdapter(
+    private val list: MutableList<Any>, // Uri for local, String URL for remote
+    private val onDelete: (() -> Unit)? = null
+) : RecyclerView.Adapter<ImageAdapter.Holder>() {
 
     class Holder(view: View) : RecyclerView.ViewHolder(view) {
         val image: ImageView = view.findViewById(R.id.image)
@@ -25,14 +27,18 @@ class ImageAdapter(private val list: MutableList<Uri>) :
     }
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
+        val item = list[position]
         Glide.with(holder.itemView.context)
-            .load(list[position])
+            .load(item) // works for both Uri and String URL
             .into(holder.image)
 
         holder.delete.setOnClickListener {
-            list.removeAt(position)
-            notifyDataSetChanged()
-
+            val pos = holder.adapterPosition
+            if (pos != RecyclerView.NO_ID.toInt()) {
+                list.removeAt(pos)
+                notifyItemRemoved(pos)
+                onDelete?.invoke()
+            }
         }
     }
 

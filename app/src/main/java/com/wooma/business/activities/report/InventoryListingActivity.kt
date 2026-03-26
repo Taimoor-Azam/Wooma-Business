@@ -7,9 +7,11 @@ import android.util.Log
 import android.view.View
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.wooma.business.R
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.activities.report.complete.CompleteReportActivity
+import com.wooma.business.activities.report.EditTenantActivity
 import com.wooma.business.activities.report.complete.ExtendTimerActivity
 import com.wooma.business.activities.report.inventorysettings.InventoryReportSettingActivity
 import com.wooma.business.adapter.InventoryOtherItemsAdapter
@@ -32,7 +34,9 @@ import com.wooma.business.model.PropertyReportType
 import com.wooma.business.model.ReportData
 import com.wooma.business.model.ReportType
 import com.wooma.business.model.RoomsResponse
+import com.wooma.business.model.CompleteReportRequest
 import com.wooma.business.model.TenantReview
+import com.wooma.business.model.enums.ReportTypes
 import com.wooma.business.model.enums.TenantReportStatus
 import com.wooma.business.model.toCountItemList
 
@@ -45,6 +49,18 @@ class InventoryListingActivity : BaseActivity() {
     var reportType: PropertyReportType? = null
     var reportData: ReportData? = null
 
+    companion object {
+        private const val TENANT_REQUEST_CODE = 2001
+    }
+
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == TENANT_REQUEST_CODE && resultCode == android.app.Activity.RESULT_OK) {
+            getTenantReviewsApi()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -56,18 +72,25 @@ class InventoryListingActivity : BaseActivity() {
         reportStatus = intent.getStringExtra("reportStatus") ?: ""
         reportType = intent.getParcelableExtra("reportType")
 
+        binding.tvReportType.text = reportType?.type_code
+            ?.replace("_", " ")
+            ?.split(" ")
+            ?.joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }
+            ?: ""
+
         adapter = InventoryRoomsAdapter(
             context = this,
             originalList = roomsList,
             reportId = reportId,
             reportStatus = reportStatus,
+            reportType = reportType,
             onDeleteRoom = { roomId, position ->
                 Utils.showDialogBox(
                     this,
                     "Delete Room",
                     "Are you sure you want to remove this room from the report?"
                 ) {
-                    deleteRoomApi(roomId, position)
+                    deleteRoomApi(roomId ?: "", position)
                 }
             }
         )
@@ -112,11 +135,24 @@ class InventoryListingActivity : BaseActivity() {
         }
 
         binding.btnCompleteReport.setOnClickListener {
-            startActivity(
-                Intent(this, CompleteReportActivity::class.java).putExtra(
-                    "reportId",
-                    reportId
+            if (reportType?.type_code == ReportTypes.INSPECTION.value) {
+                showCompleteInspectionBottomSheet()
+            } else {
+                startActivity(
+                    Intent(this, CompleteReportActivity::class.java).putExtra(
+                        "reportId",
+                        reportId
+                    )
                 )
+            }
+        }
+
+        binding.addAnotherTenantLayout.setOnClickListener {
+            startActivityForResult(
+                Intent(this, EditTenantActivity::class.java)
+                    .putExtra("isEditMode", false)
+                    .putExtra("reportId", reportId),
+                TENANT_REQUEST_CODE
             )
         }
 
@@ -240,7 +276,7 @@ class InventoryListingActivity : BaseActivity() {
                         adapter.updateList(roomsList)
 
                         val allItems = response.data.counts.toCountItemList()
-                        val isInspection = reportType?.type_code?.lowercase() == "inspection"
+                        val isInspection = reportType?.type_code == ReportTypes.INSPECTION.value
                         val otherItems: MutableList<CountItem> = if (isInspection)
                             allItems.filter { it.label == "Checklists" }.toMutableList()
                         else
@@ -251,7 +287,8 @@ class InventoryListingActivity : BaseActivity() {
                             InventoryOtherItemsAdapter(
                                 this@InventoryListingActivity,
                                 otherItems,
-                                reportId
+                                reportId,
+                                response.data.status ?: ""
                             )
 
                         if (response.data.status == TenantReportStatus.TENANT_REVIEW.value) {
@@ -341,7 +378,25 @@ class InventoryListingActivity : BaseActivity() {
     @RequiresApi(Build.VERSION_CODES.O)
     private fun updateViewForTenantReview(data: ArrayList<TenantReview>) {
         binding.tenantReviewLayout.visibility = View.VISIBLE
-        val adapter = ReportTenantsAdapter(this, data)
+        val adapter = ReportTenantsAdapter(
+            context = this,
+            originalList = data,
+            reportId = reportId,
+            onTenantClick = { tenant ->
+                startActivityForResult(
+                    Intent(this, EditTenantActivity::class.java)
+                        .putExtra("isEditMode", true)
+                        .putExtra("reportId", reportId)
+                        .putExtra("tenantReviewId", tenant.id)
+                        .putExtra("firstName", tenant.first_name)
+                        .putExtra("lastName", tenant.last_name)
+                        .putExtra("email", tenant.email_address)
+                        .putExtra("mobileNumber", tenant.mobile_number)
+                        .putExtra("tenantCount", data.size),
+                    TENANT_REQUEST_CODE
+                )
+            }
+        )
         binding.rvTenants.adapter = adapter
 
         val expiryDate =
@@ -355,5 +410,50 @@ class InventoryListingActivity : BaseActivity() {
 
         binding.tvReceivedSigns.text = "${count}/${data.size}"
         binding.tvTotalTenants.text = "Tenant (${data.size})"
+    }
+
+    private fun showCompleteInspectionBottomSheet() {
+        val bottomSheet = BottomSheetDialog(this)
+        val sheetView = layoutInflater.inflate(R.layout.bottom_sheet_complete_inspection, null)
+        bottomSheet.setContentView(sheetView)
+
+        val cbConfirm = sheetView.findViewById<android.widget.CheckBox>(R.id.cbConfirm)
+        val btnComplete = sheetView.findViewById<android.widget.Button>(R.id.btnCompleteReport)
+        val ivClose = sheetView.findViewById<android.widget.ImageView>(R.id.ivClose)
+
+        ivClose.setOnClickListener { bottomSheet.dismiss() }
+
+        cbConfirm.setOnCheckedChangeListener { _, isChecked ->
+            btnComplete.isEnabled = isChecked
+            btnComplete.alpha = if (isChecked) 1f else 0.5f
+        }
+
+        btnComplete.setOnClickListener {
+            makeApiRequest(
+                apiServiceClass = MyApi::class.java,
+                context = this,
+                showLoading = true,
+                requestAction = { api ->
+                    api.completeReport(
+                        id = reportId,
+                        request = CompleteReportRequest(blank_spaces_count = 0)
+                    )
+                },
+                listener = object : ApiResponseListener<ApiResponse<ReportData>> {
+                    override fun onSuccess(response: ApiResponse<ReportData>) {
+                        bottomSheet.dismiss()
+                        finish()
+                    }
+                    override fun onFailure(errorMessage: ErrorResponse?) {
+                        showToast(errorMessage?.error?.message ?: "Failed to complete report")
+                    }
+                    override fun onError(throwable: Throwable) {
+                        showToast("Error: ${throwable.message}")
+                    }
+                }
+            )
+        }
+
+        bottomSheet.show()
     }
 }

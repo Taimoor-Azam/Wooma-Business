@@ -14,3 +14,9 @@ data class Tenant(
     var mobile_number: String,
     var email_address: String
 )
+
+data class UpdateTenantReviewRequest(
+    val first_name: String,
+    val last_name: String,
+    val mobile_number: String
+)

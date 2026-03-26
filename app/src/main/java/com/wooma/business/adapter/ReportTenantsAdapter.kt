@@ -21,6 +21,8 @@ import com.wooma.business.model.TenantReview
 class ReportTenantsAdapter(
     val context: Context,
     private val originalList: MutableList<TenantReview>,
+    private val reportId: String = "",
+    private val onTenantClick: ((TenantReview) -> Unit)? = null
 ) : RecyclerView.Adapter<ReportTenantsAdapter.ViewHolder>() {
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -68,7 +70,9 @@ class ReportTenantsAdapter(
         }
 
         holder.tenantLayout.setOnClickListener {
-            context.startActivity(Intent(context, EditTenantActivity::class.java))
+            if (!item.is_submitted) {
+                onTenantClick?.invoke(item)
+            }
         }
     }
 }

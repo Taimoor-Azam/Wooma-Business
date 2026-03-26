@@ -37,6 +37,7 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/tvReportType"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
@@ -211,7 +212,7 @@
                     android:orientation="horizontal"
                     android:paddingTop="@dimen/_10sdp"
                     android:paddingBottom="@dimen/_10sdp"
-                    android:visibility="gone"
+                    android:visibility="visible"
                     app:layout_constraintBottom_toTopOf="@+id/bottomLayout">
 
                     <ImageView
@@ -266,7 +267,7 @@
                     android:background="@drawable/bg_button_green"
                     android:paddingTop="@dimen/_10sdp"
                     android:paddingBottom="@dimen/_10sdp"
-                    android:text="@string/complete_report"
+                    android:text="@string/view_final_report"
                     android:textAllCaps="false"
                     android:textColor="@color/white"
                     android:textSize="@dimen/_14ssp" />

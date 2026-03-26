@@ -30,7 +30,7 @@ class CameraActivity : BaseActivity() {
     private lateinit var imageCapture: ImageCapture
     private lateinit var camera: Camera
 
-    private val images = mutableListOf<Uri>()
+    private val images = mutableListOf<Any>()
     private lateinit var adapter: ImageAdapter
 
     private var flashEnabled = false
@@ -58,7 +58,11 @@ class CameraActivity : BaseActivity() {
 
         bottomSheetBehavior = BottomSheetBehavior.from(binding.bottomSheet)
 
-        bottomSheetBehavior.peekHeight = 150
+        // peekHeight = fixed controls height (_170sdp) + thumbnail strip height (_80sdp)
+        // so the thumbnail strip appears just above the capture row and Done button
+        bottomSheetBehavior.peekHeight =
+            resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._170sdp) +
+                    resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._80sdp)
         bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
 
         setupRecycler()
@@ -70,9 +74,15 @@ class CameraActivity : BaseActivity() {
         binding.btnGallery.setOnClickListener { openGallery() }
 
         binding.btnFlash.setOnClickListener { toggleFlash() }
+
         binding.btnBack.setOnClickListener {
+            setResult(RESULT_CANCELED)
+            finish()
+        }
+
+        binding.btnDone.setOnClickListener {
             pendingUris.clear()
-            pendingUris.addAll(images)
+            pendingUris.addAll(images.filterIsInstance<Uri>())
             setResult(RESULT_OK)
             finish()
         }
@@ -197,7 +207,7 @@ class CameraActivity : BaseActivity() {
     }
 
     private fun setupRecycler() {
-        adapter = ImageAdapter(images)
+        adapter = ImageAdapter(images, onDelete = { updateCounter() })
 
         binding.recyclerImages.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)

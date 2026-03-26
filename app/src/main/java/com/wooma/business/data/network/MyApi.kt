@@ -43,6 +43,8 @@ import com.wooma.business.model.TenantPropertiesWrapper
 import com.wooma.business.model.TenantReview
 import com.wooma.business.model.TenantsRequest
 import com.wooma.business.model.UpdateRoomItemRequest
+import com.wooma.business.model.UpdateTenantReviewRequest
+import com.wooma.business.model.UpsertRoomInspectionRequest
 import com.wooma.business.model.UserOnBoardRequest
 import com.wooma.business.model.VerifyOTPRequest
 import com.wooma.business.model.VerifyOtpData
@@ -130,6 +132,7 @@ interface MyApi {
         @Path("report_id") report_id: String,
         @Query("include_items") include_items: Boolean,
         @Query("include_room_inspections") include_room_inspections: Boolean,
+        @Query("include_attachments") include_attachments: Boolean = false,
     ): Call<ApiResponse<RoomsResponse>>
 
 
@@ -363,6 +366,24 @@ interface MyApi {
     fun updateChecklistStatus(
         @Path("id") id: String,
         @Body request: ChecklistStatusRequest
+    ): Call<ApiResponse<Any>>
+
+    @PATCH("/api/v1/tenant-reports/{id}/tenant-reviews/{tenant_review_id}")
+    fun updateTenantReview(
+        @Path("id") reportId: String,
+        @Path("tenant_review_id") tenantReviewId: String,
+        @Body request: UpdateTenantReviewRequest
+    ): Call<ApiResponse<TenantReview>>
+
+    @DELETE("/api/v1/tenant-reports/{id}/tenant-reviews/{tenant_review_id}")
+    fun deleteTenantReview(
+        @Path("id") reportId: String,
+        @Path("tenant_review_id") tenantReviewId: String
+    ): Call<ApiResponse<Any>>
+
+    @POST("/api/v1/room-inspections/upsert")
+    fun upsertRoomInspection(
+        @Body request: UpsertRoomInspectionRequest
     ): Call<ApiResponse<Any>>
 
     @POST("/api/v1/report-checklist-question-answer")

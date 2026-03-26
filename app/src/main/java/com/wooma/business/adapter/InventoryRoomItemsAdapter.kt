@@ -124,7 +124,7 @@ class InventoryRoomItemsAdapter(
             originalList.toMutableList()
         } else {
             originalList.filter {
-                it.name.contains(query, true)
+                it.name?.contains(query, true) == true
             }.toMutableList()
         }
         notifyDataSetChanged()
