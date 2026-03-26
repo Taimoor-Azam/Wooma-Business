@@ -24,6 +24,7 @@ import com.wooma.business.data.network.makeApiRequest
 import com.wooma.business.data.network.showToast
 import com.wooma.business.databinding.ActivityInventoryListingBinding
 import com.wooma.business.model.AddNewRoomsRequest
+import com.wooma.business.model.CountItem
 import com.wooma.business.model.ApiResponse
 import com.wooma.business.model.Assessor
 import com.wooma.business.model.ErrorResponse
@@ -238,10 +239,18 @@ class InventoryListingActivity : BaseActivity() {
                         roomsList.addAll(response.data.rooms ?: ArrayList())
                         adapter.updateList(roomsList)
 
+                        val allItems = response.data.counts.toCountItemList()
+                        val isInspection = reportType?.type_code?.lowercase() == "inspection"
+                        val otherItems: MutableList<CountItem> = if (isInspection)
+                            allItems.filter { it.label == "Checklists" }.toMutableList()
+                        else
+                            allItems
+                        (binding.rvOtherItems.layoutManager as? androidx.recyclerview.widget.GridLayoutManager)
+                            ?.spanCount = if (otherItems.size == 1) 1 else 2
                         binding.rvOtherItems.adapter =
                             InventoryOtherItemsAdapter(
                                 this@InventoryListingActivity,
-                                response.data.counts.toCountItemList(),
+                                otherItems,
                                 reportId
                             )
 

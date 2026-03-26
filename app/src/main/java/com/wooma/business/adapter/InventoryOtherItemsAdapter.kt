@@ -43,56 +43,22 @@ class InventoryOtherItemsAdapter(
         holder.tvSub.text = "${filteredList[position].value} recorded"
 
         holder.itemView.setOnClickListener {
-            if (position == 0) {
-                context.startActivity(
-                    Intent(
-                        context,
-                        MeterListingActivity::class.java
-                    ).putExtra("reportId", reportId)
-                )
+            val intent = when (filteredList[position].label) {
+                "Meters" -> Intent(context, MeterListingActivity::class.java)
+                "Keys" -> Intent(context, KeysListingActivity::class.java)
+                "Detectors" -> Intent(context, DetectorListingActivity::class.java)
+                else -> Intent(context, CheckListListingActivity::class.java)
             }
-            if (position == 1) {
-                context.startActivity(
-                    Intent(
-                        context,
-                        KeysListingActivity::class.java
-                    ).putExtra("reportId", reportId)
-                )
-            }
-            if (position == 2) {
-                context.startActivity(
-                    Intent(
-                        context,
-                        DetectorListingActivity::class.java
-                    ).putExtra("reportId", reportId)
-                )
-            }
-            if (position == 3) {
-                context.startActivity(
-                    Intent(
-                        context,
-                        CheckListListingActivity::class.java
-                    ).putExtra("reportId", reportId)
-                )
-            }
+            context.startActivity(intent.putExtra("reportId", reportId))
         }
 
         holder.ivIcon.setImageDrawable(
             ContextCompat.getDrawable(
                 context,
-                when (position) {
-                    0 -> {
-                        R.drawable.svg_meter
-                    }
-
-                    1 -> {
-                        R.drawable.svg_keys
-                    }
-
-                    2 -> {
-                        R.drawable.svg_detector
-                    }
-
+                when (filteredList[position].label) {
+                    "Meters" -> R.drawable.svg_meter
+                    "Keys" -> R.drawable.svg_keys
+                    "Detectors" -> R.drawable.svg_detector
                     else -> R.drawable.svg_checklist
                 }
             )
