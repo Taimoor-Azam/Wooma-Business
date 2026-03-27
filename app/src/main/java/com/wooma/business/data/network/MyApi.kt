@@ -135,6 +135,14 @@ interface MyApi {
         @Query("include_attachments") include_attachments: Boolean = false,
     ): Call<ApiResponse<RoomsResponse>>
 
+    @GET("/api/v1/tenant-report/{report_id}/rooms")
+    fun getInspectionRoomById(
+        @Path("report_id") report_id: String,
+        @Query("include_items") include_items: Boolean,
+        @Query("include_room_inspections") include_room_inspections: Boolean,
+        @Query("include_attachments") include_attachments: Boolean = false,
+    ): Call<ApiResponse<ArrayList<RoomsResponse>>>
+
 
     @GET("/api/v1/tenant-report/{report_id}/meters")
     fun getReportMeters(

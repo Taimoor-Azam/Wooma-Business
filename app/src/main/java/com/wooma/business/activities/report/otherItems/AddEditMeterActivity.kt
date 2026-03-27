@@ -1,6 +1,8 @@
 package com.wooma.business.activities.report.otherItems
 
 import android.app.Activity
+import com.wooma.business.data.network.ApiClient
+import com.wooma.business.model.ImageItem
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -32,9 +34,9 @@ class AddEditMeterActivity : BaseActivity() {
     var savedMeterId = ""
 
     private val capturedUris = mutableListOf<Uri>()
-    private val allImages = mutableListOf<Any>()
+    private val allImages = mutableListOf<ImageItem>()
     private val CAMERA_REQUEST = 1001
-    private val S3_BASE_URL = "https://wooma-business.s3.eu-north-1.amazonaws.com/"
+    private val S3_BASE_URL = ApiClient.IMAGE_BASE_URL
 
     var reportId = ""
     val suggestionList =
@@ -107,7 +109,7 @@ class AddEditMeterActivity : BaseActivity() {
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
             val newUris = CameraActivity.pendingUris.toList()
             capturedUris.addAll(newUris)
-            allImages.addAll(newUris)
+            allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
         }
     }
@@ -121,8 +123,7 @@ class AddEditMeterActivity : BaseActivity() {
 
             // Load existing images from API
             meterItem?.attachments?.forEach { attachment ->
-                val url = "$S3_BASE_URL${attachment.storageKey}"
-                allImages.add(url)
+                allImages.add(ImageItem.Remote(attachment.id, "$S3_BASE_URL${attachment.storageKey}"))
             }
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
         }

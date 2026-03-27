@@ -8,9 +8,12 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.wooma.business.R
 import com.wooma.business.activities.report.InventoryRoomItemActivity
+import com.wooma.business.data.network.ApiClient
+import com.wooma.business.model.ImageItem
 import com.wooma.business.model.RoomItem
 import com.wooma.business.model.enums.TenantReportStatus
 import java.util.Locale
@@ -50,6 +53,12 @@ class InventoryRoomItemsAdapter(
         holder.tvItemName.text = item.name
         holder.tvDescription.text = item.description ?: ""
         holder.tvNotes.text = item.note ?: ""
+
+        val imageItems = item.attachments
+            ?.mapNotNull { att -> att.id?.let { id -> att.storageKey?.let { key -> ImageItem.Remote(id, "${ApiClient.IMAGE_BASE_URL}$key") } } }
+            ?.toMutableList<ImageItem>() ?: mutableListOf()
+        holder.rvImages.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+        holder.rvImages.adapter = ImageAdapter(imageItems, showDelete = false)
 
 
         if (item.general_condition?.equals("poor") == true || item.general_condition?.equals("unacceptable") == true || item.general_condition?.equals(

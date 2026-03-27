@@ -1,25 +1,25 @@
 package com.wooma.business.activities.report
 
 import android.app.Activity
-import android.content.Context
 import android.content.Intent
-import android.graphics.Typeface
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
-import android.widget.Spinner
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.wooma.business.R
 import com.wooma.business.activities.BaseActivity
+import com.wooma.business.adapter.ImageAdapter
 import com.wooma.business.customs.AttachmentUploadHelper
+import com.wooma.business.data.network.ApiClient
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
 import com.wooma.business.data.network.makeApiRequest
@@ -28,6 +28,7 @@ import com.wooma.business.databinding.ActivityInspectionRoomBinding
 import com.wooma.business.databinding.AddImageLayoutBinding
 import com.wooma.business.model.ApiResponse
 import com.wooma.business.model.ErrorResponse
+import com.wooma.business.model.ImageItem
 import com.wooma.business.model.RoomInspection
 import com.wooma.business.model.RoomsResponse
 import com.wooma.business.model.UpsertRoomInspectionRequest
@@ -44,6 +45,7 @@ class InspectionRoomActivity : BaseActivity() {
     private var isIssue = false
     private var selectedPriority: String? = null
     private val capturedUris = mutableListOf<Uri>()
+    private val allImages = mutableListOf<ImageItem>()
     private val CAMERA_REQUEST = 1001
 
     private val conditionChips = listOf(
@@ -59,6 +61,8 @@ class InspectionRoomActivity : BaseActivity() {
         setContentView(binding.root)
         applyWindowInsetsToBinding(binding.root)
         cameraBinding = binding.cameraLayout
+        cameraBinding.rvRoomItems.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages, onDelete = {})
 
         room = intent.getParcelableExtra("room")
         reportId = intent.getStringExtra("reportId") ?: ""
@@ -86,6 +90,7 @@ class InspectionRoomActivity : BaseActivity() {
         val priorityOptions = listOf("Select priority", "Observation", "Action required", "Urgent")
 
         val spinnerAdapter = object : ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, priorityOptions) {
+            @RequiresApi(Build.VERSION_CODES.O)
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val tv = super.getView(position, convertView, parent) as TextView
                 tv.typeface = resources.getFont(R.font.sofiasans_regular)
@@ -94,6 +99,7 @@ class InspectionRoomActivity : BaseActivity() {
                 return tv
             }
 
+            @RequiresApi(Build.VERSION_CODES.O)
             override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val tv = super.getDropDownView(position, convertView, parent) as TextView
                 tv.typeface = resources.getFont(R.font.sofiasans_regular)
@@ -140,7 +146,10 @@ class InspectionRoomActivity : BaseActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
-            capturedUris.addAll(CameraActivity.pendingUris)
+            val newUris = CameraActivity.pendingUris.toList()
+            capturedUris.addAll(newUris)
+            allImages.addAll(newUris.map { ImageItem.Local(it) })
+            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
         }
     }
 
@@ -177,24 +186,29 @@ class InspectionRoomActivity : BaseActivity() {
     }
 
     private fun fetchRoomData() {
-        val roomId = room?.id ?: return
         makeApiRequest(
             apiServiceClass = MyApi::class.java,
             context = this,
             showLoading = false,
             requestAction = { api ->
-                api.getRoomById(
-                    id = roomId,
+                api.getInspectionRoomById(
                     report_id = reportId,
                     include_items = false,
                     include_room_inspections = true,
                     include_attachments = true
                 )
             },
-            listener = object : ApiResponseListener<ApiResponse<RoomsResponse>> {
-                override fun onSuccess(response: ApiResponse<RoomsResponse>) {
-                    val inspection = response.data?.inspection?.firstOrNull()
-                    inspection?.let { populateInspection(it) }
+            listener = object : ApiResponseListener<ApiResponse<ArrayList<RoomsResponse>>> {
+                override fun onSuccess(response: ApiResponse<ArrayList<RoomsResponse>>) {
+                    val roomData = response.data?.find { it.id == room?.id } ?: return
+                    // Load room-level attachments
+                    allImages.clear()
+                    roomData.attachments?.forEach { attachment ->
+                        allImages.add(ImageItem.Remote(attachment.id, "${ApiClient.IMAGE_BASE_URL}${attachment.storageKey}"))
+                    }
+                    cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
+                    // Populate inspection state
+                    roomData.inspection?.firstOrNull()?.let { populateInspection(it) }
                 }
                 override fun onFailure(errorMessage: ErrorResponse?) {}
                 override fun onError(throwable: Throwable) {}
@@ -205,6 +219,7 @@ class InspectionRoomActivity : BaseActivity() {
     private fun populateInspection(inspection: RoomInspection) {
         val issue = inspection.isIssue ?: false
         setIssueState(issue)
+
 
         if (issue) {
             // Note
@@ -279,6 +294,7 @@ class InspectionRoomActivity : BaseActivity() {
 
         inner class ChipHolder(val tv: TextView) : RecyclerView.ViewHolder(tv)
 
+        @RequiresApi(Build.VERSION_CODES.O)
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChipHolder {
             val tv = TextView(parent.context).apply {
                 val pad = resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._8sdp)

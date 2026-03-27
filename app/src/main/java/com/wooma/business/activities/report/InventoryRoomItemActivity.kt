@@ -1,6 +1,8 @@
 package com.wooma.business.activities.report
 
 import android.app.Activity
+import com.wooma.business.data.network.ApiClient
+import com.wooma.business.model.ImageItem
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -34,9 +36,9 @@ class InventoryRoomItemActivity : BaseActivity() {
     var roomId = ""
 
     private val capturedUris = mutableListOf<Uri>()
-    private val allImages = mutableListOf<Any>()
+    private val allImages = mutableListOf<ImageItem>()
     private val CAMERA_REQUEST = 1001
-    private val S3_BASE_URL = "https://wooma-business.s3.eu-north-1.amazonaws.com/"
+    private val S3_BASE_URL = ApiClient.IMAGE_BASE_URL
 
     val conditionItems = mutableListOf(
         ConditionDAO(R.drawable.svg_excellent, "Excellent"),
@@ -76,8 +78,9 @@ class InventoryRoomItemActivity : BaseActivity() {
 
             // Load existing images from API
             roomItems?.attachments?.forEach { attachment ->
-                val url = "$S3_BASE_URL${attachment.storageKey}"
-                allImages.add(url)
+                val id = attachment.id ?: return@forEach
+                val key = attachment.storageKey ?: return@forEach
+                allImages.add(ImageItem.Remote(id, "$S3_BASE_URL$key"))
             }
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
 
@@ -125,7 +128,7 @@ class InventoryRoomItemActivity : BaseActivity() {
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
             val newUris = CameraActivity.pendingUris.toList()
             capturedUris.addAll(newUris)
-            allImages.addAll(newUris)
+            allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
         }
     }

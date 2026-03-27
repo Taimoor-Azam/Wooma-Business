@@ -66,7 +66,8 @@ data class KeyItem(
     val display_order: String,
     val is_deleted: Boolean,
     val created_at: String,
-    val updated_at: String
+    val updated_at: String,
+    val attachments: List<OtherItemsAttachment>
 ) : Parcelable
 
 
@@ -80,6 +81,7 @@ data class DetectorItem(
     val display_order: String,
     val is_deleted: Boolean,
     val created_at: String,
-    val updated_at: String
+    val updated_at: String,
+    val attachments: List<OtherItemsAttachment>
 ) : Parcelable
 

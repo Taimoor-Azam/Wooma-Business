@@ -6,11 +6,14 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.wooma.business.R
 import com.wooma.business.activities.report.otherItems.AddEditDetectorActivity
 import com.wooma.business.activities.report.otherItems.AddEditKeysActivity
+import com.wooma.business.data.network.ApiClient
 import com.wooma.business.model.DetectorItem
+import com.wooma.business.model.ImageItem
 
 class InventoryDetectorAdapter(
     val context: Context,
@@ -41,6 +44,10 @@ class InventoryDetectorAdapter(
         holder.tvItemName.text = item.name
         holder.tvLocation.text = item.location.toString()
         holder.tvResult.text = item.note ?: ""
+
+        val imageItems = item.attachments.map { ImageItem.Remote(it.id, "${ApiClient.IMAGE_BASE_URL}${it.storageKey}") }.toMutableList<ImageItem>()
+        holder.rvImages.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+        holder.rvImages.adapter = ImageAdapter(imageItems, showDelete = false)
 
         holder.itemView.setOnClickListener {
             context.startActivity(

@@ -18,6 +18,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.adapter.ImageAdapter
+import com.wooma.business.model.ImageItem
 import com.wooma.business.data.network.showToast
 import com.wooma.business.databinding.ActivityCameraBinding
 import java.io.File
@@ -30,7 +31,7 @@ class CameraActivity : BaseActivity() {
     private lateinit var imageCapture: ImageCapture
     private lateinit var camera: Camera
 
-    private val images = mutableListOf<Any>()
+    private val images = mutableListOf<ImageItem>()
     private lateinit var adapter: ImageAdapter
 
     private var flashEnabled = false
@@ -82,7 +83,7 @@ class CameraActivity : BaseActivity() {
 
         binding.btnDone.setOnClickListener {
             pendingUris.clear()
-            pendingUris.addAll(images.filterIsInstance<Uri>())
+            pendingUris.addAll(images.filterIsInstance<ImageItem.Local>().map { it.uri })
             setResult(RESULT_OK)
             finish()
         }
@@ -172,7 +173,7 @@ class CameraActivity : BaseActivity() {
                 override fun onImageSaved(result: ImageCapture.OutputFileResults) {
                     val uri = Uri.fromFile(file)
 
-                    images.add(uri)
+                    images.add(ImageItem.Local(uri))
                     adapter.notifyItemInserted(images.size - 1)
 
                     updateCounter()
@@ -222,7 +223,7 @@ class CameraActivity : BaseActivity() {
     private val galleryLauncher =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             uri?.let {
-                images.add(it)
+                images.add(ImageItem.Local(it))
                 adapter.notifyItemInserted(images.size - 1)
                 updateCounter()
             }

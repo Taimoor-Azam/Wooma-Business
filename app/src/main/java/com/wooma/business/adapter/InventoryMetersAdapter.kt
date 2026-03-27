@@ -6,9 +6,12 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.wooma.business.R
 import com.wooma.business.activities.report.otherItems.AddEditMeterActivity
+import com.wooma.business.data.network.ApiClient
+import com.wooma.business.model.ImageItem
 import com.wooma.business.model.Meter
 
 class InventoryMetersAdapter(
@@ -42,6 +45,10 @@ class InventoryMetersAdapter(
         holder.tvSerialNum.text = item.serial_number ?: ""
         holder.tvReading.text = item.reading ?: ""
         holder.tvLocation.text = item.location ?: ""
+
+        val imageItems = item.attachments.map { ImageItem.Remote(it.id, "${ApiClient.IMAGE_BASE_URL}${it.storageKey}") }.toMutableList<ImageItem>()
+        holder.rvImages.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+        holder.rvImages.adapter = ImageAdapter(imageItems, showDelete = false)
 
         holder.itemView.setOnClickListener {
             context.startActivity(

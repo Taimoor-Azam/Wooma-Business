@@ -28,7 +28,8 @@ data class RoomsResponse(
     val displayOrder: String? = null,
     var isSelected: Boolean = true,
     val items: ArrayList<RoomItem>? = null,
-    val inspection: ArrayList<RoomInspection>? = null
+    val inspection: ArrayList<RoomInspection>? = null,
+    val attachments: ArrayList<OtherItemsAttachment>? = null
 ) : Parcelable
 
 @Parcelize

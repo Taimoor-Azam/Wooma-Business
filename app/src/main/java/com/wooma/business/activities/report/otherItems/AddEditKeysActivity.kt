@@ -1,6 +1,8 @@
 package com.wooma.business.activities.report.otherItems
 
 import android.app.Activity
+import com.wooma.business.data.network.ApiClient
+import com.wooma.business.model.ImageItem
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -32,7 +34,8 @@ class AddEditKeysActivity : BaseActivity() {
     var savedKeyId = ""
     var count = 1
 
-    private val capturedUris = mutableListOf<Any>()
+    private val capturedUris = mutableListOf<Uri>()
+    private val allImages = mutableListOf<ImageItem>()
     private val CAMERA_REQUEST = 1001
 
     var reportId = ""
@@ -124,13 +127,15 @@ class AddEditKeysActivity : BaseActivity() {
     private fun setupCapturedImagesRecycler() {
         cameraBinding.rvRoomItems.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        cameraBinding.rvRoomItems.adapter = ImageAdapter(capturedUris)
+        cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
-            capturedUris.addAll(CameraActivity.pendingUris)
+            val newUris = CameraActivity.pendingUris.toList()
+            capturedUris.addAll(newUris)
+            allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
         }
     }
@@ -141,6 +146,11 @@ class AddEditKeysActivity : BaseActivity() {
             count = keyItem?.no_of_keys ?: 1
             binding.tvQty.text = (keyItem?.no_of_keys ?: 0).toString()
             binding.etNote.setText(keyItem?.note ?: "")
+
+            keyItem?.attachments?.forEach { attachment ->
+                allImages.add(ImageItem.Remote(attachment.id, "${ApiClient.IMAGE_BASE_URL}${attachment.storageKey}"))
+            }
+            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
         }
     }
 

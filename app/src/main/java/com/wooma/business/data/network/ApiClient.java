@@ -14,6 +14,7 @@ public class ApiClient {
     //    private static String BASE_URL = "https://cloudwapp.in/AH/motorcar/api/";
 //   public static String BASE_URL = "https://motorcar.ae/";
     public static String BASE_URL = "https://api-dev-business.wooma.com";
+    public static String IMAGE_BASE_URL = "https://wooma-business.s3.eu-north-1.amazonaws.com/";
 //    public static String BASE_URL = "https://api.motorcar.ae/";
 
 //    private static String BASE_URL = "http://79.143.178.173/motorcar/api/";
