@@ -12,12 +12,14 @@ import com.wooma.business.R
 import com.wooma.business.activities.report.otherItems.AddEditMeterActivity
 import com.wooma.business.data.network.ApiClient
 import com.wooma.business.model.ImageItem
+import com.wooma.business.model.enums.TenantReportStatus
 import com.wooma.business.model.Meter
 
 class InventoryMetersAdapter(
     val context: Context,
     private val originalList: MutableList<Meter>,
     val reportId: String,
+    val reportStatus: String = "",
 ) : RecyclerView.Adapter<InventoryMetersAdapter.ViewHolder>() {
 
     private var filteredList = originalList.toMutableList()
@@ -51,6 +53,7 @@ class InventoryMetersAdapter(
         holder.rvImages.adapter = ImageAdapter(imageItems, showDelete = false)
 
         holder.itemView.setOnClickListener {
+            if (reportStatus != TenantReportStatus.IN_PROGRESS.value) return@setOnClickListener
             context.startActivity(
                 Intent(context, AddEditMeterActivity::class.java).putExtra(
                     "meterItem",

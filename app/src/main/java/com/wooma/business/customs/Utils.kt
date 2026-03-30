@@ -4,11 +4,15 @@ import android.app.Dialog
 import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
+import android.net.Uri
 import android.os.Build
 import android.util.Patterns
+import android.view.WindowManager
 import android.widget.Button
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.annotation.RequiresApi
+import com.bumptech.glide.Glide
 import com.wooma.business.R
 import java.text.SimpleDateFormat
 import java.time.Instant
@@ -65,6 +69,26 @@ object Utils {
         }
 
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.show()
+    }
+
+    fun showFullScreenImage(context: Context, url: String? = null, uri: Uri? = null) {
+        val dialog = Dialog(context, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        dialog.setContentView(R.layout.dialog_fullscreen_image)
+        dialog.window?.setLayout(
+            WindowManager.LayoutParams.MATCH_PARENT,
+            WindowManager.LayoutParams.MATCH_PARENT
+        )
+
+        val ivFullImage = dialog.findViewById<ImageView>(R.id.ivFullImage)
+        val ivClose = dialog.findViewById<ImageView>(R.id.ivClose)
+
+        when {
+            url != null -> Glide.with(context).load(url).into(ivFullImage)
+            uri != null -> Glide.with(context).load(uri).into(ivFullImage)
+        }
+
+        ivClose.setOnClickListener { dialog.dismiss() }
         dialog.show()
     }
 

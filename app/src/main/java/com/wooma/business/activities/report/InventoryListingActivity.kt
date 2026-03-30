@@ -1,12 +1,20 @@
 package com.wooma.business.activities.report
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import android.widget.PopupWindow
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
+import com.bumptech.glide.Glide
+import com.wooma.business.customs.AttachmentUploadHelper
+import com.wooma.business.data.network.ApiClient
+import com.wooma.business.databinding.PopupCoverImageMenuBinding
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.wooma.business.R
 import com.wooma.business.activities.BaseActivity
@@ -39,6 +47,9 @@ import com.wooma.business.model.TenantReview
 import com.wooma.business.model.enums.ReportTypes
 import com.wooma.business.model.enums.TenantReportStatus
 import com.wooma.business.model.toCountItemList
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.RecyclerView
+import com.wooma.business.model.ReorderRoomRequest
 
 class InventoryListingActivity : BaseActivity() {
     private lateinit var adapter: InventoryRoomsAdapter
@@ -48,6 +59,9 @@ class InventoryListingActivity : BaseActivity() {
     var reportStatus = ""
     var reportType: PropertyReportType? = null
     var reportData: ReportData? = null
+    private var coverImageStorageKey: String? = null
+    private var pdfUrl: String? = null
+    private val CAMERA_REQUEST = 1001
 
     companion object {
         private const val TENANT_REQUEST_CODE = 2001
@@ -58,6 +72,10 @@ class InventoryListingActivity : BaseActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == TENANT_REQUEST_CODE && resultCode == android.app.Activity.RESULT_OK) {
             getTenantReviewsApi()
+        }
+        if (requestCode == CAMERA_REQUEST && resultCode == android.app.Activity.RESULT_OK) {
+            val uri = CameraActivity.pendingUris.firstOrNull() ?: return
+            uploadCoverImageApi(uri)
         }
     }
 
@@ -84,20 +102,51 @@ class InventoryListingActivity : BaseActivity() {
             reportId = reportId,
             reportStatus = reportStatus,
             reportType = reportType,
-            onDeleteRoom = { roomId, position ->
+            onDeleteRoom = { roomId ->
                 Utils.showDialogBox(
                     this,
                     "Delete Room",
                     "Are you sure you want to remove this room from the report?"
                 ) {
-                    deleteRoomApi(roomId ?: "", position)
+                    deleteRoomApi(roomId ?: "")
                 }
+            },
+            onReorder = { roomId, prevRank, nextRank ->
+                reorderRoomApi(roomId, prevRank, nextRank)
             }
         )
         binding.rvRooms.adapter = adapter
 
+        val touchCallback = object : ItemTouchHelper.Callback() {
+            override fun getMovementFlags(rv: RecyclerView, vh: RecyclerView.ViewHolder) =
+                if (adapter.isEditMode) makeMovementFlags(ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0)
+                else makeMovementFlags(0, 0)
+
+            override fun onMove(rv: RecyclerView, vh: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean {
+                adapter.onItemMove(vh.adapterPosition, target.adapterPosition)
+                return true
+            }
+
+            override fun onSwiped(vh: RecyclerView.ViewHolder, direction: Int) {}
+            override fun isLongPressDragEnabled() = false
+
+            override fun clearView(rv: RecyclerView, vh: RecyclerView.ViewHolder) {
+                super.clearView(rv, vh)
+                adapter.onDropCompleted(vh.adapterPosition)
+            }
+        }
+        val itemTouchHelper = ItemTouchHelper(touchCallback)
+        itemTouchHelper.attachToRecyclerView(binding.rvRooms)
+        adapter.itemTouchHelper = itemTouchHelper
+
         updateViewAccToStatus()
         binding.ivBack.setOnClickListener { finish() }
+
+        binding.tvEditRooms.setOnClickListener {
+            val editMode = !adapter.isEditMode
+            adapter.setEditMode(editMode)
+            binding.tvEditRooms.text = if (editMode) "Done" else "Edit"
+        }
 
         binding.tvExtendTime.setOnClickListener {
             startActivity(
@@ -131,7 +180,13 @@ class InventoryListingActivity : BaseActivity() {
                     .putExtra("reportId", reportId)
                     .putExtra("reportType", reportType)
                     .putExtra("assessor", reportData?.assessor)
+                    .putExtra("completionDate", reportData?.completionDate)
             )
+        }
+
+        binding.coverImageSection.setOnClickListener {
+            if (reportStatus != TenantReportStatus.IN_PROGRESS.value) return@setOnClickListener
+            showCoverImagePopup(it)
         }
 
         binding.btnCompleteReport.setOnClickListener {
@@ -157,9 +212,9 @@ class InventoryListingActivity : BaseActivity() {
         }
 
         binding.ivAddRoom.setOnClickListener {
-            AddCustomRoomDialog().show(
-                supportFragmentManager,
-                "InputBottomSheet"
+            startActivity(
+                android.content.Intent(this, SelectRoomActivity::class.java)
+                    .putExtra("reportId", reportId)
             )
         }
 
@@ -186,10 +241,11 @@ class InventoryListingActivity : BaseActivity() {
         if (reportStatus == TenantReportStatus.IN_PROGRESS.value) {
             binding.ivAddRoom.visibility = View.VISIBLE
             binding.btnCompleteReport.visibility = View.VISIBLE
+            binding.tvEditRooms.visibility = View.VISIBLE
         } else {
             binding.ivAddRoom.visibility = View.GONE
             binding.btnCompleteReport.visibility = View.GONE
-
+            binding.tvEditRooms.visibility = View.GONE
         }
     }
 
@@ -210,7 +266,7 @@ class InventoryListingActivity : BaseActivity() {
          adapter.updateList(roomsList)
      }*/
 
-    private fun deleteRoomApi(roomId: String, position: Int) {
+    private fun deleteRoomApi(roomId: String) {
         makeApiRequest(
             apiServiceClass = MyApi::class.java,
             context = this,
@@ -218,7 +274,7 @@ class InventoryListingActivity : BaseActivity() {
             requestAction = { apiService -> apiService.deleteRoom(reportId, roomId) },
             listener = object : ApiResponseListener<ApiResponse<Any>> {
                 override fun onSuccess(response: ApiResponse<Any>) {
-                    roomsList.removeAt(position)
+                    roomsList.removeAll { it.id == roomId }
                     adapter.updateList(roomsList)
                 }
 
@@ -233,14 +289,34 @@ class InventoryListingActivity : BaseActivity() {
         )
     }
 
+    private fun reorderRoomApi(roomId: String, prevRank: String?, nextRank: String?) {
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = false,
+            requestAction = { api ->
+                api.reorderRoom(reportId, roomId, ReorderRoomRequest(prev_rank = prevRank, next_rank = nextRank))
+            },
+            listener = object : ApiResponseListener<ApiResponse<Any>> {
+                override fun onSuccess(response: ApiResponse<Any>) {}
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    showToast(errorMessage?.error?.message ?: "Failed to reorder room")
+                }
+                override fun onError(throwable: Throwable) {
+                    showToast("Error: ${throwable.message}")
+                }
+            }
+        )
+    }
+
     private fun addNewRoomApi(request: AddNewRoomsRequest) {
         makeApiRequest(
             apiServiceClass = MyApi::class.java,
             context = this,
             showLoading = true,
             requestAction = { apiService -> apiService.addRomToReport(reportId, request) },
-            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
-                override fun onSuccess(response: ApiResponse<ReportData>) {
+            listener = object : ApiResponseListener<ApiResponse<ArrayList<ReportData>>> {
+                override fun onSuccess(response: ApiResponse<ArrayList<ReportData>>) {
                     if (response.success) {
                     } else {
                     }
@@ -271,6 +347,10 @@ class InventoryListingActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
                         reportData = response.data
+                        reportStatus = response.data.status ?: reportStatus
+                        updateViewAccToStatus()
+                        coverImageStorageKey = response.data.coverImageStorageKey
+                        updateCoverImageView()
                         roomsList.clear()
                         roomsList.addAll(response.data.rooms ?: ArrayList())
                         adapter.updateList(roomsList)
@@ -291,7 +371,17 @@ class InventoryListingActivity : BaseActivity() {
                                 response.data.status ?: ""
                             )
 
-                        if (response.data.status == TenantReportStatus.TENANT_REVIEW.value) {
+                        if (response.data.status == TenantReportStatus.IN_PROGRESS.value) {
+                            val rawDate = response.data.completionDate
+                            if (rawDate.isNotEmpty()) {
+                                try {
+                                    val inSdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+                                    val outSdf = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+                                    val parsed = inSdf.parse(rawDate)
+                                    if (parsed != null) binding.tvDate.text = outSdf.format(parsed)
+                                } catch (_: Exception) {}
+                            }
+                        } else if (response.data.status == TenantReportStatus.TENANT_REVIEW.value) {
                             getTenantReviewsApi()
                             binding.tvDate.text = "Tenant Review"
 
@@ -320,6 +410,7 @@ class InventoryListingActivity : BaseActivity() {
                                 R.drawable.bg_report_status
                             )
 
+                            pdfUrl = response.data.pdfUrl?.let { "${ApiClient.IMAGE_BASE_URL}$it" }
                             updateViewForCompletedReport()
                         }
                     } else {
@@ -373,6 +464,17 @@ class InventoryListingActivity : BaseActivity() {
 
     private fun updateViewForCompletedReport() {
         binding.completedReportLayout.visibility = View.VISIBLE
+        binding.viewFinalReport.setOnClickListener {
+            if (pdfUrl.isNullOrEmpty()) {
+                showToast("PDF not available yet")
+                return@setOnClickListener
+            }
+            startActivity(
+                Intent(this, PdfDownloadActivity::class.java)
+                    .putExtra(PdfDownloadActivity.EXTRA_PDF_URL, pdfUrl)
+                    .putExtra(PdfDownloadActivity.EXTRA_REPORT_ID, reportId)
+            )
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -410,6 +512,39 @@ class InventoryListingActivity : BaseActivity() {
 
         binding.tvReceivedSigns.text = "${count}/${data.size}"
         binding.tvTotalTenants.text = "Tenant (${data.size})"
+
+        binding.tvCancelSignatureRequest.setOnClickListener {
+            Utils.showDialogBox(
+                this,
+                "Cancel Signature Request",
+                "Are you sure you want to cancel the tenant review signature request?"
+            ) {
+                cancelSignatureRequestApi()
+            }
+        }
+    }
+
+    private fun cancelSignatureRequestApi() {
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = true,
+            requestAction = { api -> api.cancelSignatureRequest(reportId) },
+            listener = object : ApiResponseListener<ApiResponse<Any>> {
+                override fun onSuccess(response: ApiResponse<Any>) {
+                    showToast("Signature request cancelled")
+                    getReportByIdApi()
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    showToast(errorMessage?.error?.message ?: "Failed to cancel signature request")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    showToast("Error: ${throwable.message}")
+                }
+            }
+        )
     }
 
     private fun showCompleteInspectionBottomSheet() {
@@ -444,9 +579,11 @@ class InventoryListingActivity : BaseActivity() {
                         bottomSheet.dismiss()
                         finish()
                     }
+
                     override fun onFailure(errorMessage: ErrorResponse?) {
                         showToast(errorMessage?.error?.message ?: "Failed to complete report")
                     }
+
                     override fun onError(throwable: Throwable) {
                         showToast("Error: ${throwable.message}")
                     }
@@ -455,5 +592,108 @@ class InventoryListingActivity : BaseActivity() {
         }
 
         bottomSheet.show()
+    }
+
+    private fun updateCoverImageView() {
+        if (!coverImageStorageKey.isNullOrEmpty()) {
+            Glide.with(this)
+                .load("${ApiClient.IMAGE_BASE_URL}$coverImageStorageKey")
+                .centerCrop()
+                .into(binding.ivCoverImage)
+        } else {
+            binding.ivCoverImage.setImageDrawable(
+                ContextCompat.getDrawable(this, R.drawable.svg_img_placeholder)
+            )
+        }
+    }
+
+    private fun showCoverImagePopup(anchor: android.view.View) {
+        val popupBinding = PopupCoverImageMenuBinding.inflate(layoutInflater)
+        val popup = PopupWindow(
+            popupBinding.root,
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        )
+        popup.elevation = resources.getDimension(com.intuit.sdp.R.dimen._4sdp)
+
+        popupBinding.tvView.setOnClickListener {
+            popup.dismiss()
+            viewCoverImage()
+        }
+        popupBinding.tvTakeNewPhoto.setOnClickListener {
+            popup.dismiss()
+            CameraActivity.pendingUris.clear()
+            startActivityForResult(Intent(this, CameraActivity::class.java), CAMERA_REQUEST)
+        }
+        popupBinding.tvDelete.setOnClickListener {
+            popup.dismiss()
+            if (coverImageStorageKey.isNullOrEmpty()) return@setOnClickListener
+            Utils.showDialogBox(
+                this,
+                "Delete Cover Image",
+                "Are you sure you want to delete the cover image?"
+            ) {
+                patchCoverImageApi(null)
+            }
+        }
+
+        val xOffset = resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._12sdp)
+        popup.showAsDropDown(anchor, xOffset, 0)
+    }
+
+    private fun viewCoverImage() {
+        val url = "${ApiClient.IMAGE_BASE_URL}$coverImageStorageKey".takeIf { !coverImageStorageKey.isNullOrEmpty() } ?: return
+        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
+        val imageView = android.widget.ImageView(this).apply {
+            layoutParams = android.view.ViewGroup.LayoutParams(
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                android.view.ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
+            setOnClickListener { dialog.dismiss() }
+        }
+        Glide.with(this).load(url).into(imageView)
+        dialog.setContentView(imageView)
+        dialog.show()
+    }
+
+    private fun uploadCoverImageApi(uri: Uri) {
+        AttachmentUploadHelper.uploadForStorageKey(
+            activity = this,
+            uri = uri,
+            onSuccess = { storageKey -> patchCoverImageApi(storageKey) },
+            onError = { msg -> showToast("Upload failed: $msg") }
+        )
+    }
+
+    private fun patchCoverImageApi(storageKey: String?) {
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = true,
+            requestAction = { api ->
+                val json = if (storageKey != null)
+                    """{"cover_image_storage_key":"$storageKey"}"""
+                else
+                    """{"cover_image_storage_key":null}"""
+                val body = json.toRequestBody("application/json".toMediaType())
+                api.updateReport(reportId, body)
+            },
+            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
+                override fun onSuccess(response: ApiResponse<ReportData>) {
+                    coverImageStorageKey = storageKey
+                    updateCoverImageView()
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    showToast(errorMessage?.error?.message ?: "Failed to update cover image")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    showToast("Error: ${throwable.message}")
+                }
+            }
+        )
     }
 }

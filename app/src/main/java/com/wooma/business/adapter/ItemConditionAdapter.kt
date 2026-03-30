@@ -8,19 +8,17 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.RecyclerView
 import com.wooma.business.R
 import com.wooma.business.model.ConditionDAO
-import com.wooma.business.model.Rooms
 
-class ItemCondtionAdapter(
+class ItemConditionAdapter(
     val context: Context,
     private val originalList: MutableList<ConditionDAO>,
-    private val selectedValue : String,
+    private var selectedValue : String,
     private val onItemClick: (ConditionDAO?) -> Unit
-) : RecyclerView.Adapter<ItemCondtionAdapter.ViewHolder>() {
+) : RecyclerView.Adapter<ItemConditionAdapter.ViewHolder>() {
 
     private var selectedPostion = -1
     private var filteredList = originalList.toMutableList()
@@ -64,6 +62,7 @@ class ItemCondtionAdapter(
         }
         holder.itemView.setOnClickListener {
             selectedPostion = position
+            selectedValue = filteredList[position].name
             onItemClick(filteredList[position])
             notifyDataSetChanged()
         }

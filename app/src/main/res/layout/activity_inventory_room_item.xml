@@ -34,7 +34,7 @@
         android:layout_width="@dimen/_20sdp"
         android:layout_height="@dimen/_20sdp"
         android:layout_marginEnd="@dimen/_16sdp"
-        android:src="@drawable/svg_delete"
+        android:src="@drawable/svg_bin"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@id/ivBack"
         app:tint="@color/black" />
@@ -59,110 +59,283 @@
                 layout="@layout/add_image_layout"/>
 
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:id="@+id/regularLayout"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/sofiasans_regular"
+                        android:text="How is the condition?"
+                        android:textColor="@color/black"
+                        android:textSize="@dimen/_11ssp" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvCondition"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_3sdp"
+                        android:orientation="horizontal"
+                        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_12sdp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/sofiasans_regular"
+                        android:text="How is the cleanliness?"
+                        android:textColor="@color/black"
+                        android:textSize="@dimen/_11ssp" />
+
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/tvCleanliness"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_3sdp"
+                        android:orientation="horizontal"
+                        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+                </LinearLayout>
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_12sdp"
                     android:fontFamily="@font/sofiasans_regular"
-                    android:text="How is the condition?"
+                    android:text="Condition Note"
                     android:textColor="@color/black"
                     android:textSize="@dimen/_11ssp" />
 
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/rvCondition"
+                <EditText
+                    android:id="@+id/etNote"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_4sdp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_edittext"
+                    android:fontFamily="@font/sofiasans_regular"
+                    android:gravity="top"
+                    android:hint="Enter Condition note here..."
+                    android:imeOptions="actionDone"
+                    android:inputType="text"
+                    android:minHeight="@dimen/_100sdp"
+                    android:paddingStart="@dimen/_10sdp"
+                    android:paddingTop="@dimen/_10sdp"
+                    android:paddingEnd="@dimen/_10sdp"
+                    android:paddingBottom="@dimen/_10sdp"
+                    android:textColor="@color/black"
+                    android:textSize="@dimen/_12ssp" />
+
+                <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/_3sdp"
-                    android:orientation="horizontal"
-                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+                    android:layout_marginTop="@dimen/_12sdp"
+                    android:fontFamily="@font/sofiasans_regular"
+                    android:text="General Description"
+                    android:textColor="@color/black"
+                    android:textSize="@dimen/_11ssp" />
+
+                <EditText
+                    android:id="@+id/etDescription"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_4sdp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_edittext"
+                    android:fontFamily="@font/sofiasans_regular"
+                    android:gravity="top"
+                    android:hint="Enter Description here..."
+                    android:imeOptions="actionDone"
+                    android:inputType="text"
+                    android:minHeight="@dimen/_100sdp"
+                    android:paddingStart="@dimen/_10sdp"
+                    android:paddingTop="@dimen/_10sdp"
+                    android:paddingEnd="@dimen/_10sdp"
+                    android:paddingBottom="@dimen/_10sdp"
+                    android:textColor="@color/black"
+                    android:textSize="@dimen/_12ssp" />
 
             </LinearLayout>
 
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:id="@+id/inspectionLayout"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:orientation="vertical"
                 android:layout_marginTop="@dimen/_12sdp"
-                android:orientation="vertical">
+                android:visibility="gone">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:text="Any issues to report?"
                     android:fontFamily="@font/sofiasans_regular"
-                    android:text="How is the cleanliness?"
                     android:textColor="@color/black"
                     android:textSize="@dimen/_11ssp" />
 
-
-                <androidx.recyclerview.widget.RecyclerView
-                    android:id="@+id/tvCleanliness"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/_3sdp"
                     android:orientation="horizontal"
-                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+                    android:layout_marginTop="@dimen/_8sdp"
+                    android:weightSum="2">
+
+                    <TextView
+                        android:id="@+id/btnAllOk"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="@dimen/_4sdp"
+                        android:text="👍  All ok"
+                        android:gravity="center"
+                        android:paddingTop="@dimen/_10sdp"
+                        android:paddingBottom="@dimen/_10sdp"
+                        android:background="@drawable/bg_edittext"
+                        android:fontFamily="@font/sofiasans_regular"
+                        android:textColor="@color/black"
+                        android:textSize="@dimen/_12ssp" />
+
+                    <TextView
+                        android:id="@+id/btnIssuesFound"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="@dimen/_4sdp"
+                        android:text="🚩  Issues found"
+                        android:gravity="center"
+                        android:paddingTop="@dimen/_10sdp"
+                        android:paddingBottom="@dimen/_10sdp"
+                        android:background="@drawable/bg_edittext"
+                        android:fontFamily="@font/sofiasans_regular"
+                        android:textColor="@color/black"
+                        android:textSize="@dimen/_12ssp" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/issuesExpandedLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="@dimen/_12sdp"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Note what's wrong and what needs fixing"
+                        android:fontFamily="@font/sofiasans_regular"
+                        android:textColor="@color/black"
+                        android:textSize="@dimen/_11ssp" />
+
+                    <EditText
+                        android:id="@+id/etIssueNote"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_4sdp"
+                        android:background="@drawable/bg_edittext"
+                        android:fontFamily="@font/sofiasans_regular"
+                        android:gravity="top"
+                        android:hint="Describe the issue..."
+                        android:inputType="textMultiLine"
+                        android:minHeight="@dimen/_80sdp"
+                        android:paddingStart="@dimen/_10sdp"
+                        android:paddingTop="@dimen/_10sdp"
+                        android:paddingEnd="@dimen/_10sdp"
+                        android:paddingBottom="@dimen/_10sdp"
+                        android:textColor="@color/black"
+                        android:textSize="@dimen/_12ssp" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvConditionChips"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_8sdp"
+                        android:orientation="horizontal"
+                        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_12sdp"
+                        android:text="Priority"
+                        android:fontFamily="@font/sofiasans_regular"
+                        android:textColor="@color/black"
+                        android:textSize="@dimen/_11ssp" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:layout_marginTop="@dimen/_8sdp"
+                        android:weightSum="3">
+
+                        <TextView
+                            android:id="@+id/btnObservation"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginEnd="@dimen/_3sdp"
+                            android:text="Observation"
+                            android:gravity="center"
+                            android:paddingTop="@dimen/_8sdp"
+                            android:paddingBottom="@dimen/_8sdp"
+                            android:background="@drawable/bg_edittext"
+                            android:fontFamily="@font/sofiasans_regular"
+                            android:textColor="@color/black"
+                            android:textSize="@dimen/_10ssp" />
+
+                        <TextView
+                            android:id="@+id/btnActionRequired"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="@dimen/_3sdp"
+                            android:layout_marginEnd="@dimen/_3sdp"
+                            android:text="Action required"
+                            android:gravity="center"
+                            android:paddingTop="@dimen/_8sdp"
+                            android:paddingBottom="@dimen/_8sdp"
+                            android:background="@drawable/bg_edittext"
+                            android:fontFamily="@font/sofiasans_regular"
+                            android:textColor="@color/black"
+                            android:textSize="@dimen/_10ssp" />
+
+                        <TextView
+                            android:id="@+id/btnUrgent"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:layout_marginStart="@dimen/_3sdp"
+                            android:text="Urgent"
+                            android:gravity="center"
+                            android:paddingTop="@dimen/_8sdp"
+                            android:paddingBottom="@dimen/_8sdp"
+                            android:background="@drawable/bg_edittext"
+                            android:fontFamily="@font/sofiasans_regular"
+                            android:textColor="@color/black"
+                            android:textSize="@dimen/_10ssp" />
+
+                    </LinearLayout>
+
+                </LinearLayout>
 
             </LinearLayout>
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/_12sdp"
-                android:fontFamily="@font/sofiasans_regular"
-                android:text="Condition Note"
-                android:textColor="@color/black"
-                android:textSize="@dimen/_11ssp" />
-
-            <EditText
-                android:id="@+id/etNote"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/_4sdp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_edittext"
-                android:fontFamily="@font/sofiasans_regular"
-                android:gravity="top"
-                android:hint="Enter Condition note here..."
-                android:imeOptions="actionDone"
-                android:inputType="text"
-                android:minHeight="@dimen/_100sdp"
-                android:paddingStart="@dimen/_10sdp"
-                android:paddingTop="@dimen/_10sdp"
-                android:paddingEnd="@dimen/_10sdp"
-                android:paddingBottom="@dimen/_10sdp"
-                android:textColor="@color/black"
-                android:textSize="@dimen/_12ssp" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/_12sdp"
-                android:fontFamily="@font/sofiasans_regular"
-                android:text="General Description"
-                android:textColor="@color/black"
-                android:textSize="@dimen/_11ssp" />
-
-            <EditText
-                android:id="@+id/etDescription"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/_4sdp"
-                android:layout_weight="1"
-                android:background="@drawable/bg_edittext"
-                android:fontFamily="@font/sofiasans_regular"
-                android:gravity="top"
-                android:hint="Enter Description here..."
-                android:imeOptions="actionDone"
-                android:inputType="text"
-                android:minHeight="@dimen/_100sdp"
-                android:paddingStart="@dimen/_10sdp"
-                android:paddingTop="@dimen/_10sdp"
-                android:paddingEnd="@dimen/_10sdp"
-                android:paddingBottom="@dimen/_10sdp"
-                android:textColor="@color/black"
-                android:textSize="@dimen/_12ssp" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

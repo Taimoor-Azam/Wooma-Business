@@ -109,11 +109,6 @@ class CompleteReportActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<ArrayList<ReportData>>) {
                     if (response.success) {
                         showToast(response.message)
-                        val intent =
-                            Intent(this@CompleteReportActivity, MainActivity::class.java).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                            }
-                        startActivity(intent)
                         finish()
                     } else {
                     }
@@ -145,11 +140,6 @@ class CompleteReportActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
                         showToast("Report successfully completed.")
-                        val intent =
-                            Intent(this@CompleteReportActivity, MainActivity::class.java).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                            }
-                        startActivity(intent)
                         finish()
                     } else {
                     }

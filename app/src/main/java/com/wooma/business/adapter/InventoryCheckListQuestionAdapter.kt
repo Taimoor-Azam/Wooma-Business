@@ -12,8 +12,9 @@ import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.Glide
 import com.wooma.business.R
+import com.wooma.business.data.network.ApiClient
+import com.wooma.business.model.ImageItem
 import com.wooma.business.model.Question
 
 class InventoryCheckListQuestionAdapter(
@@ -127,18 +128,22 @@ class InventoryCheckListQuestionAdapter(
             }
         }
 
-        // Photos — merge remote URLs from the model with locally captured URIs
-        val remoteUrls = item.checklist_question_answer_attachment?.attachments
-            ?.mapNotNull { it.url } ?: emptyList()
+        // Photos — merge remote attachments with locally captured URIs
+        val remoteImages = item.checklist_question_answer_attachment?.attachments
+            ?.mapNotNull { att ->
+                val id = att.id ?: return@mapNotNull null
+                val url = att.url ?: att.storageKey?.let { "${ApiClient.IMAGE_BASE_URL}$it" } ?: return@mapNotNull null
+                ImageItem.Remote(id, url)
+            } ?: emptyList()
         val localUris = localPhotos[questionId] ?: emptyList<Uri>()
-        val photoList = mutableListOf<Any>().apply {
-            addAll(remoteUrls)
-            addAll(localUris)
+        val photoList = mutableListOf<ImageItem>().apply {
+            addAll(remoteImages)
+            addAll(localUris.map { ImageItem.Local(it) })
         }
 
         holder.rvImages.layoutManager =
             LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-        holder.rvImages.adapter = MixedPhotoAdapter(photoList)
+        holder.rvImages.adapter = ImageAdapter(photoList, showDelete = !isReadOnly)
     }
 
     /** Called by the Activity after CameraActivity returns photos for a specific question. */
@@ -174,26 +179,4 @@ class InventoryCheckListQuestionAdapter(
         notifyDataSetChanged()
     }
 
-    /** Read-only adapter for displaying a mixed list of remote URL strings and local Uris. */
-    private inner class MixedPhotoAdapter(private val items: List<Any>) :
-        RecyclerView.Adapter<MixedPhotoAdapter.PhotoHolder>() {
-
-        inner class PhotoHolder(view: View) : RecyclerView.ViewHolder(view) {
-            val image: ImageView = view.findViewById(R.id.image)
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PhotoHolder {
-            val view = LayoutInflater.from(parent.context)
-                .inflate(R.layout.item_image, parent, false)
-            // Hide the delete button — photos here are display-only
-            view.findViewById<ImageView>(R.id.delete).visibility = View.GONE
-            return PhotoHolder(view)
-        }
-
-        override fun getItemCount() = items.size
-
-        override fun onBindViewHolder(holder: PhotoHolder, position: Int) {
-            Glide.with(context).load(items[position]).into(holder.image)
-        }
-    }
 }

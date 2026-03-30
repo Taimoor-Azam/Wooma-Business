@@ -15,6 +15,7 @@ import com.wooma.business.activities.report.InventoryRoomItemActivity
 import com.wooma.business.data.network.ApiClient
 import com.wooma.business.model.ImageItem
 import com.wooma.business.model.RoomItem
+import com.wooma.business.model.PropertyReportType
 import com.wooma.business.model.enums.TenantReportStatus
 import java.util.Locale
 
@@ -24,6 +25,7 @@ class InventoryRoomItemsAdapter(
     val reportId: String,
     val roomId: String,
     val reportStatus: String,
+    val reportType: PropertyReportType? = null,
 ) : RecyclerView.Adapter<InventoryRoomItemsAdapter.ViewHolder>() {
 
     private var filteredList = originalList.toMutableList()
@@ -118,6 +120,7 @@ class InventoryRoomItemsAdapter(
                         filteredList[position]
                     ).putExtra("roomId", roomId)
                         .putExtra("reportId", reportId)
+                        .putExtra("reportType", reportType)
                 )
             }
         }

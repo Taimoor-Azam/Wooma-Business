@@ -73,7 +73,7 @@
             android:background="@drawable/bg_edittext"
             android:hint="Enter Postal Code"
             android:imeOptions="actionSearch"
-            android:inputType="text"
+            android:inputType="textCapCharacters"
             android:maxLines="1"
             android:paddingStart="@dimen/_10sdp"
             android:paddingTop="@dimen/_10sdp"

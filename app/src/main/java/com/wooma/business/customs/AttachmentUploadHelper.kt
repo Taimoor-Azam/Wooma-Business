@@ -25,6 +25,52 @@ object AttachmentUploadHelper {
     private val s3Client = OkHttpClient()
 
     /**
+     * Gets a presigned URL, uploads the image to S3, and returns the storage key.
+     * Use this when the caller handles the record creation (e.g. PATCH report cover image).
+     */
+    fun uploadForStorageKey(
+        activity: Activity,
+        uri: Uri,
+        onSuccess: (storageKey: String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        val fileInfo = getFileInfo(activity, uri)
+        if (fileInfo == null) {
+            onError("Could not read file")
+            return
+        }
+        val (originalName, mimeType, _) = fileInfo
+
+        activity.makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = activity,
+            showLoading = true,
+            requestAction = { api -> api.getPresignedUrl(originalName, mimeType) },
+            listener = object : ApiResponseListener<ApiResponse<PresignedUrlResponse>> {
+                override fun onSuccess(response: ApiResponse<PresignedUrlResponse>) {
+                    val presignedUrl = response.data.url
+                    val storageKey = response.data.key
+                    Thread {
+                        val uploaded = putToS3(activity, uri, presignedUrl, mimeType)
+                        activity.runOnUiThread {
+                            if (uploaded) onSuccess(storageKey)
+                            else onError("Failed to upload image to storage")
+                        }
+                    }.start()
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    onError(errorMessage?.error?.message ?: "Failed to get upload URL")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    onError(throwable.message ?: "Network error")
+                }
+            }
+        )
+    }
+
+    /**
      * Uploads a list of image URIs for a given entity.
      * Calls back [onComplete] with the list of created AttachmentRecords,
      * or [onError] if any step fails.

@@ -40,7 +40,7 @@
             android:layout_width="@dimen/_18sdp"
             android:layout_height="@dimen/_18sdp"
             android:layout_gravity="center"
-            android:src="@drawable/svg_delete" />
+            android:src="@drawable/svg_bin" />
 
 
     </LinearLayout>

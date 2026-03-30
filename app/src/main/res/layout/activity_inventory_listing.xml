@@ -54,7 +54,7 @@
                 android:layout_gravity="center"
                 android:fontFamily="@font/sofiasans_regular"
                 android:gravity="center"
-                android:text="22 Nov 2025"
+                android:text="--"
                 android:textColor="@color/light_grey"
                 android:textSize="@dimen/_12ssp" />
 
@@ -114,18 +114,44 @@
                 android:padding="@dimen/_10sdp"
                 android:visibility="gone">
 
-                <androidx.appcompat.widget.AppCompatTextView
-                    android:id="@+id/tvExtendTime"
-                    android:layout_width="wrap_content"
+                <LinearLayout
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:background="@drawable/bg_border_info"
-                    android:drawableStart="@drawable/svg_time_extended"
-                    android:drawablePadding="@dimen/_5sdp"
-                    android:fontFamily="@font/sofiasans_bold"
-                    android:gravity="center"
-                    android:padding="@dimen/_4sdp"
-                    android:text="@string/extend_time"
-                    android:textColor="@color/blue" />
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <androidx.appcompat.widget.AppCompatTextView
+                        android:id="@+id/tvExtendTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_border_info"
+                        android:drawableStart="@drawable/svg_time_extended"
+                        android:drawablePadding="@dimen/_5sdp"
+                        android:fontFamily="@font/sofiasans_bold"
+                        android:gravity="center"
+                        android:padding="@dimen/_4sdp"
+                        android:text="@string/extend_time"
+                        android:textColor="@color/blue" />
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:layout_weight="1" />
+
+                    <TextView
+                        android:id="@+id/tvCancelSignatureRequest"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_border_info"
+                        android:drawableStart="@drawable/svg_cancel_circle"
+                        android:drawablePadding="@dimen/_4sdp"
+                        android:fontFamily="@font/sofiasans_bold"
+                        android:padding="@dimen/_4sdp"
+                        android:text="Signature Request"
+                        android:textColor="@color/red"
+                        android:textSize="@dimen/_11ssp" />
+
+                </LinearLayout>
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -241,8 +267,8 @@
                 android:layout_marginEnd="@dimen/_12sdp"
                 android:background="@drawable/bg_report_completed"
                 android:orientation="vertical"
-                android:visibility="gone"
-                android:padding="@dimen/_10sdp">
+                android:padding="@dimen/_10sdp"
+                android:visibility="gone">
 
                 <ImageView
                     android:layout_width="wrap_content"
@@ -271,6 +297,56 @@
                     android:textAllCaps="false"
                     android:textColor="@color/white"
                     android:textSize="@dimen/_14ssp" />
+
+            </LinearLayout>
+
+            <!-- Report cover image -->
+            <LinearLayout
+                android:id="@+id/coverImageSection"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="@dimen/_12sdp"
+                android:layout_marginTop="@dimen/_12sdp"
+                android:layout_marginEnd="@dimen/_12sdp"
+                android:background="@drawable/bg_edittext"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:padding="@dimen/_10sdp">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/ivCoverImage"
+                    android:layout_width="@dimen/_50sdp"
+                    android:layout_height="@dimen/_50sdp"
+                    android:contentDescription="Cover image"
+                    android:scaleType="centerCrop"
+                    android:src="@drawable/svg_img_placeholder"
+                    app:shapeAppearanceOverlay="@style/RoundedCoverImage" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/_10sdp"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/sofiasans_bold"
+                        android:text="Report cover image"
+                        android:textColor="@color/black"
+                        android:textSize="@dimen/_14ssp" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_2sdp"
+                        android:fontFamily="@font/sofiasans_regular"
+                        android:text="Usually the front of the property"
+                        android:textColor="@color/light_grey"
+                        android:textSize="@dimen/_11ssp" />
+
+                </LinearLayout>
 
             </LinearLayout>
 
@@ -304,16 +380,16 @@
                         android:textColor="@color/black"
                         android:textSize="@dimen/_13ssp" />
 
-                    <ImageView
-                        android:id="@+id/ivMenu"
+                    <TextView
+                        android:id="@+id/tvEditRooms"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_gravity="center"
-                        android:contentDescription="Back"
-                        android:src="@drawable/svg_dots"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:tint="@color/black" />
+                        android:fontFamily="@font/sofiasans_bold"
+                        android:text="Edit"
+                        android:textColor="@color/green"
+                        android:textSize="@dimen/_13ssp"
+                        android:visibility="gone" />
                 </LinearLayout>
 
                 <androidx.recyclerview.widget.RecyclerView

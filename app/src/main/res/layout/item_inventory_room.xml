@@ -6,16 +6,28 @@
     android:layout_height="wrap_content"
     android:paddingTop="@dimen/_12sdp">
 
+    <ImageView
+        android:id="@+id/ivDragHandle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/svg_drag_icon"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@+id/tvAddress"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@+id/tvAddress"
+        app:tint="@color/lbls_color" />
+
     <TextView
         android:id="@+id/tvAddress"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/_4sdp"
         android:fontFamily="@font/sofiasans_regular"
         android:text="Property name"
         android:textColor="@android:color/black"
         android:textSize="@dimen/_14ssp"
         app:layout_constraintEnd_toStartOf="@id/ivSync"
-        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintStart_toEndOf="@id/ivDragHandle"
         app:layout_constraintTop_toTopOf="parent" />
 
     <ImageView
@@ -25,17 +37,32 @@
         android:layout_marginEnd="@dimen/_8sdp"
         android:src="@drawable/svg_synced"
         app:layout_constraintBottom_toBottomOf="@+id/tvAddress"
-        app:layout_constraintEnd_toStartOf="@id/imgArrow"
+        app:layout_constraintEnd_toStartOf="@id/flAction"
         app:layout_constraintTop_toTopOf="@id/tvAddress" />
 
-    <ImageView
-        android:id="@+id/imgArrow"
+    <FrameLayout
+        android:id="@+id/flAction"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:src="@drawable/svg_right_arrow"
         app:layout_constraintBottom_toBottomOf="@+id/tvAddress"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@id/tvAddress" />
+        app:layout_constraintTop_toTopOf="@+id/tvAddress">
+
+        <ImageView
+            android:id="@+id/imgArrow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/svg_right_arrow"
+            android:visibility="visible" />
+
+        <ImageView
+            android:id="@+id/ivDelete"
+            android:layout_width="@dimen/_15sdp"
+            android:layout_height="@dimen/_15sdp"
+            android:src="@drawable/svg_bin"
+            android:visibility="gone" />
+
+    </FrameLayout>
 
     <View
         android:layout_width="match_parent"
@@ -43,4 +70,5 @@
         android:layout_marginTop="@dimen/_12sdp"
         android:background="@color/divider_clr"
         app:layout_constraintTop_toBottomOf="@+id/tvAddress" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

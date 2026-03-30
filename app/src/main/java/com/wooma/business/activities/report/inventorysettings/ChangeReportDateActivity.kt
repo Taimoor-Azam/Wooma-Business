@@ -30,6 +30,17 @@ class ChangeReportDateActivity : BaseActivity() {
         applyWindowInsetsToBinding(binding.root)
 
         reportId = intent.getStringExtra("reportId") ?: ""
+        val completionDate = intent.getStringExtra("completionDate") ?: ""
+
+        val calendar = Calendar.getInstance()
+        if (completionDate.isNotEmpty()) {
+            try {
+                val sdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                val date = sdf.parse(completionDate)
+                if (date != null) calendar.time = date
+            } catch (_: Exception) {}
+        }
+        binding.calendarView.date = calendar.timeInMillis
 
         binding.ivBack.setOnClickListener { finish() }
 
@@ -66,6 +77,8 @@ class ChangeReportDateActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
                         showToast("Completion Date changed successfully")
+                        setResult(RESULT_OK, android.content.Intent().putExtra("completionDate", selectedDate))
+                        finish()
                     }
                 }
 

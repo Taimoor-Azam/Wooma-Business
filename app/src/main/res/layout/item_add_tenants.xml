@@ -24,7 +24,7 @@
             android:id="@+id/ivDelete"
             android:layout_width="@dimen/_15sdp"
             android:layout_height="@dimen/_16sdp"
-            android:src="@drawable/svg_delete" />
+            android:src="@drawable/svg_bin" />
     </LinearLayout>
 
     <TextView

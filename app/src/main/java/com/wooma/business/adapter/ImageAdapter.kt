@@ -42,6 +42,13 @@ class ImageAdapter(
             is ImageItem.Remote -> Glide.with(holder.itemView.context).load(item.url).into(holder.image)
         }
 
+        holder.image.setOnClickListener {
+            when (item) {
+                is ImageItem.Local -> Utils.showFullScreenImage(holder.itemView.context, uri = item.uri)
+                is ImageItem.Remote -> Utils.showFullScreenImage(holder.itemView.context, url = item.url)
+            }
+        }
+
         if (!showDelete) {
             holder.delete.visibility = View.GONE
         } else {

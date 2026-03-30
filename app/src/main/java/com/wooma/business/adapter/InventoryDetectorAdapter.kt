@@ -14,11 +14,13 @@ import com.wooma.business.activities.report.otherItems.AddEditKeysActivity
 import com.wooma.business.data.network.ApiClient
 import com.wooma.business.model.DetectorItem
 import com.wooma.business.model.ImageItem
+import com.wooma.business.model.enums.TenantReportStatus
 
 class InventoryDetectorAdapter(
     val context: Context,
     private val originalList: MutableList<DetectorItem>,
     val reportId: String,
+    val reportStatus: String = "",
 ) : RecyclerView.Adapter<InventoryDetectorAdapter.ViewHolder>() {
 
     private var filteredList = originalList.toMutableList()
@@ -50,6 +52,7 @@ class InventoryDetectorAdapter(
         holder.rvImages.adapter = ImageAdapter(imageItems, showDelete = false)
 
         holder.itemView.setOnClickListener {
+            if (reportStatus != TenantReportStatus.IN_PROGRESS.value) return@setOnClickListener
             context.startActivity(
                 Intent(context, AddEditDetectorActivity::class.java).putExtra(
                     "detectorItem",

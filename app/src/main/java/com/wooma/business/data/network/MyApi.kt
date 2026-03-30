@@ -103,12 +103,24 @@ interface MyApi {
         @Path("id") id: String,
         @Query("include_rooms") include_rooms: Boolean,
         @Query("include_counts") include_counts: Boolean,
+        @Query("include_attachments") include_attachments: Boolean? = null,
     ): Call<ApiResponse<ReportData>>
 
     @GET("/api/v1/postcodes/{postcode}")
     fun getPostCodes(
         @Path("postcode") postcode: String,
     ): Call<ApiResponse<ArrayList<PostalAddress>>>
+
+    @PATCH("/api/v1/tenant-reports/{id}")
+    fun updateReport(
+        @Path("id") id: String,
+        @Body request: okhttp3.RequestBody
+    ): Call<ApiResponse<ReportData>>
+
+    @POST("/api/v1/tenant-reports/{id}/cencel-signature-request")
+    fun cancelSignatureRequest(
+        @Path("id") id: String
+    ): Call<ApiResponse<Any>>
 
     @DELETE("/api/v1/tenant-reports/{id}")
     fun archiveReport(
@@ -179,7 +191,7 @@ interface MyApi {
     fun addRomToReport(
         @Path("id") id: String,
         @Body request: AddNewRoomsRequest
-    ): Call<ApiResponse<ReportData>>
+    ): Call<ApiResponse<ArrayList<ReportData>>>
 
     @PATCH("/api/v1/tenant-reports/{id}/change-report-type")
     fun changeReportType(
@@ -285,7 +297,7 @@ interface MyApi {
         @Path("report_id") report_id: String,
         @Path("room_id") room_id: String,
         @Body request: AddNewRoomItemsRequest
-    ): Call<ApiResponse<ReportData>>
+    ): Call<ApiResponse<ArrayList<ReportData>>>
 
     @DELETE("/api/v1/tenant-report/{report_id}/room/{room_id}/room-items/{id}")
     fun deleteRoomItem(
@@ -367,6 +379,13 @@ interface MyApi {
     fun deleteRoom(
         @Path("report_id") reportId: String,
         @Path("id") roomId: String
+    ): Call<ApiResponse<Any>>
+
+    @PATCH("/api/v1/tenant-report/{report_id}/rooms/{room_id}/reorder")
+    fun reorderRoom(
+        @Path("report_id") report_id: String,
+        @Path("room_id") room_id: String,
+        @Body request: com.wooma.business.model.ReorderRoomRequest
     ): Call<ApiResponse<Any>>
 
     // Checklist status

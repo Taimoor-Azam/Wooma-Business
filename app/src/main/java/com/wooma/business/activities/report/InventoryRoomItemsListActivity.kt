@@ -17,6 +17,7 @@ import com.wooma.business.model.ErrorResponse
 import com.wooma.business.model.ReportData
 import com.wooma.business.model.RoomItem
 import com.wooma.business.model.RoomsResponse
+import com.wooma.business.model.PropertyReportType
 import com.wooma.business.model.enums.TenantReportStatus
 
 class InventoryRoomItemsListActivity : BaseActivity() {
@@ -26,6 +27,7 @@ class InventoryRoomItemsListActivity : BaseActivity() {
     var reportId = ""
     var roomId = ""
     var reportStatus = ""
+    var reportType: PropertyReportType? = null
     val roomItems = mutableListOf<RoomItem>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -40,6 +42,7 @@ class InventoryRoomItemsListActivity : BaseActivity() {
         reportStatus = intent.getStringExtra("reportStatus") ?: ""
         reportId = intent.getStringExtra("reportId") ?: ""
         roomId = intent.getStringExtra("roomId") ?: ""
+        reportType = intent.getParcelableExtra("reportType")
 
         if (!roomName.isNullOrEmpty()) {
             binding.tvTitle.text = roomName
@@ -49,14 +52,16 @@ class InventoryRoomItemsListActivity : BaseActivity() {
             binding.btnAddItem.visibility = View.INVISIBLE
         }
 
-        adapter = InventoryRoomItemsAdapter(this, roomItems, reportId, roomId, reportStatus)
+        adapter =
+            InventoryRoomItemsAdapter(this, roomItems, reportId, roomId, reportStatus, reportType)
         binding.rvRoomItems.adapter = adapter
 
         binding.ivBack.setOnClickListener { finish() }
         binding.btnAddItem.setOnClickListener {
-            AddCustomRoomDialog("Add another room Item").show(
-                supportFragmentManager,
-                "InputBottomSheet"
+            startActivity(
+                android.content.Intent(this, SelectRoomItemActivity::class.java)
+                    .putExtra("reportId", reportId)
+                    .putExtra("roomId", roomId)
             )
         }
 
@@ -112,8 +117,8 @@ class InventoryRoomItemsListActivity : BaseActivity() {
                     request
                 )
             },
-            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
-                override fun onSuccess(response: ApiResponse<ReportData>) {
+            listener = object : ApiResponseListener<ApiResponse<ArrayList<ReportData>>> {
+                override fun onSuccess(response: ApiResponse<ArrayList<ReportData>>) {
                     if (response.success) {
                     } else {
                     }

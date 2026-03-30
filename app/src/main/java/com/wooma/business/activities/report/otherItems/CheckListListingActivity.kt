@@ -254,10 +254,14 @@ class CheckListListingActivity : BaseActivity() {
                     if (isActive) {
                         getReportByIdApi(id)
                         binding.tvInfo.visibility = View.VISIBLE
+                        binding.rvInfo.visibility = View.VISIBLE
                         binding.tvQuestion.visibility = View.VISIBLE
+                        binding.rvQuestions.visibility = View.VISIBLE
                     } else {
                         binding.tvInfo.visibility = View.GONE
+                        binding.rvInfo.visibility = View.GONE
                         binding.tvQuestion.visibility = View.GONE
+                        binding.rvQuestions.visibility = View.GONE
                     }
                 }
 
@@ -293,10 +297,14 @@ class CheckListListingActivity : BaseActivity() {
                         if (isActive) {
                             getReportByIdApi(checklistId)
                             binding.tvInfo.visibility = View.VISIBLE
+                            binding.rvInfo.visibility = View.VISIBLE
                             binding.tvQuestion.visibility = View.VISIBLE
+                            binding.rvQuestions.visibility = View.VISIBLE
                         } else {
                             binding.tvInfo.visibility = View.GONE
+                            binding.rvInfo.visibility = View.GONE
                             binding.tvQuestion.visibility = View.GONE
+                            binding.rvQuestions.visibility = View.GONE
                         }
                     }
                 }

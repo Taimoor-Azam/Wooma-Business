@@ -49,9 +49,8 @@ class InventoryOtherItemsAdapter(
                 "Keys" -> Intent(context, KeysListingActivity::class.java)
                 "Detectors" -> Intent(context, DetectorListingActivity::class.java)
                 else -> Intent(context, CheckListListingActivity::class.java)
-                    .putExtra("reportStatus", reportStatus)
             }
-            context.startActivity(intent.putExtra("reportId", reportId))
+            context.startActivity(intent.putExtra("reportId", reportId).putExtra("reportStatus", reportStatus))
         }
 
         holder.ivIcon.setImageDrawable(

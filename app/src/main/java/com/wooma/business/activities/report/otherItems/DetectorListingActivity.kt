@@ -3,6 +3,8 @@ package com.wooma.business.activities.report.otherItems
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import android.view.View
+import com.wooma.business.model.enums.TenantReportStatus
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.adapter.InventoryDetectorAdapter
 import com.wooma.business.data.network.ApiResponseListener
@@ -20,6 +22,7 @@ class DetectorListingActivity : BaseActivity() {
     private val detectorList = mutableListOf<DetectorItem>()
     private lateinit var binding: ActivityInventoryDetectorListBinding
     var reportId = ""
+    var reportStatus = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,11 +32,14 @@ class DetectorListingActivity : BaseActivity() {
         applyWindowInsetsToBinding(binding.root)
 
         reportId = intent.getStringExtra("reportId") ?: ""
+        reportStatus = intent.getStringExtra("reportStatus") ?: ""
 
-        adapter = InventoryDetectorAdapter(this, detectorList, reportId)
+        adapter = InventoryDetectorAdapter(this, detectorList, reportId, reportStatus)
 
         binding.rvMeters.adapter = adapter
         binding.ivBack.setOnClickListener { finish() }
+
+        if (reportStatus != TenantReportStatus.IN_PROGRESS.value) binding.ivAdd.visibility = View.GONE
 
         binding.ivAdd.setOnClickListener {
             startActivity(

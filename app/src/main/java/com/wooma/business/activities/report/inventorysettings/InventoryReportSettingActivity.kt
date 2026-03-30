@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import androidx.activity.result.contract.ActivityResultContracts
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.activities.MainActivity
 import com.wooma.business.customs.Utils
@@ -30,6 +31,13 @@ class InventoryReportSettingActivity : BaseActivity() {
 
     var assessor: Assessor? = null
     var reportType: PropertyReportType? = null
+    var completionDate = ""
+
+    private val changeDateLauncher = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode == RESULT_OK) {
+            completionDate = result.data?.getStringExtra("completionDate") ?: completionDate
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,6 +50,7 @@ class InventoryReportSettingActivity : BaseActivity() {
 
         assessor = intent.getParcelableExtra("assessor")
         reportType = intent.getParcelableExtra("reportType")
+        completionDate = intent.getStringExtra("completionDate") ?: ""
 
         if (reportId.isNotEmpty()) {
             binding.tvReportId.text = reportId
@@ -95,7 +104,8 @@ class InventoryReportSettingActivity : BaseActivity() {
         binding.dateLayout.setOnClickListener {
             val intent =
                 Intent(this, ChangeReportDateActivity::class.java).putExtra("reportId", reportId)
-            startActivity(intent)
+                    .putExtra("completionDate", completionDate)
+            changeDateLauncher.launch(intent)
         }
 
         binding.archiveReportLayout.setOnClickListener {

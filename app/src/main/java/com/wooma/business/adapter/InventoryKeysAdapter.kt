@@ -13,6 +13,7 @@ import com.wooma.business.activities.report.otherItems.AddEditKeysActivity
 import com.wooma.business.activities.report.otherItems.AddEditMeterActivity
 import com.wooma.business.data.network.ApiClient
 import com.wooma.business.model.ImageItem
+import com.wooma.business.model.enums.TenantReportStatus
 import com.wooma.business.model.KeyItem
 import com.wooma.business.model.Meter
 
@@ -20,6 +21,7 @@ class InventoryKeysAdapter(
     val context: Context,
     private val originalList: MutableList<KeyItem>,
     val reportId: String,
+    val reportStatus: String = "",
 ) : RecyclerView.Adapter<InventoryKeysAdapter.ViewHolder>() {
 
     private var filteredList = originalList.toMutableList()
@@ -51,6 +53,7 @@ class InventoryKeysAdapter(
         holder.rvImages.adapter = ImageAdapter(imageItems, showDelete = false)
 
         holder.itemView.setOnClickListener {
+            if (reportStatus != TenantReportStatus.IN_PROGRESS.value) return@setOnClickListener
             context.startActivity(
                 Intent(context, AddEditKeysActivity::class.java).putExtra(
                     "keyItem",

@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="@drawable/bg_edittext"
+    android:elevation="@dimen/_4sdp"
+    android:minWidth="@dimen/_150sdp"
+    android:orientation="vertical"
+    android:padding="@dimen/_4sdp">
+
+    <TextView
+        android:id="@+id/tvView"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/sofiasans_regular"
+        android:padding="@dimen/_12sdp"
+        android:text="View"
+        android:textColor="@color/black"
+        android:textSize="@dimen/_14ssp" />
+
+    <TextView
+        android:id="@+id/tvTakeNewPhoto"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/sofiasans_regular"
+        android:padding="@dimen/_12sdp"
+        android:text="Take new photo"
+        android:textColor="@color/black"
+        android:textSize="@dimen/_14ssp" />
+
+    <TextView
+        android:id="@+id/tvDelete"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:fontFamily="@font/sofiasans_regular"
+        android:padding="@dimen/_12sdp"
+        android:text="Delete"
+        android:textColor="@color/red"
+        android:textSize="@dimen/_14ssp" />
+
+</LinearLayout>

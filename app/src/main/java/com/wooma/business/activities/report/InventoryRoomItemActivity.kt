@@ -4,26 +4,33 @@ import android.app.Activity
 import com.wooma.business.data.network.ApiClient
 import com.wooma.business.model.ImageItem
 import android.content.Intent
+import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.business.R
 import com.wooma.business.activities.BaseActivity
+import com.wooma.business.adapter.ConditionChipAdapter
 import com.wooma.business.adapter.ImageAdapter
-import com.wooma.business.adapter.ItemCondtionAdapter
+import com.wooma.business.adapter.ItemConditionAdapter
 import com.wooma.business.customs.AttachmentUploadHelper
 import com.wooma.business.customs.Utils
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
 import com.wooma.business.data.network.makeApiRequest
+import com.wooma.business.data.network.showToast
 import com.wooma.business.databinding.ActivityInventoryRoomItemBinding
 import com.wooma.business.databinding.AddImageLayoutBinding
 import com.wooma.business.model.ApiResponse
 import com.wooma.business.model.ConditionDAO
 import com.wooma.business.model.ErrorResponse
+import com.wooma.business.model.PropertyReportType
 import com.wooma.business.model.ReportData
 import com.wooma.business.model.RoomItem
 import com.wooma.business.model.UpdateRoomItemRequest
+import com.wooma.business.model.UpsertRoomInspectionRequest
+import com.wooma.business.model.enums.ReportTypes
 import java.util.Locale
 
 class InventoryRoomItemActivity : BaseActivity() {
@@ -34,6 +41,13 @@ class InventoryRoomItemActivity : BaseActivity() {
     var roomItems: RoomItem? = null
     var reportId = ""
     var roomId = ""
+
+    var reportType: PropertyReportType? = null
+    var isInspection = false
+    var isIssue: Boolean = false
+    var selectedPriority: String? = null
+    private val conditionChips = listOf("Marked", "Scuffed", "Stained", "Loose fitting", "Cracked", "Damp", "Mould", "Faded")
+    private val selectedChips = mutableSetOf<String>()
 
     private val capturedUris = mutableListOf<Uri>()
     private val allImages = mutableListOf<ImageItem>()
@@ -67,6 +81,9 @@ class InventoryRoomItemActivity : BaseActivity() {
         reportId = intent.getStringExtra("reportId") ?: ""
         roomId = intent.getStringExtra("roomId") ?: ""
 
+        reportType = intent.getParcelableExtra("reportType")
+        isInspection = reportType?.type_code?.lowercase() == ReportTypes.INSPECTION.value
+
         if (roomItems != null) {
             binding.tvTitle.text = roomItems?.name ?: ""
 
@@ -85,23 +102,62 @@ class InventoryRoomItemActivity : BaseActivity() {
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
 
             binding.rvCondition.adapter =
-                ItemCondtionAdapter(this, conditionItems, selectedCondition) {
+                ItemConditionAdapter(this, conditionItems, selectedCondition) {
                     selectedCondition = it?.name ?: ""
                 }
             binding.tvCleanliness.adapter =
-                ItemCondtionAdapter(this, conditionItems, selectedCleanliness) {
+                ItemConditionAdapter(this, conditionItems, selectedCleanliness) {
                     selectedCleanliness = it?.name ?: ""
                 }
         }
 
+        if (isInspection) {
+            binding.regularLayout.visibility = android.view.View.GONE
+            binding.inspectionLayout.visibility = android.view.View.VISIBLE
+            binding.btnSave.text = "Done"
+
+            setupConditionChipsRecycler()
+
+            binding.btnAllOk.setOnClickListener {
+                isIssue = false
+                binding.issuesExpandedLayout.visibility = android.view.View.GONE
+                updateToggleButtonStates()
+            }
+
+            binding.btnIssuesFound.setOnClickListener {
+                isIssue = true
+                binding.issuesExpandedLayout.visibility = android.view.View.VISIBLE
+                updateToggleButtonStates()
+            }
+
+            binding.btnObservation.setOnClickListener {
+                selectedPriority = if (selectedPriority == "observation") null else "observation"
+                updatePriorityButtonStates()
+            }
+
+            binding.btnActionRequired.setOnClickListener {
+                selectedPriority = if (selectedPriority == "action required") null else "action required"
+                updatePriorityButtonStates()
+            }
+
+            binding.btnUrgent.setOnClickListener {
+                selectedPriority = if (selectedPriority == "urgent") null else "urgent"
+                updatePriorityButtonStates()
+            }
+        }
+
         binding.btnSave.setOnClickListener {
-            val roomItem = UpdateRoomItemRequest(
-                selectedCondition.lowercase(Locale.ROOT),
-                selectedCleanliness.lowercase(Locale.ROOT),
-                binding.etDescription.text.toString(),
-                binding.etNote.text.toString()
-            )
-            updateRoomItemApi(roomItem)
+            if (isInspection) {
+                upsertRoomInspectionApi()
+            } else {
+                val roomItem = UpdateRoomItemRequest(
+                    selectedCondition.lowercase(Locale.ROOT),
+                    selectedCleanliness.lowercase(Locale.ROOT),
+                    binding.etDescription.text.toString(),
+                    binding.etNote.text.toString()
+                )
+                updateRoomItemApi(roomItem)
+            }
         }
 
         binding.btnDelete.setOnClickListener {
@@ -197,6 +253,72 @@ class InventoryRoomItemActivity : BaseActivity() {
             entityType = "ROOM_ITEM",
             onComplete = { finish() },
             onError = { finish() }
+        )
+    }
+
+    private fun setupConditionChipsRecycler() {
+        binding.rvConditionChips.layoutManager =
+            androidx.recyclerview.widget.LinearLayoutManager(this, androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL, false)
+        binding.rvConditionChips.adapter = ConditionChipAdapter(conditionChips, selectedChips) { chip, isSelected ->
+            if (isSelected) selectedChips.add(chip) else selectedChips.remove(chip)
+            val joined = selectedChips.joinToString("; ")
+            binding.etIssueNote.setText(joined)
+            binding.etIssueNote.setSelection(binding.etIssueNote.text.length)
+        }
+    }
+
+    private fun updateToggleButtonStates() {
+        val selectedBg = ContextCompat.getDrawable(this, R.drawable.bg_button_green)
+        val defaultBg = ContextCompat.getDrawable(this, R.drawable.bg_edittext)
+        val whiteColor = ContextCompat.getColor(this, R.color.white)
+        val blackColor = ContextCompat.getColor(this, R.color.black)
+
+        binding.btnAllOk.background = if (!isIssue) selectedBg else defaultBg
+        binding.btnAllOk.setTextColor(if (!isIssue) whiteColor else blackColor)
+        binding.btnIssuesFound.background = if (isIssue) selectedBg else defaultBg
+        binding.btnIssuesFound.setTextColor(if (isIssue) whiteColor else blackColor)
+    }
+
+    private fun updatePriorityButtonStates() {
+        val selectedBg = ContextCompat.getDrawable(this, R.drawable.bg_button_green)
+        val defaultBg = ContextCompat.getDrawable(this, R.drawable.bg_edittext)
+        val whiteColor = ContextCompat.getColor(this, R.color.white)
+        val blackColor = ContextCompat.getColor(this, R.color.black)
+
+        binding.btnObservation.background = if (selectedPriority == "observation") selectedBg else defaultBg
+        binding.btnObservation.setTextColor(if (selectedPriority == "observation") whiteColor else blackColor)
+        binding.btnActionRequired.background = if (selectedPriority == "action required") selectedBg else defaultBg
+        binding.btnActionRequired.setTextColor(if (selectedPriority == "action required") whiteColor else blackColor)
+        binding.btnUrgent.background = if (selectedPriority == "urgent") selectedBg else defaultBg
+        binding.btnUrgent.setTextColor(if (selectedPriority == "urgent") whiteColor else blackColor)
+    }
+
+    private fun upsertRoomInspectionApi() {
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = true,
+            requestAction = { api ->
+                api.upsertRoomInspection(
+                    UpsertRoomInspectionRequest(
+                        room_id = roomItems?.room_id ?: roomId,
+                        is_issue = isIssue,
+                        note = if (isIssue) binding.etIssueNote.text.toString().ifEmpty { null } else null,
+                        priority = if (isIssue) selectedPriority else null
+                    )
+                )
+            },
+            listener = object : ApiResponseListener<ApiResponse<Any>> {
+                override fun onSuccess(response: ApiResponse<Any>) {
+                    uploadPhotosIfNeeded()
+                }
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    showToast(errorMessage?.error?.message ?: "Failed to save inspection")
+                }
+                override fun onError(throwable: Throwable) {
+                    showToast("Error: ${throwable.message}")
+                }
+            }
         )
     }
 }

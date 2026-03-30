@@ -15,7 +15,19 @@ data class ReportData(
     val assessor: Assessor,
     val status: String,
     val rooms: ArrayList<RoomsResponse>?,
-    val counts: Counts
+    val counts: Counts,
+    val attachments: List<AttachmentRecord>? = null,
+    @SerializedName("cover_image_storage_key") val coverImageStorageKey: String? = null,
+    @SerializedName("pdf_url") val pdfUrl: String? = null
+)
+
+data class UpdateReportRequest(
+    @SerializedName("cover_image_storage_key") val cover_image_storage_key: String?
+)
+
+data class ReorderRoomRequest(
+    val prev_rank: String?,
+    val next_rank: String?
 )
 
 @Parcelize
