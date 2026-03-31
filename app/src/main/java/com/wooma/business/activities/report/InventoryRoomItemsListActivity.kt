@@ -5,7 +5,6 @@ import android.util.Log
 import android.view.View
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.adapter.InventoryRoomItemsAdapter
-import com.wooma.business.customs.AddCustomRoomDialog
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
 import com.wooma.business.data.network.makeApiRequest
@@ -14,10 +13,10 @@ import com.wooma.business.databinding.ActivityInventoryRoomsListBinding
 import com.wooma.business.model.AddNewRoomItemsRequest
 import com.wooma.business.model.ApiResponse
 import com.wooma.business.model.ErrorResponse
+import com.wooma.business.model.PropertyReportType
 import com.wooma.business.model.ReportData
 import com.wooma.business.model.RoomItem
 import com.wooma.business.model.RoomsResponse
-import com.wooma.business.model.PropertyReportType
 import com.wooma.business.model.enums.TenantReportStatus
 
 class InventoryRoomItemsListActivity : BaseActivity() {
