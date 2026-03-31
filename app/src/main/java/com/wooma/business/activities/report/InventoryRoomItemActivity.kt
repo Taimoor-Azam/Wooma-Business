@@ -86,6 +86,15 @@ class InventoryRoomItemActivity : BaseActivity() {
 
         if (roomItems != null) {
             binding.tvTitle.text = roomItems?.name ?: ""
+            binding.etItemName.setText(roomItems?.name ?: "")
+
+            binding.etItemName.addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    binding.tvTitle.text = s?.toString() ?: ""
+                }
+                override fun afterTextChanged(s: android.text.Editable?) {}
+            })
 
             selectedCondition = roomItems?.general_condition ?: ""
             selectedCleanliness = roomItems?.general_cleanliness ?: ""
@@ -151,10 +160,11 @@ class InventoryRoomItemActivity : BaseActivity() {
                 upsertRoomInspectionApi()
             } else {
                 val roomItem = UpdateRoomItemRequest(
-                    selectedCondition.lowercase(Locale.ROOT),
-                    selectedCleanliness.lowercase(Locale.ROOT),
-                    binding.etDescription.text.toString(),
-                    binding.etNote.text.toString()
+                    name = binding.etItemName.text.toString().trim().ifEmpty { null },
+                    general_condition = selectedCondition.lowercase(Locale.ROOT),
+                    general_cleanliness = selectedCleanliness.lowercase(Locale.ROOT),
+                    description = binding.etDescription.text.toString(),
+                    note = binding.etNote.text.toString()
                 )
                 updateRoomItemApi(roomItem)
             }

@@ -40,20 +40,23 @@
         app:layout_constraintEnd_toStartOf="@id/flAction"
         app:layout_constraintTop_toTopOf="@id/tvAddress" />
 
-    <FrameLayout
+    <LinearLayout
         android:id="@+id/flAction"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
         app:layout_constraintBottom_toBottomOf="@+id/tvAddress"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toTopOf="@+id/tvAddress">
 
         <ImageView
-            android:id="@+id/imgArrow"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/svg_right_arrow"
-            android:visibility="visible" />
+            android:id="@+id/ivEdit"
+            android:layout_width="@dimen/_15sdp"
+            android:layout_height="@dimen/_15sdp"
+            android:layout_marginEnd="@dimen/_10sdp"
+            android:src="@drawable/svg_edit"
+            android:visibility="gone" />
 
         <ImageView
             android:id="@+id/ivDelete"
@@ -62,7 +65,14 @@
             android:src="@drawable/svg_bin"
             android:visibility="gone" />
 
-    </FrameLayout>
+        <ImageView
+            android:id="@+id/imgArrow"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:src="@drawable/svg_right_arrow"
+            android:visibility="visible" />
+
+    </LinearLayout>
 
     <View
         android:layout_width="match_parent"

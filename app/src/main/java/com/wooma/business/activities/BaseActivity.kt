@@ -1,6 +1,7 @@
 package com.wooma.business.activities
 
 
+import android.app.ProgressDialog
 import android.graphics.Color
 import android.os.Bundle
 import android.util.TypedValue
@@ -13,10 +14,19 @@ import java.util.Locale
 
 open class BaseActivity : AppCompatActivity() {
 
+    var activeProgressDialog: ProgressDialog? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setupWindowInsets()
+    }
 
+    override fun onDestroy() {
+        try {
+            if (activeProgressDialog?.isShowing == true) activeProgressDialog?.dismiss()
+        } catch (e: Exception) { }
+        activeProgressDialog = null
+        super.onDestroy()
     }
 
     override fun setContentView(layoutResID: Int) {

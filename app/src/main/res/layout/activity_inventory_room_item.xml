@@ -117,6 +117,30 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/_12sdp"
                     android:fontFamily="@font/sofiasans_regular"
+                    android:text="Name"
+                    android:textColor="@color/black"
+                    android:textSize="@dimen/_11ssp" />
+
+                <EditText
+                    android:id="@+id/etItemName"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_4sdp"
+                    android:layout_marginBottom="@dimen/_12sdp"
+                    android:background="@drawable/bg_edittext"
+                    android:fontFamily="@font/sofiasans_regular"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:paddingHorizontal="@dimen/_10sdp"
+                    android:paddingVertical="@dimen/_10sdp"
+                    android:textColor="@color/black"
+                    android:textSize="@dimen/_13ssp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_12sdp"
+                    android:fontFamily="@font/sofiasans_regular"
                     android:text="Condition Note"
                     android:textColor="@color/black"
                     android:textSize="@dimen/_11ssp" />

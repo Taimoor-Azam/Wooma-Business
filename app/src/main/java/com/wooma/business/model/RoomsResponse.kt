@@ -74,6 +74,7 @@ data class RoomItem(
 ) : Parcelable
 
 data class UpdateRoomItemRequest(
+    val name: String? = null,
     val general_condition: String?,
     val general_cleanliness: String?,
     val description: String?,
@@ -118,6 +119,10 @@ data class Counts(
 
 data class AddNewRoomsRequest(
     val rooms: List<String>
+)
+
+data class UpdateRoomNameRequest(
+    val name: String
 )
 
 data class AddNewRoomItemsRequest(

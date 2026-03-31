@@ -41,6 +41,7 @@ class SelectReportTypeActivity : BaseActivity() {
     override fun onResume() {
         super.onResume()
         if (ConfigureReportActivity.reportCreated) {
+            ConfigureReportActivity.reportCreated = false
             finish()
         }
     }

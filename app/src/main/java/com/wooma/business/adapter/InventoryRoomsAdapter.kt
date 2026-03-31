@@ -7,13 +7,14 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
-import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.fragment.app.FragmentActivity
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.wooma.business.R
+import com.wooma.business.customs.EditRoomNameDialog
 import com.wooma.business.activities.report.InspectionRoomActivity
 import com.wooma.business.activities.report.InventoryRoomItemsListActivity
 import com.wooma.business.model.PropertyReportType
@@ -26,9 +27,10 @@ class InventoryRoomsAdapter(
     private val originalList: MutableList<RoomsResponse>,
     val reportId: String,
     val reportStatus: String,
-    val reportType: PropertyReportType? = null,
+    var reportType: PropertyReportType? = null,
     private val onDeleteRoom: ((roomId: String?) -> Unit)? = null,
     private val onReorder: ((roomId: String, prevRank: String?, nextRank: String?) -> Unit)? = null,
+    private val onUpdateRoom: ((roomId: String, newName: String) -> Unit)? = null,
 ) : RecyclerView.Adapter<InventoryRoomsAdapter.ViewHolder>() {
 
     var isEditMode = false
@@ -42,8 +44,10 @@ class InventoryRoomsAdapter(
         val tvAddress: TextView = view.findViewById(R.id.tvAddress)
         val roomMainLayout: ConstraintLayout = view.findViewById(R.id.roomMainLayout)
         val ivDragHandle: ImageView = view.findViewById(R.id.ivDragHandle)
+        val ivEdit: ImageView = view.findViewById(R.id.ivEdit)
         val ivDelete: ImageView = view.findViewById(R.id.ivDelete)
         val imgArrow: ImageView = view.findViewById(R.id.imgArrow)
+        val ivSync: ImageView = view.findViewById(R.id.ivSync)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -60,14 +64,23 @@ class InventoryRoomsAdapter(
         holder.tvAddress.text = room.name
 
         holder.ivDragHandle.visibility = if (isEditMode) View.VISIBLE else View.GONE
+        holder.ivEdit.visibility = if (isEditMode) View.VISIBLE else View.GONE
         holder.ivDelete.visibility = if (isEditMode) View.VISIBLE else View.GONE
         holder.imgArrow.visibility = if (isEditMode) View.GONE else View.VISIBLE
+        holder.ivSync.visibility = if (isEditMode) View.GONE else View.VISIBLE
 
         holder.ivDragHandle.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_DOWN) {
                 itemTouchHelper?.startDrag(holder)
             }
             false
+        }
+
+        holder.ivEdit.setOnClickListener {
+            val activity = context as? FragmentActivity ?: return@setOnClickListener
+            EditRoomNameDialog(room.name ?: "") { newName ->
+                onUpdateRoom?.invoke(room.id ?: return@EditRoomNameDialog, newName)
+            }.show(activity.supportFragmentManager, "EditRoom")
         }
 
         holder.ivDelete.setOnClickListener {

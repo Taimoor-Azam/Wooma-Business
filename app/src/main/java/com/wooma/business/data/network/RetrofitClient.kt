@@ -5,6 +5,7 @@ import android.app.ProgressDialog
 import android.content.Context
 import android.widget.Toast
 import com.google.gson.Gson
+import com.wooma.business.activities.BaseActivity
 import com.wooma.business.model.ErrorResponse
 import com.wooma.business.storage.Prefs
 import okhttp3.Interceptor
@@ -72,7 +73,10 @@ fun <T, R> Activity.makeApiRequest(
     listener: ApiResponseListener<R>
 ) {
     val progressBar = ProgressDialog(context)
-    if (showLoading) progressBar.show()
+    if (showLoading && !context.isFinishing && !context.isDestroyed) {
+        progressBar.show()
+        (context as? BaseActivity)?.activeProgressDialog = progressBar
+    }
 
     progressBar.setMessage("Please Wait...")
     progressBar.setCancelable(false)
@@ -82,7 +86,7 @@ fun <T, R> Activity.makeApiRequest(
 
     call.enqueue(object : Callback<R> {
         override fun onResponse(call: Call<R>, response: Response<R>) {
-            if (showLoading) progressBar.dismiss()
+            if (showLoading && progressBar.isShowing) progressBar.dismiss()
 
             if (response.isSuccessful) {
                 response.body()?.let { body ->
@@ -115,7 +119,7 @@ fun <T, R> Activity.makeApiRequest(
         }
 
         override fun onFailure(call: Call<R>, t: Throwable) {
-            if (showLoading) progressBar.dismiss()
+            if (showLoading && progressBar.isShowing) progressBar.dismiss()
             listener.onError(t)
             showToast("Network error occurred. Please try again.")
         }

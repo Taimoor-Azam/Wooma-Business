@@ -50,6 +50,7 @@ import com.wooma.business.model.toCountItemList
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.wooma.business.model.ReorderRoomRequest
+import com.wooma.business.model.UpdateRoomNameRequest
 
 class InventoryListingActivity : BaseActivity() {
     private lateinit var adapter: InventoryRoomsAdapter
@@ -113,6 +114,9 @@ class InventoryListingActivity : BaseActivity() {
             },
             onReorder = { roomId, prevRank, nextRank ->
                 reorderRoomApi(roomId, prevRank, nextRank)
+            },
+            onUpdateRoom = { roomId, newName ->
+                updateRoomNameApi(roomId, newName)
             }
         )
         binding.rvRooms.adapter = adapter
@@ -213,7 +217,7 @@ class InventoryListingActivity : BaseActivity() {
 
         binding.ivAddRoom.setOnClickListener {
             startActivity(
-                android.content.Intent(this, SelectRoomActivity::class.java)
+                Intent(this, SelectRoomActivity::class.java)
                     .putExtra("reportId", reportId)
             )
         }
@@ -265,6 +269,29 @@ class InventoryListingActivity : BaseActivity() {
          )
          adapter.updateList(roomsList)
      }*/
+
+    private fun updateRoomNameApi(roomId: String, newName: String) {
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = true,
+            requestAction = { api -> api.updateRoomName(reportId, roomId, UpdateRoomNameRequest(newName)) },
+            listener = object : ApiResponseListener<ApiResponse<RoomsResponse>> {
+                override fun onSuccess(response: ApiResponse<RoomsResponse>) {
+                    if (response.success) {
+                        showToast("Room name updated")
+                        getReportByIdApi()
+                    }
+                }
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    showToast(errorMessage?.error?.message ?: "Failed to update room name")
+                }
+                override fun onError(throwable: Throwable) {
+                    showToast("Error: ${throwable.message}")
+                }
+            }
+        )
+    }
 
     private fun deleteRoomApi(roomId: String) {
         makeApiRequest(
@@ -347,8 +374,21 @@ class InventoryListingActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
                         reportData = response.data
-                        reportStatus = response.data.status ?: reportStatus
+                        reportStatus = response.data.status
                         updateViewAccToStatus()
+
+                        // Sync reportType from API (fixes blank title and wrong flow on new report creation)
+                        val apiReportType = response.data.reportType
+                        if (reportType == null) {
+                            reportType = PropertyReportType(
+                                id = apiReportType.id,
+                                display_name = apiReportType.display_name,
+                                type_code = apiReportType.type_code
+                            )
+                            adapter.reportType = reportType
+                            binding.tvReportType.text = apiReportType.display_name
+                        }
+
                         coverImageStorageKey = response.data.coverImageStorageKey
                         updateCoverImageView()
                         roomsList.clear()
@@ -368,7 +408,7 @@ class InventoryListingActivity : BaseActivity() {
                                 this@InventoryListingActivity,
                                 otherItems,
                                 reportId,
-                                response.data.status ?: ""
+                                response.data.status
                             )
 
                         if (response.data.status == TenantReportStatus.IN_PROGRESS.value) {
@@ -607,7 +647,7 @@ class InventoryListingActivity : BaseActivity() {
         }
     }
 
-    private fun showCoverImagePopup(anchor: android.view.View) {
+    private fun showCoverImagePopup(anchor: View) {
         val popupBinding = PopupCoverImageMenuBinding.inflate(layoutInflater)
         val popup = PopupWindow(
             popupBinding.root,
