@@ -68,6 +68,7 @@ class DetectorListingActivity : BaseActivity() {
                         detectorList.clear()
                         detectorList.addAll(response.data)
                         adapter.updateList(detectorList)
+                        binding.tvEmpty.visibility = if (detectorList.isEmpty()) View.VISIBLE else View.GONE
                     } else {
                     }
                 }

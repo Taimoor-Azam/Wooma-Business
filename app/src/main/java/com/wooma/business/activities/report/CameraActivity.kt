@@ -13,9 +13,7 @@ import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
-import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.google.android.material.bottomsheet.BottomSheetBehavior
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.adapter.ImageAdapter
 import com.wooma.business.model.ImageItem
@@ -26,8 +24,6 @@ import java.io.File
 class CameraActivity : BaseActivity() {
     private lateinit var binding: ActivityCameraBinding
 
-    lateinit var bottomSheetBehavior: BottomSheetBehavior<View>
-
     private lateinit var imageCapture: ImageCapture
     private lateinit var camera: Camera
 
@@ -35,6 +31,7 @@ class CameraActivity : BaseActivity() {
     private lateinit var adapter: ImageAdapter
 
     private var flashEnabled = false
+    private var isCoverImage = false
 
     companion object {
         /** Populated when the activity finishes — calling activities read this after RESULT_OK. */
@@ -57,14 +54,13 @@ class CameraActivity : BaseActivity() {
         setContentView(binding.root)
         applyWindowInsetsToBinding(binding.root)
 
-        bottomSheetBehavior = BottomSheetBehavior.from(binding.bottomSheet)
+        isCoverImage = intent.getBooleanExtra("isCoverImage", false)
 
-        // peekHeight = fixed controls height (_170sdp) + thumbnail strip height (_80sdp)
-        // so the thumbnail strip appears just above the capture row and Done button
-        bottomSheetBehavior.peekHeight =
-            resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._170sdp) +
-                    resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._80sdp)
-        bottomSheetBehavior.state = BottomSheetBehavior.STATE_COLLAPSED
+        if (isCoverImage) {
+            binding.btnDone.visibility = View.GONE
+            binding.recyclerImages.visibility = View.GONE
+            binding.txtCounter.visibility = View.GONE
+        }
 
         setupRecycler()
         checkCameraPermission()
@@ -91,31 +87,6 @@ class CameraActivity : BaseActivity() {
 //        binding.zoomHalf.setOnClickListener { zoom(0.5f) }
 //        binding.zoom1.setOnClickListener { zoom(1f) }
 //        binding.zoom2.setOnClickListener { zoom(2f) }
-
-        bottomSheetBehavior.addBottomSheetCallback(object :
-            BottomSheetBehavior.BottomSheetCallback() {
-            override fun onStateChanged(bottomSheet: View, newState: Int) {
-                when (newState) {
-                    BottomSheetBehavior.STATE_EXPANDED -> {
-                        binding.recyclerImages.layoutManager =
-                            GridLayoutManager(this@CameraActivity, 3)
-
-                    }
-
-                    BottomSheetBehavior.STATE_COLLAPSED -> {
-                        binding.recyclerImages.layoutManager =
-                            LinearLayoutManager(
-                                this@CameraActivity,
-                                LinearLayoutManager.HORIZONTAL,
-                                false
-                            )
-                    }
-                }
-            }
-
-            override fun onSlide(bottomSheet: View, slideOffset: Float) {}
-        })
-
 
     }
 
@@ -175,8 +146,14 @@ class CameraActivity : BaseActivity() {
 
                     images.add(ImageItem.Local(uri))
                     adapter.notifyItemInserted(images.size - 1)
-
                     updateCounter()
+
+                    if (isCoverImage) {
+                        pendingUris.clear()
+                        pendingUris.addAll(images.filterIsInstance<ImageItem.Local>().map { it.uri })
+                        setResult(RESULT_OK)
+                        finish()
+                    }
                 }
 
                 override fun onError(exc: ImageCaptureException) {
@@ -226,6 +203,13 @@ class CameraActivity : BaseActivity() {
                 images.add(ImageItem.Local(it))
                 adapter.notifyItemInserted(images.size - 1)
                 updateCounter()
+
+                if (isCoverImage) {
+                    pendingUris.clear()
+                    pendingUris.addAll(images.filterIsInstance<ImageItem.Local>().map { img -> img.uri })
+                    setResult(RESULT_OK)
+                    finish()
+                }
             }
         }
 

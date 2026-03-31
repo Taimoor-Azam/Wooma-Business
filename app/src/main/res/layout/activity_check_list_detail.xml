@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/mainLayout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/bg_clr"
-    android:visibility="visible">
+    android:background="@color/bg_clr">
 
     <LinearLayout
         android:id="@+id/topLayout"
@@ -26,9 +24,7 @@
             android:layout_height="@dimen/_24sdp"
             android:layout_gravity="center"
             android:contentDescription="Back"
-            android:src="@drawable/ic_back"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            android:src="@drawable/ic_back" />
 
         <LinearLayout
             android:layout_width="0dp"
@@ -37,25 +33,17 @@
             android:orientation="vertical">
 
             <TextView
+                android:id="@+id/tvChecklistTitle"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:fontFamily="@font/sofiasans_bold"
                 android:gravity="center"
-                android:text="@string/meters"
+                android:text="@string/checklist"
                 android:textColor="@color/black"
                 android:textSize="@dimen/_16ssp" />
 
         </LinearLayout>
-
-        <ImageView
-            android:id="@+id/ivAdd"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:contentDescription="Back"
-            android:src="@drawable/svg_add"
-            app:tint="@color/black" />
     </LinearLayout>
 
     <androidx.core.widget.NestedScrollView
@@ -69,29 +57,53 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:layout_marginStart="@dimen/_12sdp"
+            android:layout_marginEnd="@dimen/_12sdp"
             android:orientation="vertical">
 
+            <TextView
+                android:id="@+id/tvInfo"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/_8sdp"
+                android:fontFamily="@font/sofiasans_regular"
+                android:text="@string/info_field"
+                android:textColor="@color/black"
+                android:textSize="@dimen/_14ssp"
+                android:visibility="gone" />
+
             <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvMeters"
+                android:id="@+id/rvInfo"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/_8sdp"
                 android:clipToPadding="false"
                 android:orientation="vertical"
                 android:paddingBottom="@dimen/_10sdp"
+                android:visibility="gone"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
             <TextView
-                android:id="@+id/tvEmpty"
-                android:layout_width="match_parent"
+                android:id="@+id/tvQuestion"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/_32sdp"
+                android:layout_marginTop="@dimen/_8sdp"
                 android:fontFamily="@font/sofiasans_regular"
-                android:gravity="center"
-                android:text="No record found"
-                android:textColor="@color/light_grey"
+                android:text="@string/questions"
+                android:textColor="@color/black"
                 android:textSize="@dimen/_14ssp"
                 android:visibility="gone" />
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvQuestions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/_8sdp"
+                android:clipToPadding="false"
+                android:orientation="vertical"
+                android:paddingBottom="@dimen/_10sdp"
+                android:visibility="gone"
+                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

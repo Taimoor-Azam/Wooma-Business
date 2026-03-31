@@ -49,7 +49,7 @@ class InventoryDetectorAdapter(
 
         val imageItems = item.attachments.map { ImageItem.Remote(it.id, "${ApiClient.IMAGE_BASE_URL}${it.storageKey}") }.toMutableList<ImageItem>()
         holder.rvImages.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-        holder.rvImages.adapter = ImageAdapter(imageItems, showDelete = false)
+        holder.rvImages.adapter = ImageAdapter(imageItems, showDelete = false, title = item.name)
 
         holder.itemView.setOnClickListener {
             if (reportStatus != TenantReportStatus.IN_PROGRESS.value) return@setOnClickListener

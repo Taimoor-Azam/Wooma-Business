@@ -70,7 +70,6 @@ class InventoryRoomItemActivity : BaseActivity() {
         cameraBinding = binding.cameraLayout
 
         applyWindowInsetsToBinding(binding.root)
-        setupCapturedImagesRecycler()
 
         cameraBinding.ivAddImage.setOnClickListener {
             CameraActivity.pendingUris.clear()
@@ -80,6 +79,8 @@ class InventoryRoomItemActivity : BaseActivity() {
         roomItems = intent.getParcelableExtra("roomItem")
         reportId = intent.getStringExtra("reportId") ?: ""
         roomId = intent.getStringExtra("roomId") ?: ""
+
+        setupCapturedImagesRecycler()
 
         reportType = intent.getParcelableExtra("reportType")
         isInspection = reportType?.type_code?.lowercase() == ReportTypes.INSPECTION.value
@@ -186,7 +187,10 @@ class InventoryRoomItemActivity : BaseActivity() {
     private fun setupCapturedImagesRecycler() {
         cameraBinding.rvRoomItems.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages)
+        cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages, title = roomItems?.name ?: "", onDelete = {
+            capturedUris.clear()
+            capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
+        })
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

@@ -115,7 +115,10 @@ class AddEditDetectorActivity : BaseActivity() {
     private fun setupCapturedImagesRecycler() {
         cameraBinding.rvRoomItems.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages)
+        cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages, title = detectorItem?.name ?: "", onDelete = {
+            capturedUris.clear()
+            capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
+        })
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

@@ -67,6 +67,7 @@ class KeysListingActivity : BaseActivity() {
                         keysList.clear()
                         keysList.addAll(response.data)
                         adapter.updateList(keysList)
+                        binding.tvEmpty.visibility = if (keysList.isEmpty()) View.VISIBLE else View.GONE
                     } else {
                     }
                 }

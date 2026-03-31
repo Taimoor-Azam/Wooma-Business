@@ -69,6 +69,11 @@
             android:screenOrientation="portrait" />
 
         <activity
+            android:name=".activities.report.otherItems.CheckListDetailActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
             android:name=".activities.report.otherItems.AddEditKeysActivity"
             android:exported="false"
             android:screenOrientation="portrait" />

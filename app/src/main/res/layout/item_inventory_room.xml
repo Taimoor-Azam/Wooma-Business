@@ -4,18 +4,18 @@
     android:id="@+id/roomMainLayout"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@color/white"
     android:paddingTop="@dimen/_12sdp">
 
     <ImageView
         android:id="@+id/ivDragHandle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:src="@drawable/svg_drag_icon"
+        android:layout_width="@dimen/_15sdp"
+        android:layout_height="@dimen/_15sdp"
+        android:src="@drawable/ic_reorder"
         android:visibility="gone"
         app:layout_constraintBottom_toBottomOf="@+id/tvAddress"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/tvAddress"
-        app:tint="@color/lbls_color" />
+        app:layout_constraintTop_toTopOf="@+id/tvAddress" />
 
     <TextView
         android:id="@+id/tvAddress"

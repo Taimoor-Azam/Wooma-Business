@@ -135,7 +135,7 @@ fun Counts.toCountItemList(): ArrayList<CountItem> {
         CountItem("Keys", keys),
         CountItem("Detectors", detectors),
 //        CountItem("Rooms", rooms),
-        CountItem("Checklists", activeChecklists)
+        CountItem("Checklist", activeChecklists)
     )
 }
 

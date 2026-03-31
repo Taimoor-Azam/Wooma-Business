@@ -9,48 +9,44 @@ import android.view.View
 import android.widget.PopupWindow
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.wooma.business.customs.AttachmentUploadHelper
-import com.wooma.business.data.network.ApiClient
-import com.wooma.business.databinding.PopupCoverImageMenuBinding
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.RequestBody.Companion.toRequestBody
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.wooma.business.R
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.activities.report.complete.CompleteReportActivity
-import com.wooma.business.activities.report.EditTenantActivity
 import com.wooma.business.activities.report.complete.ExtendTimerActivity
 import com.wooma.business.activities.report.inventorysettings.InventoryReportSettingActivity
 import com.wooma.business.adapter.InventoryOtherItemsAdapter
 import com.wooma.business.adapter.InventoryRoomsAdapter
 import com.wooma.business.adapter.ReportTenantsAdapter
-import com.wooma.business.customs.AddCustomRoomDialog
+import com.wooma.business.customs.AttachmentUploadHelper
 import com.wooma.business.customs.GridSpacingItemDecoration
 import com.wooma.business.customs.Utils
+import com.wooma.business.data.network.ApiClient
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
 import com.wooma.business.data.network.makeApiRequest
 import com.wooma.business.data.network.showToast
 import com.wooma.business.databinding.ActivityInventoryListingBinding
+import com.wooma.business.databinding.PopupCoverImageMenuBinding
 import com.wooma.business.model.AddNewRoomsRequest
-import com.wooma.business.model.CountItem
 import com.wooma.business.model.ApiResponse
-import com.wooma.business.model.Assessor
+import com.wooma.business.model.CompleteReportRequest
+import com.wooma.business.model.CountItem
 import com.wooma.business.model.ErrorResponse
 import com.wooma.business.model.PropertyReportType
+import com.wooma.business.model.ReorderRoomRequest
 import com.wooma.business.model.ReportData
-import com.wooma.business.model.ReportType
 import com.wooma.business.model.RoomsResponse
-import com.wooma.business.model.CompleteReportRequest
 import com.wooma.business.model.TenantReview
+import com.wooma.business.model.UpdateRoomNameRequest
 import com.wooma.business.model.enums.ReportTypes
 import com.wooma.business.model.enums.TenantReportStatus
 import com.wooma.business.model.toCountItemList
-import androidx.recyclerview.widget.ItemTouchHelper
-import androidx.recyclerview.widget.RecyclerView
-import com.wooma.business.model.ReorderRoomRequest
-import com.wooma.business.model.UpdateRoomNameRequest
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class InventoryListingActivity : BaseActivity() {
     private lateinit var adapter: InventoryRoomsAdapter
@@ -398,7 +394,7 @@ class InventoryListingActivity : BaseActivity() {
                         val allItems = response.data.counts.toCountItemList()
                         val isInspection = reportType?.type_code == ReportTypes.INSPECTION.value
                         val otherItems: MutableList<CountItem> = if (isInspection)
-                            allItems.filter { it.label == "Checklists" }.toMutableList()
+                            allItems.filter { it.label == "Checklist" }.toMutableList()
                         else
                             allItems
                         (binding.rvOtherItems.layoutManager as? androidx.recyclerview.widget.GridLayoutManager)
@@ -664,7 +660,10 @@ class InventoryListingActivity : BaseActivity() {
         popupBinding.tvTakeNewPhoto.setOnClickListener {
             popup.dismiss()
             CameraActivity.pendingUris.clear()
-            startActivityForResult(Intent(this, CameraActivity::class.java), CAMERA_REQUEST)
+            startActivityForResult(
+                Intent(this, CameraActivity::class.java).putExtra("isCoverImage", true),
+                CAMERA_REQUEST
+            )
         }
         popupBinding.tvDelete.setOnClickListener {
             popup.dismiss()

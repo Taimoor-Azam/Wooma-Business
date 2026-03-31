@@ -20,6 +20,7 @@ import com.wooma.business.model.ImageItem
 class ImageAdapter(
     private val list: MutableList<ImageItem>,
     private val showDelete: Boolean = true,
+    private val title: String = "",
     private val onDelete: (() -> Unit)? = null
 ) : RecyclerView.Adapter<ImageAdapter.Holder>() {
 
@@ -43,10 +44,62 @@ class ImageAdapter(
         }
 
         holder.image.setOnClickListener {
-            when (item) {
-                is ImageItem.Local -> Utils.showFullScreenImage(holder.itemView.context, uri = item.uri)
-                is ImageItem.Remote -> Utils.showFullScreenImage(holder.itemView.context, url = item.url)
-            }
+            val ctx = holder.itemView.context
+            val activity = ctx as? Activity ?: return@setOnClickListener
+            val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnClickListener
+
+            Utils.showFullScreenImage(
+                context = ctx,
+                images = list.toList(),
+                startPosition = pos,
+                title = title,
+                onDelete = if (showDelete) { deletePos, deleteItem, onSuccess ->
+                    Utils.showDialogBox(ctx, "Delete Image", "Are you sure you want to delete this image?") {
+                        when (deleteItem) {
+                            is ImageItem.Remote -> {
+                                activity.makeApiRequest(
+                                    apiServiceClass = MyApi::class.java,
+                                    context = activity,
+                                    showLoading = true,
+                                    requestAction = { api -> api.deleteAttachment(deleteItem.id) },
+                                    listener = object : ApiResponseListener<ApiResponse<Any>> {
+                                        override fun onSuccess(response: ApiResponse<Any>) {
+                                            if (response.success) {
+                                                val adapterPos = list.indexOfFirst {
+                                                    it is ImageItem.Remote && it.id == deleteItem.id
+                                                }
+                                                if (adapterPos != -1) {
+                                                    list.removeAt(adapterPos)
+                                                    notifyItemRemoved(adapterPos)
+                                                }
+                                                onDelete?.invoke()
+                                                onSuccess()
+                                            }
+                                        }
+                                        override fun onFailure(errorMessage: ErrorResponse?) {
+                                            ctx.showToast(errorMessage?.error?.message ?: "Failed to delete image")
+                                        }
+                                        override fun onError(throwable: Throwable) {
+                                            ctx.showToast("Error: ${throwable.message}")
+                                        }
+                                    }
+                                )
+                            }
+                            is ImageItem.Local -> {
+                                val adapterPos = list.indexOfFirst {
+                                    it is ImageItem.Local && it.uri == deleteItem.uri
+                                }
+                                if (adapterPos != -1) {
+                                    list.removeAt(adapterPos)
+                                    notifyItemRemoved(adapterPos)
+                                }
+                                onDelete?.invoke()
+                                onSuccess()
+                            }
+                        }
+                    }
+                } else null
+            )
         }
 
         if (!showDelete) {

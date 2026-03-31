@@ -143,7 +143,7 @@ class InventoryCheckListQuestionAdapter(
 
         holder.rvImages.layoutManager =
             LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-        holder.rvImages.adapter = ImageAdapter(photoList, showDelete = !isReadOnly)
+        holder.rvImages.adapter = ImageAdapter(photoList, showDelete = !isReadOnly, title = item.text)
     }
 
     /** Called by the Activity after CameraActivity returns photos for a specific question. */

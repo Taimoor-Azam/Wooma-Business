@@ -67,6 +67,7 @@ class MeterListingActivity : BaseActivity() {
                         metersList.clear()
                         metersList.addAll(response.data)
                         adapter.updateList(metersList)
+                        binding.tvEmpty.visibility = if (metersList.isEmpty()) View.VISIBLE else View.GONE
                     } else {
                     }
                 }

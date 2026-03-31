@@ -62,7 +62,10 @@ class InspectionRoomActivity : BaseActivity() {
         applyWindowInsetsToBinding(binding.root)
         cameraBinding = binding.cameraLayout
         cameraBinding.rvRoomItems.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages, onDelete = {})
+        cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages, title = room?.name ?: "", onDelete = {
+            capturedUris.clear()
+            capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
+        })
 
         room = intent.getParcelableExtra("room")
         reportId = intent.getStringExtra("reportId") ?: ""

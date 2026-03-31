@@ -60,7 +60,7 @@ class InventoryRoomItemsAdapter(
             ?.mapNotNull { att -> att.id?.let { id -> att.storageKey?.let { key -> ImageItem.Remote(id, "${ApiClient.IMAGE_BASE_URL}$key") } } }
             ?.toMutableList<ImageItem>() ?: mutableListOf()
         holder.rvImages.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-        holder.rvImages.adapter = ImageAdapter(imageItems, showDelete = false)
+        holder.rvImages.adapter = ImageAdapter(imageItems, showDelete = false, title = item.name?: "")
 
 
         if (item.general_condition?.equals("poor") == true || item.general_condition?.equals("unacceptable") == true || item.general_condition?.equals(
