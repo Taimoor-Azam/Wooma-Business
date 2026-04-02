@@ -80,6 +80,7 @@
             android:background="@android:color/transparent"
             android:fontFamily="@font/sofiasans_regular"
             android:hint="Enter your email address"
+            android:textColorHint="@color/light_grey"
             android:imeOptions="actionDone"
             android:inputType="textEmailAddress"
             android:paddingStart="@dimen/_10sdp"

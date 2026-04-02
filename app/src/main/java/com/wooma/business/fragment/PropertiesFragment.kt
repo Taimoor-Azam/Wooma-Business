@@ -81,7 +81,7 @@ class PropertiesFragment : Fragment() {
     private fun getPropertiesList() {
         val queryMap = mutableMapOf<String, Any>().apply {
             put("page", page)
-            put("limit", 50)
+            put("limit", 100)
             put("search", binding.searchView.text.toString())
             put("is_active", true)
         }

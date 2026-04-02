@@ -6,10 +6,14 @@ import android.os.Bundle
 import android.util.Log
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
+import com.wooma.business.R
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.adapter.ReportRoomsAdapter
 import com.wooma.business.adapter.TemplateHorizontalAdapter
@@ -269,9 +273,19 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
             previousReportsList.map { "${it.report_type?.display_name} ${Utils.formatDate(it.created_at)}" }
 
         previousReportId = previousReportsList[0].id
-        val mArrayAdapter =
-            ArrayAdapter(this, android.R.layout.simple_spinner_item, reports)
-        mArrayAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        val mArrayAdapter = object : ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, reports) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val tv = super.getView(position, convertView, parent) as TextView
+                tv.setTextColor(ContextCompat.getColor(context, R.color.black))
+                return tv
+            }
+            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val tv = super.getDropDownView(position, convertView, parent) as TextView
+                tv.setBackgroundColor(ContextCompat.getColor(context, R.color.white))
+                tv.setTextColor(ContextCompat.getColor(context, R.color.black))
+                return tv
+            }
+        }.apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
 
         with(binding.spinnerTitle)
         {

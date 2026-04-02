@@ -81,6 +81,7 @@
                 android:imeOptions="actionDone"
                 android:inputType="text"
                 android:hint="@string/search_address"
+                android:textColorHint="@color/light_grey"
                 android:drawablePadding="@dimen/_8sdp"
                 android:paddingStart="@dimen/_10sdp"
                 android:paddingTop="@dimen/_10sdp"

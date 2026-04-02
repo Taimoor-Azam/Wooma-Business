@@ -11,6 +11,7 @@
         android:layout_marginTop="@dimen/_8sdp"
         android:background="@drawable/bg_edittext"
         android:hint="Enter Room"
+        android:textColorHint="@color/light_grey"
         android:imeOptions="actionNext"
         android:inputType="text"
         android:maxLines="1"

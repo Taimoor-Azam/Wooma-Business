@@ -6,6 +6,8 @@ import com.wooma.business.model.ImageItem
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.View
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -42,7 +44,20 @@ class AddEditMeterActivity : BaseActivity() {
     val suggestionList =
         mutableListOf("Gas", "Electric", "Water", "Heating Oil", "Liquid Petroleum Gas (LPG)")
 
+    val locationSuggestionList = mutableListOf(
+        "Kitchen", "Under Kitchen Sink", "Utility Room", "Under Stairs",
+        "Under Staircase Cupboard", "Garage", "Loft", "Attic", "Basement", "Cellar",
+        "Outside Wall", "External Wall Box", "Front of Property", "Rear of Property",
+        "Side of Property", "Meter Cupboard", "Hallway", "Entrance Hall", "Porch",
+        "Outhouse", "Outbuilding", "Airing Cupboard", "Boiler Cupboard"
+    )
+
+    private lateinit var suggestionsAdapter: SuggestionsAdapter
+    private lateinit var locationSuggestionsAdapter: SuggestionsAdapter
+
     var isEdit = false
+    private var hasChanges = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -84,18 +99,68 @@ class AddEditMeterActivity : BaseActivity() {
             }
         }
 
-        binding.rvSuggestions.adapter = SuggestionsAdapter(
+        suggestionsAdapter = SuggestionsAdapter(
             this,
             suggestionList,
             object : SuggestionsAdapter.OnItemClickInterface {
                 override fun onItemClick(item: String) {
                     binding.etType.setText(item)
+                    binding.etType.text?.let { binding.etType.setSelection(it.length) }
+                    suggestionsAdapter.filter("")
                 }
-
             })
+        binding.rvSuggestions.adapter = suggestionsAdapter
 
-        binding.ivBack.setOnClickListener { finish() }
+        binding.etType.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                suggestionsAdapter.filter(s?.toString() ?: "")
+            }
+        })
+
+        locationSuggestionsAdapter = SuggestionsAdapter(
+            this,
+            locationSuggestionList,
+            object : SuggestionsAdapter.OnItemClickInterface {
+                override fun onItemClick(item: String) {
+                    binding.etLocation.setText(item)
+                    binding.etLocation.text?.let { binding.etLocation.setSelection(it.length) }
+                    locationSuggestionsAdapter.filter("")
+                }
+            })
+        binding.rvLocationSuggestions.adapter = locationSuggestionsAdapter
+
+        binding.etLocation.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                locationSuggestionsAdapter.filter(s?.toString() ?: "")
+            }
+        })
+
+        binding.ivBack.setOnClickListener {
+            if (hasChanges) showUnsavedChangesDialog { finish() } else finish()
+        }
         setMeterData()
+        attachChangeWatchers()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (hasChanges) showUnsavedChangesDialog { super.onBackPressed() } else super.onBackPressed()
+    }
+
+    private fun attachChangeWatchers() {
+        val w = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) { hasChanges = true }
+        }
+        binding.etType.addTextChangedListener(w)
+        binding.etReading.addTextChangedListener(w)
+        binding.etSerialNumber.addTextChangedListener(w)
+        binding.etLocation.addTextChangedListener(w)
     }
 
     private fun setupCapturedImagesRecycler() {

@@ -106,6 +106,15 @@ open class BaseActivity : AppCompatActivity() {
        }
    }
 
+    fun showUnsavedChangesDialog(onDiscard: () -> Unit) {
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Unsaved changes")
+            .setMessage("You have unsaved changes. Are you sure you want to go back?")
+            .setPositiveButton("Discard") { _, _ -> onDiscard() }
+            .setNegativeButton("Keep editing", null)
+            .show()
+    }
+
     //check internet connection
 
     fun String.capitalizeFirstLetter(): String {

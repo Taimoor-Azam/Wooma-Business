@@ -25,6 +25,7 @@ class ReportListingAdapter(
         val tvStatus: TextView = view.findViewById(R.id.tvStatus)
         val tvReviewDate: TextView = view.findViewById(R.id.tvReviewDate)
         val tvReportType: TextView = view.findViewById(R.id.tvReportType)
+        val tvAssessorName: TextView = view.findViewById(R.id.tvAssessorName)
         val tvStatusBtn: TextView = view.findViewById(R.id.tvStatusBtn)
     }
 
@@ -42,9 +43,15 @@ class ReportListingAdapter(
         if (item.report_type?.display_name != null)
             holder.tvReportType.text = item.report_type.display_name
 
+        val assessorName =
+            listOfNotNull(item.assessor.first_name, item.assessor.last_name).joinToString(" ")
+        holder.tvAssessorName.text = assessorName
+        holder.tvAssessorName.visibility =
+            if (assessorName.isNotEmpty()) View.VISIBLE else View.GONE
+
         holder.tvStatus.text = item.status
 
-        holder.tvReviewDate.text = Utils.formatDate(item.created_at)
+        holder.tvReviewDate.text = Utils.formatDate(item.completion_date ?: item.created_at)
 
         holder.tvStatusBtn.setOnClickListener {
             context.startActivity(

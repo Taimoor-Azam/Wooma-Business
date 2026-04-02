@@ -6,6 +6,8 @@ import com.wooma.business.model.ImageItem
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.View
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -58,7 +60,19 @@ class AddEditKeysActivity : BaseActivity() {
             "Gate Key"
         )
 
+    val noteSuggestionList = mutableListOf(
+        "Front Door", "Back Door", "Side Door", "Garage Door", "Shed Door", "Gate",
+        "Window", "Garage", "Shed", "Outhouse", "Gate Key", "Main Entrance",
+        "Rear Entrance", "Internal Door", "Office Door", "Storage Room",
+        "Utility Room", "Boiler Room", "Basement Door", "Attic Door"
+    )
+
+    private lateinit var suggestionsAdapter: SuggestionsAdapter
+    private lateinit var noteSuggestionsAdapter: SuggestionsAdapter
+
     var isEdit = false
+    private var hasChanges = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -100,28 +114,77 @@ class AddEditKeysActivity : BaseActivity() {
             }
         }
 
-        binding.rvSuggestions.adapter = SuggestionsAdapter(
+        suggestionsAdapter = SuggestionsAdapter(
             this,
             suggestionList,
             object : SuggestionsAdapter.OnItemClickInterface {
                 override fun onItemClick(item: String) {
                     binding.etType.setText(item)
+                    binding.etType.text?.let { binding.etType.setSelection(it.length) }
+                    suggestionsAdapter.filter("")
                 }
             })
+        binding.rvSuggestions.adapter = suggestionsAdapter
 
-        binding.ivBack.setOnClickListener { finish() }
+        binding.etType.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                suggestionsAdapter.filter(s?.toString() ?: "")
+            }
+        })
+
+        noteSuggestionsAdapter = SuggestionsAdapter(
+            this,
+            noteSuggestionList,
+            object : SuggestionsAdapter.OnItemClickInterface {
+                override fun onItemClick(item: String) {
+                    binding.etNote.setText(item)
+                    binding.etNote.text?.let { binding.etNote.setSelection(it.length) }
+                    noteSuggestionsAdapter.filter("")
+                }
+            })
+        binding.rvNoteSuggestions.adapter = noteSuggestionsAdapter
+
+        binding.etNote.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                noteSuggestionsAdapter.filter(s?.toString() ?: "")
+            }
+        })
+
+        binding.ivBack.setOnClickListener {
+            if (hasChanges) showUnsavedChangesDialog { finish() } else finish()
+        }
 
         binding.ivMinus.setOnClickListener {
-            if (count > 1)
-                count--
+            if (count > 1) { count--; hasChanges = true }
             binding.tvQty.text = "$count"
         }
 
         binding.ivPlus.setOnClickListener {
             count++
+            hasChanges = true
             binding.tvQty.text = "$count"
         }
         setMeterData()
+        attachChangeWatchers()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (hasChanges) showUnsavedChangesDialog { super.onBackPressed() } else super.onBackPressed()
+    }
+
+    private fun attachChangeWatchers() {
+        val w = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) { hasChanges = true }
+        }
+        binding.etType.addTextChangedListener(w)
+        binding.etNote.addTextChangedListener(w)
     }
 
     private fun setupCapturedImagesRecycler() {

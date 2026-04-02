@@ -3,21 +3,20 @@ package com.wooma.business.activities.report
 import android.app.Activity
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.View
-import android.view.ViewGroup
-import android.widget.AdapterView
 import android.widget.ArrayAdapter
+import android.widget.ListPopupWindow
 import android.widget.TextView
-import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.wooma.business.R
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.adapter.ImageAdapter
+import com.wooma.business.adapter.SuggestionsAdapter
 import com.wooma.business.customs.AttachmentUploadHelper
 import com.wooma.business.data.network.ApiClient
 import com.wooma.business.data.network.ApiResponseListener
@@ -48,12 +47,207 @@ class InspectionRoomActivity : BaseActivity() {
     private val allImages = mutableListOf<ImageItem>()
     private val CAMERA_REQUEST = 1001
 
-    private val conditionChips = listOf(
-        "Marked", "Scuffed", "Stained", "Loose fitting",
-        "Cracked", "Damp", "Mould", "Faded"
-    )
-    private val selectedChips = mutableSetOf<String>()
     private val priorityValues = listOf(null, "observation", "action required", "urgent")
+    private val priorityLabels = listOf("Select priority", "Observation", "Action required", "Urgent")
+
+    private lateinit var issueSuggestionsAdapter: SuggestionsAdapter
+
+    companion object {
+        val ISSUE_SUGGESTIONS = mutableListOf(
+            "General lack of cleanliness",
+            "Mould growth on walls/ceiling",
+            "Mould growth on window seals",
+            "Damp/condensation issues",
+            "Scuff marks on walls",
+            "Limescale build-up in bathroom",
+            "Kitchen requires deep clean",
+            "Bathroom requires deep clean",
+            "Windows require cleaning",
+            "Carpet stains",
+            "Radiator not heating properly",
+            "Heating not working",
+            "Boiler not working",
+            "Boiler pressure low",
+            "Low water pressure",
+            "Tap dripping/loose",
+            "Blocked sink/drain",
+            "Toilet not flushing properly",
+            "Shower not working properly",
+            "Extractor fan not working",
+            "Light bulb requires replacement",
+            "Light fitting damaged/not working",
+            "Smoke alarm beeping",
+            "Smoke alarm not working/missing",
+            "Condensation between double glazing",
+            "Window won't open/close properly",
+            "Door not closing properly",
+            "Paint damage/chipping",
+            "Holes in walls (picture hooks)",
+            "Grease build-up on cooker/hob",
+            "Oven requires cleaning",
+            "Sealant damaged/mouldy",
+            "Grouting cracked/missing",
+            "Door handle loose/damaged",
+            "Cupboard door loose/damaged",
+            "Window lock faulty/missing",
+            "Thermostat not working",
+            "Garden overgrown/untidy",
+            "Weeds requiring removal",
+            "Carpets require professional cleaning",
+            "Hard floors require cleaning",
+            "Damp patches visible",
+            "Water stains on ceiling",
+            "Guttering blocked/damaged",
+            "Dripping tap",
+            "Plumbing leak under sink",
+            "Washing machine not working properly",
+            "Fridge/freezer not working properly",
+            "Dishwasher not working properly",
+            "Extractor fan filter requires cleaning",
+            "Cooker/hob not working",
+            "Oven not working properly",
+            "Cracks in plaster",
+            "Wallpaper damage/peeling",
+            "Carpet damage/tears",
+            "Broken window seal",
+            "Damaged plasterwork",
+            "Worn carpet",
+            "Socket not working",
+            "Switch not working properly",
+            "No hot water",
+            "Shower head blocked/damaged",
+            "Toilet blocked",
+            "Toilet cistern leaking",
+            "Radiator leaking",
+            "Shower screen damaged/leaking",
+            "Door damaged/scratched",
+            "Window damaged/cracked",
+            "Laminate/wood floor damaged",
+            "Skirting board damaged",
+            "Cupboard handle missing/loose",
+            "Drawer damaged/not closing",
+            "Worktop damaged/stained",
+            "Sink chipped/damaged",
+            "Bath chipped/damaged",
+            "Shower tray damaged",
+            "Curtains/blinds not working properly",
+            "Curtains/blinds damaged",
+            "Holes in walls (large)",
+            "Cracks in ceiling",
+            "Loose floorboards",
+            "Vinyl flooring damage",
+            "Tile cracked/missing",
+            "Grout damage/missing",
+            "Radiator valve damaged",
+            "Boiler making unusual noises",
+            "Ventilation grille blocked",
+            "Socket loose/damaged",
+            "Carbon monoxide alarm not working/missing",
+            "Fence damaged/broken",
+            "Gate damaged/not closing",
+            "Patio/decking requires cleaning",
+            "Bin store untidy",
+            "Damaged window sill",
+            "Towel rail loose/damaged",
+            "Toilet seat damaged/loose",
+            "Cooker/hob damaged",
+            "Oven door damaged/not sealing",
+            "Fridge/freezer making excessive noise",
+            "Tumble dryer not working",
+            "External door damaged",
+            "Architrave damaged",
+            "Coving damaged",
+            "Handrail loose/damaged",
+            "Stair banister loose",
+            "Fire door damaged/not closing",
+            "Shed damaged",
+            "Driveway/path damaged",
+            "Security light not working",
+            "External lighting not working",
+            "Doorbell not working",
+            "Intercom not working",
+            "TV aerial/socket not working",
+            "Broadband socket not working",
+            "Keys missing",
+            "Remote control missing/not working",
+            "Damage to furniture (if furnished)",
+            "Furniture broken/not usable",
+            "Mattress stained/damaged",
+            "Power cut/tripped electrics",
+            "Pest infestation evident",
+            "Roof leak",
+            "Roof tiles missing/damaged",
+            "Noise from neighbouring properties",
+            "Communal area issues",
+            "Parking permit issues",
+            "General wear and tear beyond reasonable",
+            "Tenant to clean immediately",
+            "Tenant to deep clean within 7 days",
+            "Tenant to clean within 14 days",
+            "Tenant to maintain regular cleaning",
+            "Tenant advised on proper ventilation",
+            "Tenant advised to keep property heated",
+            "Tenant advised to report issues promptly",
+            "Tenant to arrange professional cleaning",
+            "Tenant to remove personal items",
+            "Tenant to clear blocked drain",
+            "Tenant to replace light bulb",
+            "Tenant to reset smoke alarm",
+            "Tenant to arrange garden maintenance",
+            "Tenant responsible for repair",
+            "Tenant charged for damage",
+            "Landlord to arrange repair",
+            "Landlord to monitor",
+            "Landlord arranging contractor",
+            "Plumber required - urgent",
+            "Plumber required - non-urgent",
+            "Electrician required - urgent",
+            "Electrician required - non-urgent",
+            "Gas Safe engineer required - urgent",
+            "Gas Safe engineer required - non-urgent",
+            "Heating engineer required",
+            "Carpenter required",
+            "Glazier required",
+            "Plasterer required",
+            "Decorator required",
+            "Cleaner required",
+            "Carpet cleaner required",
+            "Gardener required",
+            "Pest control required",
+            "Roofer required",
+            "Gutter clearance required",
+            "Handyperson required",
+            "Locksmith required",
+            "Appliance engineer required",
+            "Window repair specialist required",
+            "Damp specialist required",
+            "Drainage specialist required",
+            "Works scheduled for [date]",
+            "Contractor to attend within 24 hours",
+            "Contractor to attend within 7 days",
+            "Contractor to attend within 14 days",
+            "Awaiting contractor availability",
+            "Awaiting parts/materials",
+            "Quote required before proceeding",
+            "Multiple quotes being obtained",
+            "Repair costs to be recovered from tenant",
+            "Repair covered by landlord insurance",
+            "Repair to be completed at end of tenancy",
+            "Temporary solution implemented",
+            "Permanent solution required",
+            "Monitoring situation",
+            "Issue noted - no action required",
+            "Issue acceptable - wear and tear",
+            "Issue resolved during inspection",
+            "Follow-up inspection required",
+            "Awaiting landlord decision",
+            "Awaiting tenant response",
+            "Reported to building management",
+            "Reported to freeholder",
+            "Warranty claim submitted",
+            "Insurance claim submitted"
+        )
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -83,61 +277,44 @@ class InspectionRoomActivity : BaseActivity() {
         binding.btnAllOk.setOnClickListener { setIssueState(false) }
         binding.btnIssuesFound.setOnClickListener { setIssueState(true) }
 
-
-        // Condition chips
-        binding.rvConditionChips.layoutManager =
+        // Issue suggestions
+        issueSuggestionsAdapter = SuggestionsAdapter(
+            this,
+            ISSUE_SUGGESTIONS,
+            object : SuggestionsAdapter.OnItemClickInterface {
+                override fun onItemClick(item: String) {
+                    val fullText = binding.etIssueNote.text.toString()
+                    val lastSemicolon = fullText.lastIndexOf(';')
+                    val prefix = if (lastSemicolon >= 0) fullText.substring(0, lastSemicolon + 1).trimEnd() + " " else ""
+                    val newText = "$prefix$item; "
+                    binding.etIssueNote.setText(newText)
+                    binding.etIssueNote.setSelection(newText.length)
+                    issueSuggestionsAdapter.filter("")
+                }
+            }
+        )
+        binding.rvIssueSuggestions.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        binding.rvConditionChips.adapter = ChipAdapter()
+        binding.rvIssueSuggestions.adapter = issueSuggestionsAdapter
 
-        // Priority spinner — no default selection
-        val priorityOptions = listOf("Select priority", "Observation", "Action required", "Urgent")
-
-        val spinnerAdapter = object : ArrayAdapter<String>(this, android.R.layout.simple_spinner_item, priorityOptions) {
-            @RequiresApi(Build.VERSION_CODES.O)
-            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val tv = super.getView(position, convertView, parent) as TextView
-                tv.typeface = resources.getFont(R.font.sofiasans_regular)
-                tv.textSize = 12f
-                tv.setTextColor(ContextCompat.getColor(context, if (position == 0) R.color.lbls_color else R.color.black))
-                return tv
+        binding.etIssueNote.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                val fullText = s?.toString() ?: ""
+                val lastSemicolon = fullText.lastIndexOf(';')
+                val currentWord = if (lastSemicolon >= 0) fullText.substring(lastSemicolon + 1).trim() else fullText.trim()
+                issueSuggestionsAdapter.filter(currentWord)
             }
+        })
 
-            @RequiresApi(Build.VERSION_CODES.O)
-            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val tv = super.getDropDownView(position, convertView, parent) as TextView
-                tv.typeface = resources.getFont(R.font.sofiasans_regular)
-                tv.textSize = 12f
-                tv.setPadding(
-                    resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._12sdp),
-                    resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._12sdp),
-                    resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._12sdp),
-                    resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._12sdp)
-                )
-                tv.setTextColor(ContextCompat.getColor(context, R.color.black))
-                // Dim the hint item in dropdown
-                if (position == 0) tv.setTextColor(ContextCompat.getColor(context, R.color.lbls_color))
-                return tv
-            }
-        }.apply { setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item) }
-
-        binding.spinnerPriority.adapter = spinnerAdapter
-        binding.spinnerPriority.setSelection(0, false)  // show hint, no real selection
-
-        binding.spinnerPriority.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
-                selectedPriority = priorityValues[position]
-            }
-            override fun onNothingSelected(parent: AdapterView<*>) {
-                selectedPriority = null
-            }
-        }
+        // Priority dropdown
+        binding.spinnerPriority.setOnClickListener { showPriorityDropdown() }
 
         binding.btnDone.setOnClickListener { upsertRoomInspectionApi() }
         binding.ivBack.setOnClickListener { finish() }
 
-        // Default state
         setIssueState(false)
-
         fetchRoomData()
 
         val isReadOnly = reportStatus == TenantReportStatus.COMPLETED.value ||
@@ -167,16 +344,6 @@ class InspectionRoomActivity : BaseActivity() {
         binding.issuesExpandedLayout.visibility = if (issue) View.VISIBLE else View.GONE
     }
 
-
-    private fun updateNoteFromChips() {
-        val chipsText = selectedChips.joinToString("; ")
-        val currentNote = binding.etIssueNote.text.toString()
-        // Only auto-update if note is empty or previously set by chips
-        if (currentNote.isEmpty() || conditionChips.any { currentNote.contains(it) }) {
-            binding.etIssueNote.setText(chipsText)
-        }
-    }
-
     private fun applyReadOnlyMode() {
         cameraBinding.ivAddImage.isEnabled = false
         cameraBinding.ivAddImage.alpha = 0.5f
@@ -184,7 +351,8 @@ class InspectionRoomActivity : BaseActivity() {
         binding.btnIssuesFound.isEnabled = false
         binding.etIssueNote.isEnabled = false
         binding.spinnerPriority.isEnabled = false
-        binding.rvConditionChips.isEnabled = false
+        binding.spinnerPriority.alpha = 0.5f
+        binding.rvIssueSuggestions.isEnabled = false
         binding.btnDone.visibility = View.GONE
     }
 
@@ -204,13 +372,11 @@ class InspectionRoomActivity : BaseActivity() {
             listener = object : ApiResponseListener<ApiResponse<ArrayList<RoomsResponse>>> {
                 override fun onSuccess(response: ApiResponse<ArrayList<RoomsResponse>>) {
                     val roomData = response.data?.find { it.id == room?.id } ?: return
-                    // Load room-level attachments
                     allImages.clear()
                     roomData.attachments?.forEach { attachment ->
                         allImages.add(ImageItem.Remote(attachment.id, "${ApiClient.IMAGE_BASE_URL}${attachment.storageKey}"))
                     }
                     cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
-                    // Populate inspection state
                     roomData.inspection?.firstOrNull()?.let { populateInspection(it) }
                 }
                 override fun onFailure(errorMessage: ErrorResponse?) {}
@@ -223,26 +389,40 @@ class InspectionRoomActivity : BaseActivity() {
         val issue = inspection.isIssue ?: false
         setIssueState(issue)
 
-
         if (issue) {
-            // Note
             inspection.note?.let { binding.etIssueNote.setText(it) }
 
-            // Chips — match words in note against conditionChips
-            selectedChips.clear()
-            val noteText = inspection.note ?: ""
-            conditionChips.forEach { chip ->
-                if (noteText.contains(chip, ignoreCase = true)) selectedChips.add(chip)
+            val matched = priorityValues.firstOrNull { it != null && it.equals(inspection.priority, ignoreCase = true) }
+            if (matched != null) {
+                selectedPriority = matched
+                val label = priorityLabels[priorityValues.indexOf(matched)]
+                binding.tvPriorityValue.text = label
+                binding.tvPriorityValue.setTextColor(ContextCompat.getColor(this, R.color.black))
             }
-            binding.rvConditionChips.adapter?.notifyDataSetChanged()
-
-            // Priority spinner
-            val priorityIndex = priorityValues.indexOfFirst {
-                it != null && it.equals(inspection.priority, ignoreCase = true)
-            }.takeIf { it >= 0 } ?: 0
-            binding.spinnerPriority.setSelection(priorityIndex, false)
-            selectedPriority = priorityValues[priorityIndex]
         }
+    }
+
+    private fun showPriorityDropdown() {
+        val options = listOf("Observation", "Action required", "Urgent")
+        val values = listOf("observation", "action required", "urgent")
+
+        val adapter = ArrayAdapter(this, R.layout.item_priority_option, options)
+
+        val popup = ListPopupWindow(this)
+        popup.anchorView = binding.spinnerPriority
+        popup.setAdapter(adapter)
+        popup.width = binding.spinnerPriority.width
+        popup.height = ListPopupWindow.WRAP_CONTENT
+        popup.verticalOffset = resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._4sdp)
+        popup.setBackgroundDrawable(ContextCompat.getDrawable(this, R.drawable.bg_edittext))
+        popup.isModal = true
+        popup.setOnItemClickListener { _, _, position, _ ->
+            selectedPriority = values[position]
+            binding.tvPriorityValue.text = options[position]
+            binding.tvPriorityValue.setTextColor(ContextCompat.getColor(this, R.color.black))
+            popup.dismiss()
+        }
+        popup.show()
     }
 
     private fun upsertRoomInspectionApi() {
@@ -291,47 +471,5 @@ class InspectionRoomActivity : BaseActivity() {
             onComplete = { finish() },
             onError = { finish() }
         )
-    }
-
-    inner class ChipAdapter : RecyclerView.Adapter<ChipAdapter.ChipHolder>() {
-
-        inner class ChipHolder(val tv: TextView) : RecyclerView.ViewHolder(tv)
-
-        @RequiresApi(Build.VERSION_CODES.O)
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChipHolder {
-            val tv = TextView(parent.context).apply {
-                val pad = resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._8sdp)
-                val margin = resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._6sdp)
-                setPadding(pad * 2, pad, pad * 2, pad)
-                layoutParams = RecyclerView.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ).apply { marginEnd = margin }
-                setTextColor(ContextCompat.getColor(context, R.color.black))
-                textSize = 12f
-                typeface = resources.getFont(R.font.sofiasans_regular)
-                background = ContextCompat.getDrawable(context, R.drawable.bg_edittext)
-            }
-            return ChipHolder(tv)
-        }
-
-        override fun getItemCount() = conditionChips.size
-
-        override fun onBindViewHolder(holder: ChipHolder, position: Int) {
-            val chip = conditionChips[position]
-            holder.tv.text = chip
-            val isSelected = selectedChips.contains(chip)
-            holder.tv.background = ContextCompat.getDrawable(
-                this@InspectionRoomActivity,
-                if (isSelected) R.drawable.bg_white_selected_black_stroke else R.drawable.bg_edittext
-            )
-
-            holder.tv.setOnClickListener {
-                if (selectedChips.contains(chip)) selectedChips.remove(chip)
-                else selectedChips.add(chip)
-                notifyItemChanged(position)
-                updateNoteFromChips()
-            }
-        }
     }
 }

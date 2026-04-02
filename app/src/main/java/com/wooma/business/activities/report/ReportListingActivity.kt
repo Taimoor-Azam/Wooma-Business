@@ -6,7 +6,6 @@ import android.util.Log
 import android.view.View
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.activities.property.EditPropertyActivity
-import com.wooma.business.adapter.PropertyAdapter
 import com.wooma.business.adapter.ReportListingAdapter
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
@@ -15,10 +14,8 @@ import com.wooma.business.data.network.showToast
 import com.wooma.business.databinding.ActivityReportListingBinding
 import com.wooma.business.model.ApiResponse
 import com.wooma.business.model.ErrorResponse
-import com.wooma.business.model.Property
 import com.wooma.business.model.PropertyDetailResponse
 import com.wooma.business.model.Report
-import com.wooma.business.model.TenantPropertiesWrapper
 
 class ReportListingActivity : BaseActivity() {
     private lateinit var binding: ActivityReportListingBinding

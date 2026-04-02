@@ -186,7 +186,15 @@ class InventoryListingActivity : BaseActivity() {
 
         binding.coverImageSection.setOnClickListener {
             if (reportStatus != TenantReportStatus.IN_PROGRESS.value) return@setOnClickListener
-            showCoverImagePopup(it)
+            if (coverImageStorageKey.isNullOrEmpty()) {
+                CameraActivity.pendingUris.clear()
+                startActivityForResult(
+                    Intent(this, CameraActivity::class.java).putExtra("isCoverImage", true),
+                    CAMERA_REQUEST
+                )
+            } else {
+                showCoverImagePopup(it)
+            }
         }
 
         binding.btnCompleteReport.setOnClickListener {
@@ -588,15 +596,17 @@ class InventoryListingActivity : BaseActivity() {
         val sheetView = layoutInflater.inflate(R.layout.bottom_sheet_complete_inspection, null)
         bottomSheet.setContentView(sheetView)
 
-        val cbConfirm = sheetView.findViewById<android.widget.CheckBox>(R.id.cbConfirm)
+        val cbConfirm = sheetView.findViewById<android.widget.ImageView>(R.id.cbConfirm)
         val btnComplete = sheetView.findViewById<android.widget.Button>(R.id.btnCompleteReport)
         val ivClose = sheetView.findViewById<android.widget.ImageView>(R.id.ivClose)
 
         ivClose.setOnClickListener { bottomSheet.dismiss() }
 
-        cbConfirm.setOnCheckedChangeListener { _, isChecked ->
-            btnComplete.isEnabled = isChecked
-            btnComplete.alpha = if (isChecked) 1f else 0.5f
+        cbConfirm.setOnClickListener {
+            val checked = !cbConfirm.isSelected
+            cbConfirm.isSelected = checked
+            btnComplete.isEnabled = checked
+            btnComplete.setBackgroundResource(if (checked) R.drawable.bg_button_green else R.drawable.bg_button_green_disabled)
         }
 
         btnComplete.setOnClickListener {

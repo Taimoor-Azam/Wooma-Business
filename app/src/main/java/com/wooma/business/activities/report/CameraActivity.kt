@@ -1,7 +1,17 @@
 package com.wooma.business.activities.report
 
 import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RectF
+import android.graphics.Typeface
+import android.media.MediaActionSound
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
@@ -14,12 +24,17 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.wooma.business.R
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.adapter.ImageAdapter
 import com.wooma.business.model.ImageItem
 import com.wooma.business.data.network.showToast
 import com.wooma.business.databinding.ActivityCameraBinding
 import java.io.File
+import java.io.FileOutputStream
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class CameraActivity : BaseActivity() {
     private lateinit var binding: ActivityCameraBinding
@@ -32,20 +47,18 @@ class CameraActivity : BaseActivity() {
 
     private var flashEnabled = false
     private var isCoverImage = false
+    private var isZoom2x = false
+
+    private val shutterSound = MediaActionSound()
 
     companion object {
-        /** Populated when the activity finishes — calling activities read this after RESULT_OK. */
         val pendingUris = mutableListOf<Uri>()
     }
 
     private val cameraPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-
-            if (isGranted) {
-                startCamera()
-            } else {
-                showToast("Camera permission denied")
-            }
+            if (isGranted) startCamera()
+            else showToast("Camera permission denied")
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,13 +77,12 @@ class CameraActivity : BaseActivity() {
 
         setupRecycler()
         checkCameraPermission()
-//        startCamera()
 
         binding.btnCapture.setOnClickListener { takePhoto() }
-
         binding.btnGallery.setOnClickListener { openGallery() }
-
         binding.btnFlash.setOnClickListener { toggleFlash() }
+        binding.btn1x.setOnClickListener { setZoom(false) }
+        binding.btn2x.setOnClickListener { setZoom(true) }
 
         binding.btnBack.setOnClickListener {
             setResult(RESULT_CANCELED)
@@ -83,32 +95,17 @@ class CameraActivity : BaseActivity() {
             setResult(RESULT_OK)
             finish()
         }
-
-//        binding.zoomHalf.setOnClickListener { zoom(0.5f) }
-//        binding.zoom1.setOnClickListener { zoom(1f) }
-//        binding.zoom2.setOnClickListener { zoom(2f) }
-
     }
 
     private fun checkCameraPermission() {
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.CAMERA
-            ) == PackageManager.PERMISSION_GRANTED
-        ) {
-
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
             startCamera()
-
-        } else {
-
+        else
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-
-        }
     }
 
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
-
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
             val preview = Preview.Builder().build()
@@ -116,33 +113,31 @@ class CameraActivity : BaseActivity() {
                 .setFlashMode(ImageCapture.FLASH_MODE_OFF)
                 .build()
 
-            val selector = CameraSelector.DEFAULT_BACK_CAMERA
             preview.surfaceProvider = binding.previewView.surfaceProvider
-
             cameraProvider.unbindAll()
+            camera = cameraProvider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture)
 
-            camera = cameraProvider.bindToLifecycle(
-                this,
-                selector,
-                preview,
-                imageCapture
-            )
-
+            // Apply current zoom after camera is ready
+            camera.cameraControl.setZoomRatio(if (isZoom2x) 2f else 1f)
         }, ContextCompat.getMainExecutor(this))
     }
 
     private fun takePhoto() {
         if (images.size >= 50) return
 
+        val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        if (audioManager.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
+            shutterSound.play(MediaActionSound.SHUTTER_CLICK)
+        }
+
         val file = File(externalMediaDirs.first(), "${System.currentTimeMillis()}.jpg")
         val output = ImageCapture.OutputFileOptions.Builder(file).build()
 
-        imageCapture.takePicture(
-            output,
-            ContextCompat.getMainExecutor(this),
+        imageCapture.takePicture(output, ContextCompat.getMainExecutor(this),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(result: ImageCapture.OutputFileResults) {
-                    val uri = Uri.fromFile(file)
+                    val stampedFile = stampDateTimeOnImage(file)
+                    val uri = Uri.fromFile(stampedFile)
 
                     images.add(ImageItem.Local(uri))
                     adapter.notifyItemInserted(images.size - 1)
@@ -163,33 +158,83 @@ class CameraActivity : BaseActivity() {
         )
     }
 
-    private fun toggleFlash() {
-        flashEnabled = !flashEnabled
+    private fun stampDateTimeOnImage(originalFile: File): File {
+        val original = BitmapFactory.decodeFile(originalFile.absolutePath)
+        val mutable = original.copy(Bitmap.Config.ARGB_8888, true)
+        val canvas = Canvas(mutable)
 
-        imageCapture.flashMode =
-            if (flashEnabled)
-                ImageCapture.FLASH_MODE_ON
-            else
-                ImageCapture.FLASH_MODE_OFF
+        val dateText = SimpleDateFormat("dd/MM/yyyy  HH:mm", Locale.getDefault()).format(Date())
+
+        val density = resources.displayMetrics.density
+        val textSizePx = 28f * density
+        val paddingH = 16f * density
+        val paddingV = 10f * density
+        val cornerRadius = 12f * density
+        val marginLeft = 24f * density
+        val marginBottom = 40f * density
+
+        val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = textSizePx
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        }
+
+        val textWidth = textPaint.measureText(dateText)
+        val textHeight = textPaint.descent() - textPaint.ascent()
+
+        val rectLeft = marginLeft
+        val rectBottom = mutable.height - marginBottom
+        val rectRight = rectLeft + textWidth + paddingH * 2
+        val rectTop = rectBottom - textHeight - paddingV * 2
+
+        val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.parseColor("#99000000")
+        }
+        canvas.drawRoundRect(RectF(rectLeft, rectTop, rectRight, rectBottom), cornerRadius, cornerRadius, bgPaint)
+
+        val textX = rectLeft + paddingH
+        val textY = rectBottom - paddingV - textPaint.descent()
+        canvas.drawText(dateText, textX, textY, textPaint)
+
+        val stampedFile = File(externalMediaDirs.first(), "stamped_${System.currentTimeMillis()}.jpg")
+        FileOutputStream(stampedFile).use { out ->
+            mutable.compress(Bitmap.CompressFormat.JPEG, 95, out)
+        }
+        original.recycle()
+        mutable.recycle()
+        originalFile.delete()
+        return stampedFile
     }
 
-    private fun zoom(value: Float) {
-        val cameraControl = camera.cameraControl
-        val cameraInfo = camera.cameraInfo
+    private fun toggleFlash() {
+        flashEnabled = !flashEnabled
+        imageCapture.flashMode = if (flashEnabled) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
+        binding.btnFlash.setImageResource(if (flashEnabled) R.drawable.svg_flash else R.drawable.svg_flash_active)
+    }
 
-        val zoomState = cameraInfo.zoomState.value
+    private fun setZoom(zoom2x: Boolean) {
+        isZoom2x = zoom2x
+        camera.cameraControl.setZoomRatio(if (zoom2x) 2f else 1f)
+        updateZoomButtons()
+    }
 
-        zoomState?.let {
-            cameraControl.setZoomRatio(value)
+    private fun updateZoomButtons() {
+        if (isZoom2x) {
+            binding.btn1x.setBackgroundResource(android.R.color.transparent)
+            binding.btn1x.setTextColor(ContextCompat.getColor(this, R.color.white))
+            binding.btn2x.setBackgroundResource(R.drawable.bg_zoom_selected)
+            binding.btn2x.setTextColor(ContextCompat.getColor(this, R.color.black))
+        } else {
+            binding.btn1x.setBackgroundResource(R.drawable.bg_zoom_selected)
+            binding.btn1x.setTextColor(ContextCompat.getColor(this, R.color.black))
+            binding.btn2x.setBackgroundResource(android.R.color.transparent)
+            binding.btn2x.setTextColor(ContextCompat.getColor(this, R.color.white))
         }
     }
 
     private fun setupRecycler() {
         adapter = ImageAdapter(images, onDelete = { updateCounter() })
-
-        binding.recyclerImages.layoutManager =
-            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-
+        binding.recyclerImages.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         binding.recyclerImages.adapter = adapter
     }
 
@@ -215,5 +260,10 @@ class CameraActivity : BaseActivity() {
 
     private fun openGallery() {
         galleryLauncher.launch("image/*")
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        shutterSound.release()
     }
 }

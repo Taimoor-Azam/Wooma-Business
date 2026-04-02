@@ -6,6 +6,8 @@ import com.wooma.business.model.ImageItem
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import android.view.View
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -56,7 +58,30 @@ class AddEditDetectorActivity : BaseActivity() {
             "Security Alarm"
         )
 
+    val locationSuggestionList = mutableListOf(
+        "Living Room", "Dining Room", "Kitchen", "Hallway", "Landing", "Entrance Hall",
+        "Utility Room", "Conservatory", "Study", "Office", "Garage", "Basement", "Attic", "Loft",
+        "Master Bedroom", "Bedroom 1", "Bedroom 2", "Bedroom 3", "Bedroom 4", "Guest Bedroom",
+        "Bathroom", "Ensuite", "WC", "Downstairs WC", "Family Bathroom", "Main Bathroom",
+        "Front Garden", "Back Garden", "Shed", "Outbuilding", "Summer House"
+    )
+
+    val testResultSuggestionList = mutableListOf(
+        "Detector tested. Audible alarm noted. Operating correctly.",
+        "Detector tested. Unit failed to activate. Requires replacement.",
+        "Detector present. Testing not completed at time of inspection.",
+        "No detector fitted at this location.",
+        "Detector tested. Audible alarm noted. Low battery warning detected.",
+        "Detector present but inaccessible for testing."
+    )
+
+    private lateinit var suggestionsAdapter: SuggestionsAdapter
+    private lateinit var locationSuggestionsAdapter: SuggestionsAdapter
+    private lateinit var testResultSuggestionsAdapter: SuggestionsAdapter
+
     var isEdit = false
+    private var hasChanges = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -98,18 +123,88 @@ class AddEditDetectorActivity : BaseActivity() {
             }
         }
 
-        binding.rvSuggestions.adapter = SuggestionsAdapter(
+        suggestionsAdapter = SuggestionsAdapter(
             this,
             suggestionList,
             object : SuggestionsAdapter.OnItemClickInterface {
                 override fun onItemClick(item: String) {
                     binding.etType.setText(item)
+                    binding.etType.text?.let { binding.etType.setSelection(it.length) }
+                    suggestionsAdapter.filter("")
                 }
             })
+        binding.rvSuggestions.adapter = suggestionsAdapter
 
-        binding.ivBack.setOnClickListener { finish() }
+        binding.etType.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                suggestionsAdapter.filter(s?.toString() ?: "")
+            }
+        })
+
+        locationSuggestionsAdapter = SuggestionsAdapter(
+            this,
+            locationSuggestionList,
+            object : SuggestionsAdapter.OnItemClickInterface {
+                override fun onItemClick(item: String) {
+                    binding.etLocation.setText(item)
+                    binding.etLocation.text?.let { binding.etLocation.setSelection(it.length) }
+                    locationSuggestionsAdapter.filter("")
+                }
+            })
+        binding.rvLocationSuggestions.adapter = locationSuggestionsAdapter
+
+        binding.etLocation.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                locationSuggestionsAdapter.filter(s?.toString() ?: "")
+            }
+        })
+
+        testResultSuggestionsAdapter = SuggestionsAdapter(
+            this,
+            testResultSuggestionList,
+            object : SuggestionsAdapter.OnItemClickInterface {
+                override fun onItemClick(item: String) {
+                    binding.etTestResult.setText(item)
+                    binding.etTestResult.text?.let { binding.etTestResult.setSelection(it.length) }
+                    testResultSuggestionsAdapter.filter("")
+                }
+            })
+        binding.rvTestResultSuggestions.adapter = testResultSuggestionsAdapter
+
+        binding.etTestResult.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                testResultSuggestionsAdapter.filter(s?.toString() ?: "")
+            }
+        })
+
+        binding.ivBack.setOnClickListener {
+            if (hasChanges) showUnsavedChangesDialog { finish() } else finish()
+        }
 
         setMeterData()
+        attachChangeWatchers()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (hasChanges) showUnsavedChangesDialog { super.onBackPressed() } else super.onBackPressed()
+    }
+
+    private fun attachChangeWatchers() {
+        val w = object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) { hasChanges = true }
+        }
+        binding.etType.addTextChangedListener(w)
+        binding.etLocation.addTextChangedListener(w)
+        binding.etTestResult.addTextChangedListener(w)
     }
 
     private fun setupCapturedImagesRecycler() {

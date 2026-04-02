@@ -1,19 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
+    android:background="@color/white"
     android:orientation="vertical"
-    android:padding="@dimen/_16sdp"
-    android:background="@color/white">
+    android:padding="@dimen/_16sdp">
 
     <!-- Close button -->
     <ImageView
         android:id="@+id/ivClose"
-        android:layout_width="@dimen/_24sdp"
-        android:layout_height="@dimen/_24sdp"
-        android:src="@drawable/ic_back"
-        app:tint="@color/green" />
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:src="@drawable/svg_cross" />
 
     <!-- Warning text -->
     <TextView
@@ -36,11 +34,11 @@
         android:orientation="horizontal"
         android:padding="@dimen/_12sdp">
 
-        <CheckBox
+        <ImageView
             android:id="@+id/cbConfirm"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:button="@drawable/check_selector" />
+            android:layout_width="@dimen/_22sdp"
+            android:layout_height="@dimen/_22sdp"
+            android:src="@drawable/check_selector" />
 
         <TextView
             android:layout_width="0dp"
@@ -55,16 +53,16 @@
     </LinearLayout>
 
     <!-- Complete report button -->
-    <Button
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/btnCompleteReport"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/_16sdp"
-        android:background="@drawable/bg_button_green"
+        android:background="@drawable/bg_button_green_disabled"
         android:enabled="false"
-        android:alpha="0.5"
         android:fontFamily="@font/sofiasans_semibold"
-        android:text="Complete report"
+        android:text="@string/complete_report"
+        android:textAllCaps="false"
         android:textColor="@color/white"
         android:textSize="@dimen/_14ssp" />
 

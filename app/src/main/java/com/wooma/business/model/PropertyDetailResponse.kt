@@ -25,8 +25,9 @@ data class Report(
     val is_active: Boolean,
     val is_deleted: Boolean,
     val assessor: Assessor,
+    val completion_date: String?,
     val created_at: String,
-    val updated_at: String
+    val updated_at: String,
 )
 
 @Parcelize

@@ -7,7 +7,6 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
 import android.view.View
-import android.view.inputmethod.EditorInfo
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.IntentCompat
 import com.wooma.business.activities.BaseActivity
@@ -64,57 +63,54 @@ class AddPropertyByPostalCodeActivity : BaseActivity() {
 
         binding.ivBack.setOnClickListener { finish() }
 
-        /*binding.etPostalCode.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
-
-            }
-
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                getPostCodesApi()
-            }
-
+        binding.etPostalCode.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
+                val query = s?.toString() ?: ""
+                if (query.isNotEmpty()) {
+                    getPostCodesApi()
+                } else {
+                    binding.searchLayout.visibility = View.GONE
+                    binding.tvNotFound.visibility = View.GONE
+                }
             }
-        })*/
-
-        binding.etPostalCode.setOnEditorActionListener { v, actionId, event ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
-                // Perform your search operation here
-                getPostCodesApi()
-                true // Consume the event
-            } else {
-                false // Event not consumed
-            }
-        }
+        })
 
     }
 
     private fun getPostCodesApi() {
+        binding.progressBar.visibility = View.VISIBLE
+        binding.searchLayout.visibility = View.GONE
         makeApiRequest(
             apiServiceClass = MyApi::class.java,
             context = this,
-            showLoading = true,
+            showLoading = false,
             requestAction = { apiService -> apiService.getPostCodes(binding.etPostalCode.text.toString()) },
             listener = object : ApiResponseListener<ApiResponse<ArrayList<PostalAddress>>> {
                 override fun onSuccess(response: ApiResponse<ArrayList<PostalAddress>>) {
+                    binding.progressBar.visibility = View.GONE
                     if (response.success && response.data.isNotEmpty()) {
                         binding.searchLayout.visibility = View.VISIBLE
+                        binding.tvNotFound.visibility = View.GONE
                         postalAddress.clear()
                         postalAddress.addAll(response.data)
                         adapter.updateList(postalAddress)
                     } else {
                         binding.searchLayout.visibility = View.GONE
+                        binding.tvNotFound.visibility = View.VISIBLE
                     }
                 }
 
                 override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
+                    binding.progressBar.visibility = View.GONE
+                    binding.searchLayout.visibility = View.GONE
+                    binding.tvNotFound.visibility = View.VISIBLE
                     Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
                 }
 
                 override fun onError(throwable: Throwable) {
-                    // Handle network error
+                    binding.progressBar.visibility = View.GONE
                     Log.e("API", "Error: ${throwable.message}")
                     showToast("Error: ${throwable.message}")
                 }

@@ -83,6 +83,7 @@
             android:layout_marginTop="@dimen/_4sdp"
             android:background="@drawable/bg_edittext"
             android:hint="Enter Type"
+            android:textColorHint="@color/light_grey"
             android:imeOptions="actionNext"
             android:inputType="text"
             android:maxLines="1"
@@ -178,6 +179,7 @@
             android:layout_marginTop="@dimen/_4sdp"
             android:background="@drawable/bg_edittext"
             android:hint="Enter what's for"
+            android:textColorHint="@color/light_grey"
             android:imeOptions="actionNext"
             android:inputType="text"
             android:maxLines="1"
@@ -187,6 +189,14 @@
             android:paddingBottom="@dimen/_10sdp"
             android:textColor="@color/black"
             android:textSize="@dimen/_12ssp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvNoteSuggestions"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/_3sdp"
+            android:orientation="horizontal"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnSave"

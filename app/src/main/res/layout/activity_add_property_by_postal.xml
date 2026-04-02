@@ -72,6 +72,7 @@
             android:layout_marginTop="@dimen/_4sdp"
             android:background="@drawable/bg_edittext"
             android:hint="Enter Postal Code"
+            android:textColorHint="@color/light_grey"
             android:imeOptions="actionSearch"
             android:inputType="textCapCharacters"
             android:maxLines="1"
@@ -81,6 +82,17 @@
             android:paddingBottom="@dimen/_10sdp"
             android:textColor="@color/black"
             android:textSize="@dimen/_12ssp" />
+
+        <TextView
+            android:id="@+id/tvNotFound"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/_16sdp"
+            android:fontFamily="@font/sofiasans_regular"
+            android:text="Postcode not found"
+            android:textColor="@color/lbls_color"
+            android:textSize="@dimen/_13ssp"
+            android:visibility="gone" />
 
         <LinearLayout
             android:id="@+id/searchLayout"
@@ -104,6 +116,16 @@
 
         </LinearLayout>
     </LinearLayout>
+
+    <ProgressBar
+        android:id="@+id/progressBar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/btnManualAddress"

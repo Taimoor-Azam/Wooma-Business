@@ -3,6 +3,8 @@ package com.wooma.business.activities.report
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.util.Log
 import androidx.appcompat.widget.SearchView
 import com.wooma.business.activities.BaseActivity
@@ -46,11 +48,16 @@ class SelectPropertyForReportActivity : BaseActivity() {
 
         binding.ivBack.setOnClickListener { finish() }
 
-        binding.searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
-            override fun onQueryTextSubmit(query: String?) = false
-            override fun onQueryTextChange(newText: String?): Boolean {
-                adapter.filter(newText.orEmpty())
-                return true
+        binding.searchView.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
+            }
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                adapter.filter(s.toString())
+
+            }
+
+            override fun afterTextChanged(s: Editable?) {
             }
         })
     }
@@ -90,8 +97,8 @@ class SelectPropertyForReportActivity : BaseActivity() {
     private fun getPropertiesList() {
         val queryMap = mutableMapOf<String, Any>().apply {
             put("page", 1)
-            put("limit", 50)
-            put("search", binding.searchView.query.toString())
+            put("limit", 100)
+            put("search", binding.searchView.text.toString())
             put("is_active", true)
         }
 

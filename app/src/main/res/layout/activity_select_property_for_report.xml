@@ -42,19 +42,41 @@
     </LinearLayout>
 
     <!-- Search Bar -->
-    <androidx.appcompat.widget.SearchView
-        android:id="@+id/searchView"
-        android:layout_width="0dp"
+
+    <LinearLayout
+        android:id="@+id/searchLayout"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginStart="@dimen/_12sdp"
         android:layout_marginTop="@dimen/_8sdp"
         android:layout_marginEnd="@dimen/_12sdp"
-        android:background="@drawable/bg_edittext"
-        android:hint="@string/search_address"
-        android:queryHint="Search address..."
+        android:orientation="horizontal"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/topLayout" />
+        app:layout_constraintTop_toBottomOf="@+id/topLayout">
+
+        <EditText
+            android:id="@+id/searchView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/_4sdp"
+            android:background="@drawable/bg_edittext"
+            android:drawableStart="@drawable/svg_search"
+            android:drawablePadding="@dimen/_8sdp"
+            android:fontFamily="@font/sofiasans_regular"
+            android:hint="@string/search_address"
+            android:imeOptions="actionDone"
+            android:inputType="text"
+            android:paddingStart="@dimen/_10sdp"
+            android:paddingTop="@dimen/_10sdp"
+            android:paddingEnd="@dimen/_10sdp"
+            android:paddingBottom="@dimen/_10sdp"
+            android:textColor="@color/black"
+            android:textColorHint="@color/light_grey"
+            android:textSize="@dimen/_12ssp" />
+
+    </LinearLayout>
+
 
     <LinearLayout
         android:layout_width="0dp"
@@ -68,7 +90,7 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/searchView">
+        app:layout_constraintTop_toBottomOf="@id/searchLayout">
         <!-- Title -->
         <TextView
             android:id="@+id/tvTitle"

@@ -14,6 +14,7 @@ import com.wooma.business.model.ErrorResponse
 import com.wooma.business.model.ReportType
 import com.wooma.business.model.ReportTypeResponse
 import com.wooma.business.model.TenantPropertiesWrapper
+import com.wooma.business.model.enums.ReportTypes
 
 class SelectReportTypeActivity : BaseActivity() {
     private lateinit var adapter: ReportTypeAdapter
@@ -55,7 +56,9 @@ class SelectReportTypeActivity : BaseActivity() {
             listener = object : ApiResponseListener<ApiResponse<ReportTypeResponse>> {
                 override fun onSuccess(response: ApiResponse<ReportTypeResponse>) {
                     if (response.data.data.isNotEmpty()) {
-                        reportTypeList = response.data.data
+                        reportTypeList = response.data.data.filter {
+                            it.type_code != ReportTypes.CHECK_IN.value
+                        }.toMutableList()
                         adapter.updateList(reportTypeList)
                     }
                 }

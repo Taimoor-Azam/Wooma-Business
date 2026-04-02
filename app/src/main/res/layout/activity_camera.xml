@@ -90,6 +90,41 @@
                 android:layout_width="match_parent"
                 android:layout_height="match_parent" />
 
+            <!-- Zoom toggle -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentBottom="true"
+                android:layout_centerHorizontal="true"
+                android:layout_marginBottom="@dimen/_82sdp"
+                android:background="@drawable/bg_zoom_toggle"
+                android:orientation="horizontal"
+                android:padding="@dimen/_3sdp">
+
+                <TextView
+                    android:id="@+id/btn1x"
+                    android:layout_width="@dimen/_36sdp"
+                    android:layout_height="@dimen/_28sdp"
+                    android:background="@drawable/bg_zoom_selected"
+                    android:fontFamily="@font/sofiasans_semibold"
+                    android:gravity="center"
+                    android:text="1x"
+                    android:textColor="@color/black"
+                    android:textSize="@dimen/_12ssp" />
+
+                <TextView
+                    android:id="@+id/btn2x"
+                    android:layout_width="@dimen/_36sdp"
+                    android:layout_height="@dimen/_28sdp"
+                    android:background="@android:color/transparent"
+                    android:fontFamily="@font/sofiasans_semibold"
+                    android:gravity="center"
+                    android:text="2x"
+                    android:textColor="@color/white"
+                    android:textSize="@dimen/_12ssp" />
+
+            </LinearLayout>
+
             <RelativeLayout
                 android:layout_width="match_parent"
                 android:layout_alignParentBottom="true"
@@ -125,7 +160,7 @@
             android:layout_gravity="top|end"
             android:layout_margin="@dimen/_10sdp"
             android:padding="@dimen/_8sdp"
-            android:src="@drawable/svg_flash" />
+            android:src="@drawable/svg_flash_active" />
 
     </androidx.cardview.widget.CardView>
 

@@ -79,6 +79,15 @@
             android:text="@string/properties"
             android:textColor="@color/black"
             android:textSize="@dimen/_16ssp" />
+
+        <TextView
+            android:id="@+id/tvAssessorName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/_4sdp"
+            android:fontFamily="@font/sofiasans_regular"
+            android:textColor="@color/lbls_color"
+            android:textSize="@dimen/_11ssp" />
     </LinearLayout>
 
     <View

@@ -37,6 +37,7 @@
         android:imeOptions="actionDone"
         android:inputType="text"
         android:fontFamily="@font/sofiasans_regular"
+        android:textColorHint="@color/light_grey"
         android:paddingStart="@dimen/_10sdp"
         android:paddingTop="@dimen/_10sdp"
         android:paddingEnd="@dimen/_10sdp"

@@ -3,76 +3,76 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/black">
+    android:background="@color/bg_clr">
 
+    <!-- Center content -->
     <LinearLayout
-        android:layout_width="match_parent"
+        android:id="@+id/centerLayout"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="@dimen/_16sdp"
-        android:layout_marginEnd="@dimen/_16sdp"
         android:orientation="vertical"
-        app:layout_constraintBottom_toTopOf="@+id/bottomLayout"
-        app:layout_constraintTop_toTopOf="parent">
-
-        <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/svg_rect_logo" />
+        android:paddingStart="@dimen/_24sdp"
+        android:paddingEnd="@dimen/_24sdp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.4">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/_16sdp"
             android:fontFamily="@font/sofiasans_bold"
-            android:text="Faster reports. \nLower costs."
-            android:textColor="@color/white"
-            android:textSize="@dimen/_30ssp" />
+            android:text="Sign up – it's free"
+            android:textColor="@color/black"
+            android:textSize="@dimen/_26ssp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/_16sdp"
-            android:fontFamily="@font/sofiasans_regular"
-            android:text="Welcome to the future of property inventory reporting"
-            android:textColor="#727272"
-            android:textSize="@dimen/_18ssp" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
             android:layout_marginTop="@dimen/_20sdp"
-            android:background="#1B1B1B" />
+            android:fontFamily="@font/sofiasans_regular"
+            android:text="Email address"
+            android:textColor="@color/lbls_color"
+            android:textSize="@dimen/_12ssp" />
 
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/bottomLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        app:layout_constraintBottom_toBottomOf="parent">
+        <androidx.appcompat.widget.AppCompatEditText
+            android:id="@+id/etEmail"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/_6sdp"
+            android:background="@drawable/bg_edittext"
+            android:fontFamily="@font/sofiasans_regular"
+            android:hint="Enter your email"
+            android:inputType="textEmailAddress"
+            android:paddingStart="@dimen/_12sdp"
+            android:paddingTop="@dimen/_12sdp"
+            android:paddingEnd="@dimen/_12sdp"
+            android:paddingBottom="@dimen/_12sdp"
+            android:textColor="@color/black"
+            android:textColorHint="@color/light_grey"
+            android:textSize="@dimen/_13ssp" />
 
         <RelativeLayout
             android:id="@+id/createAccountLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginStart="@dimen/_16sdp"
-            android:layout_marginEnd="@dimen/_16sdp"
-            android:layout_marginBottom="@dimen/_15sdp"
+            android:layout_marginTop="@dimen/_16sdp"
             android:background="@drawable/bg_button_green">
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnCreate"
                 android:layout_width="wrap_content"
-                android:paddingTop="@dimen/_10sdp"
-                android:paddingBottom="@dimen/_10sdp"
                 android:layout_height="wrap_content"
                 android:layout_centerInParent="true"
                 android:background="@android:color/transparent"
-                android:text="@string/create_account"
+                android:paddingTop="@dimen/_10sdp"
+                android:paddingBottom="@dimen/_10sdp"
+                android:text="Sign up free"
                 android:textAllCaps="false"
                 android:textColor="@color/white"
-                android:textSize="@dimen/_14ssp" />
+                android:textSize="@dimen/_14ssp"
+                android:fontFamily="@font/sofiasans_semibold" />
 
             <ImageView
                 android:layout_width="@dimen/_15sdp"
@@ -85,20 +85,22 @@
 
         </RelativeLayout>
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnLogin"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:paddingTop="@dimen/_10sdp"
-            android:paddingBottom="@dimen/_10sdp"
-            android:layout_marginStart="@dimen/_16sdp"
-            android:layout_marginEnd="@dimen/_16sdp"
-            android:layout_marginBottom="@dimen/_25sdp"
-            android:background="@android:color/transparent"
-            android:text="@string/login"
-            android:textAllCaps="false"
-            android:textColor="@color/green"
-            android:textSize="@dimen/_14ssp" />
     </LinearLayout>
+
+    <!-- Bottom: I've got an account -->
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btnLogin"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="@dimen/_24sdp"
+        android:background="@android:color/transparent"
+        android:fontFamily="@font/sofiasans_semibold"
+        android:text="I've got an account"
+        android:textAllCaps="false"
+        android:textColor="@color/green"
+        android:textSize="@dimen/_14ssp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
 </androidx.constraintlayout.widget.ConstraintLayout>

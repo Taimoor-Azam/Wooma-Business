@@ -46,7 +46,9 @@ class InventoryRoomItemActivity : BaseActivity() {
     var isInspection = false
     var isIssue: Boolean = false
     var selectedPriority: String? = null
-    private val conditionChips = listOf("Marked", "Scuffed", "Stained", "Loose fitting", "Cracked", "Damp", "Mould", "Faded")
+    private var hasChanges = false
+    private val conditionChips =
+        listOf("Marked", "Scuffed", "Stained", "Loose fitting", "Cracked", "Damp", "Mould", "Faded")
     private val selectedChips = mutableSetOf<String>()
 
     private val capturedUris = mutableListOf<Uri>()
@@ -58,8 +60,8 @@ class InventoryRoomItemActivity : BaseActivity() {
         ConditionDAO(R.drawable.svg_excellent, "Excellent"),
         ConditionDAO(R.drawable.svg_excellent, "Good"),
         ConditionDAO(R.drawable.svg_poor, "Poor"),
-        ConditionDAO(R.drawable.svg_poor, "Unacceptable")
-//        ConditionDAO(R.drawable.svg_poor, "N/A")
+        ConditionDAO(R.drawable.svg_poor, "Unacceptable"),
+        ConditionDAO(R.drawable.svg_poor, "N/A")
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,10 +92,18 @@ class InventoryRoomItemActivity : BaseActivity() {
             binding.etItemName.setText(roomItems?.name ?: "")
 
             binding.etItemName.addTextChangedListener(object : android.text.TextWatcher {
-                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun beforeTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    count: Int,
+                    after: Int
+                ) {
+                }
+
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                     binding.tvTitle.text = s?.toString() ?: ""
                 }
+
                 override fun afterTextChanged(s: android.text.Editable?) {}
             })
 
@@ -114,10 +124,12 @@ class InventoryRoomItemActivity : BaseActivity() {
             binding.rvCondition.adapter =
                 ItemConditionAdapter(this, conditionItems, selectedCondition) {
                     selectedCondition = it?.name ?: ""
+                    hasChanges = true
                 }
             binding.tvCleanliness.adapter =
                 ItemConditionAdapter(this, conditionItems, selectedCleanliness) {
                     selectedCleanliness = it?.name ?: ""
+                    hasChanges = true
                 }
         }
 
@@ -132,27 +144,33 @@ class InventoryRoomItemActivity : BaseActivity() {
                 isIssue = false
                 binding.issuesExpandedLayout.visibility = android.view.View.GONE
                 updateToggleButtonStates()
+                hasChanges = true
             }
 
             binding.btnIssuesFound.setOnClickListener {
                 isIssue = true
                 binding.issuesExpandedLayout.visibility = android.view.View.VISIBLE
                 updateToggleButtonStates()
+                hasChanges = true
             }
 
             binding.btnObservation.setOnClickListener {
                 selectedPriority = if (selectedPriority == "observation") null else "observation"
                 updatePriorityButtonStates()
+                hasChanges = true
             }
 
             binding.btnActionRequired.setOnClickListener {
-                selectedPriority = if (selectedPriority == "action required") null else "action required"
+                selectedPriority =
+                    if (selectedPriority == "action required") null else "action required"
                 updatePriorityButtonStates()
+                hasChanges = true
             }
 
             binding.btnUrgent.setOnClickListener {
                 selectedPriority = if (selectedPriority == "urgent") null else "urgent"
                 updatePriorityButtonStates()
+                hasChanges = true
             }
         }
 
@@ -162,8 +180,8 @@ class InventoryRoomItemActivity : BaseActivity() {
             } else {
                 val roomItem = UpdateRoomItemRequest(
                     name = binding.etItemName.text.toString().trim().ifEmpty { null },
-                    general_condition = selectedCondition.lowercase(Locale.ROOT),
-                    general_cleanliness = selectedCleanliness.lowercase(Locale.ROOT),
+                    general_condition = selectedCondition.lowercase(Locale.ROOT).replace("/", ""),
+                    general_cleanliness = selectedCleanliness.lowercase(Locale.ROOT).replace("/", ""),
                     description = binding.etDescription.text.toString(),
                     note = binding.etNote.text.toString()
                 )
@@ -181,16 +199,39 @@ class InventoryRoomItemActivity : BaseActivity() {
             }
         }
 
-        binding.ivBack.setOnClickListener { finish() }
+        binding.ivBack.setOnClickListener {
+            if (hasChanges) showUnsavedChangesDialog { finish() } else finish()
+        }
+        attachChangeWatchers()
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (hasChanges) showUnsavedChangesDialog { super.onBackPressed() } else super.onBackPressed()
+    }
+
+    private fun attachChangeWatchers() {
+        val w = object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                hasChanges = true
+            }
+        }
+        binding.etItemName.addTextChangedListener(w)
+        binding.etDescription.addTextChangedListener(w)
+        binding.etNote.addTextChangedListener(w)
+        binding.etIssueNote.addTextChangedListener(w)
     }
 
     private fun setupCapturedImagesRecycler() {
         cameraBinding.rvRoomItems.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages, title = roomItems?.name ?: "", onDelete = {
-            capturedUris.clear()
-            capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
-        })
+        cameraBinding.rvRoomItems.adapter =
+            ImageAdapter(allImages, title = roomItems?.name ?: "", onDelete = {
+                capturedUris.clear()
+                capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
+            })
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -272,13 +313,18 @@ class InventoryRoomItemActivity : BaseActivity() {
 
     private fun setupConditionChipsRecycler() {
         binding.rvConditionChips.layoutManager =
-            androidx.recyclerview.widget.LinearLayoutManager(this, androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL, false)
-        binding.rvConditionChips.adapter = ConditionChipAdapter(conditionChips, selectedChips) { chip, isSelected ->
-            if (isSelected) selectedChips.add(chip) else selectedChips.remove(chip)
-            val joined = selectedChips.joinToString("; ")
-            binding.etIssueNote.setText(joined)
-            binding.etIssueNote.setSelection(binding.etIssueNote.text.length)
-        }
+            androidx.recyclerview.widget.LinearLayoutManager(
+                this,
+                androidx.recyclerview.widget.LinearLayoutManager.HORIZONTAL,
+                false
+            )
+        binding.rvConditionChips.adapter =
+            ConditionChipAdapter(conditionChips, selectedChips) { chip, isSelected ->
+                if (isSelected) selectedChips.add(chip) else selectedChips.remove(chip)
+                val joined = selectedChips.joinToString("; ")
+                binding.etIssueNote.setText(joined)
+                binding.etIssueNote.setSelection(binding.etIssueNote.text.length)
+            }
     }
 
     private fun updateToggleButtonStates() {
@@ -299,9 +345,11 @@ class InventoryRoomItemActivity : BaseActivity() {
         val whiteColor = ContextCompat.getColor(this, R.color.white)
         val blackColor = ContextCompat.getColor(this, R.color.black)
 
-        binding.btnObservation.background = if (selectedPriority == "observation") selectedBg else defaultBg
+        binding.btnObservation.background =
+            if (selectedPriority == "observation") selectedBg else defaultBg
         binding.btnObservation.setTextColor(if (selectedPriority == "observation") whiteColor else blackColor)
-        binding.btnActionRequired.background = if (selectedPriority == "action required") selectedBg else defaultBg
+        binding.btnActionRequired.background =
+            if (selectedPriority == "action required") selectedBg else defaultBg
         binding.btnActionRequired.setTextColor(if (selectedPriority == "action required") whiteColor else blackColor)
         binding.btnUrgent.background = if (selectedPriority == "urgent") selectedBg else defaultBg
         binding.btnUrgent.setTextColor(if (selectedPriority == "urgent") whiteColor else blackColor)
@@ -317,7 +365,8 @@ class InventoryRoomItemActivity : BaseActivity() {
                     UpsertRoomInspectionRequest(
                         room_id = roomItems?.room_id ?: roomId,
                         is_issue = isIssue,
-                        note = if (isIssue) binding.etIssueNote.text.toString().ifEmpty { null } else null,
+                        note = if (isIssue) binding.etIssueNote.text.toString()
+                            .ifEmpty { null } else null,
                         priority = if (isIssue) selectedPriority else null
                     )
                 )
@@ -326,9 +375,11 @@ class InventoryRoomItemActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<Any>) {
                     uploadPhotosIfNeeded()
                 }
+
                 override fun onFailure(errorMessage: ErrorResponse?) {
                     showToast(errorMessage?.error?.message ?: "Failed to save inspection")
                 }
+
                 override fun onError(throwable: Throwable) {
                     showToast("Error: ${throwable.message}")
                 }
