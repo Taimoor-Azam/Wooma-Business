@@ -68,7 +68,7 @@
             android:layout_height="@dimen/_18sdp"
             android:src="@drawable/svg_bin"
             android:visibility="visible"
-            app:tint="@color/white" />
+            app:tint="#FF0000" />
 
     </LinearLayout>
 

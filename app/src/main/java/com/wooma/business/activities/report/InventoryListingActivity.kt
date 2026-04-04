@@ -8,7 +8,10 @@ import android.util.Log
 import android.view.View
 import android.widget.PopupWindow
 import androidx.annotation.RequiresApi
+import android.content.res.ColorStateList
+import android.graphics.Color
 import androidx.core.content.ContextCompat
+import androidx.core.view.ViewCompat
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -453,6 +456,16 @@ class InventoryListingActivity : BaseActivity() {
                                 this@InventoryListingActivity,
                                 R.drawable.bg_report_status
                             )
+                            ViewCompat.setBackgroundTintList(
+                                binding.tvDate,
+                                ColorStateList.valueOf(Color.parseColor("#DCFCE7"))
+                            )
+
+                            val blankCount = response.data.blankSpacesCount
+                            if (blankCount != 0) {
+                                binding.tvBlankSpaces.visibility = View.VISIBLE
+                                binding.tvBlankSpaces.text = "Completed with $blankCount blank signature spaces"
+                            }
 
                             pdfUrl = response.data.pdfUrl?.let { "${ApiClient.IMAGE_BASE_URL}$it" }
                             updateViewForCompletedReport()

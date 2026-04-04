@@ -284,6 +284,16 @@
                     android:textColor="@color/black"
                     android:textSize="@dimen/_16ssp" />
 
+                <TextView
+                    android:id="@+id/tvBlankSpaces"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_4sdp"
+                    android:fontFamily="@font/sofiasans_regular"
+                    android:textColor="@color/black"
+                    android:textSize="@dimen/_13ssp"
+                    android:visibility="gone" />
+
                 <androidx.appcompat.widget.AppCompatButton
                     android:id="@+id/viewFinalReport"
                     android:layout_width="match_parent"

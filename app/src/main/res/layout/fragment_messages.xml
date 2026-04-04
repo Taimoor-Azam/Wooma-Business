@@ -19,7 +19,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Empty State Group -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -35,20 +34,36 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:fontFamily="@font/sofiasans_regular"
-            android:text="No messages yet"
-            android:textColor="@color/lbls_color"
-            android:textSize="@dimen/_15ssp" />
+            android:fontFamily="@font/sofiasans_bold"
+            android:text="Need help?"
+            android:textColor="@color/black"
+            android:textSize="@dimen/_16ssp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="@font/sofiasans_regular"
-            android:text="You'll see messages from tenants here"
+            android:text="Chat with our support team"
             android:textColor="@color/lbls_color"
-            android:textSize="@dimen/_12ssp"
-            android:layout_marginTop="@dimen/_8sdp"
+            android:textSize="@dimen/_13ssp"
+            android:layout_marginTop="@dimen/_6sdp"
             android:gravity="center" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnOpenChat"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/_16sdp"
+            android:background="@drawable/bg_button_green"
+            android:paddingStart="@dimen/_24sdp"
+            android:paddingEnd="@dimen/_24sdp"
+            android:paddingTop="@dimen/_10sdp"
+            android:paddingBottom="@dimen/_10sdp"
+            android:text="Open Chat"
+            android:textAllCaps="false"
+            android:textColor="@color/white"
+            android:textSize="@dimen/_14ssp"
+            android:fontFamily="@font/sofiasans_bold" />
 
     </LinearLayout>
 

@@ -1,7 +1,7 @@
 package com.wooma.business.model
 
+import android.os.Parcel
 import android.os.Parcelable
-import kotlinx.parcelize.Parcelize
 
 data class PropertyDetailResponse(
     val id: String,
@@ -30,17 +30,57 @@ data class Report(
     val updated_at: String,
 )
 
-@Parcelize
 data class PropertyReportType(
     val id: String,
     val display_name: String?,
     val type_code: String
-): Parcelable
+) : Parcelable {
 
-@Parcelize
+    constructor(parcel: Parcel) : this(
+        id = parcel.readString() ?: "",
+        display_name = parcel.readString(),
+        type_code = parcel.readString() ?: ""
+    )
+
+    override fun describeContents(): Int = 0
+
+    override fun writeToParcel(parcel: Parcel, flags: Int) {
+        parcel.writeString(id)
+        parcel.writeString(display_name)
+        parcel.writeString(type_code)
+    }
+
+    companion object CREATOR : Parcelable.Creator<PropertyReportType> {
+        override fun createFromParcel(parcel: Parcel): PropertyReportType = PropertyReportType(parcel)
+        override fun newArray(size: Int): Array<PropertyReportType?> = arrayOfNulls(size)
+    }
+}
+
 data class Assessor(
     val id: String?,
     val first_name: String?,
     val last_name: String?,
     val email: String?
-) : Parcelable
+) : Parcelable {
+
+    constructor(parcel: Parcel) : this(
+        id = parcel.readString(),
+        first_name = parcel.readString(),
+        last_name = parcel.readString(),
+        email = parcel.readString()
+    )
+
+    override fun describeContents(): Int = 0
+
+    override fun writeToParcel(parcel: Parcel, flags: Int) {
+        parcel.writeString(id)
+        parcel.writeString(first_name)
+        parcel.writeString(last_name)
+        parcel.writeString(email)
+    }
+
+    companion object CREATOR : Parcelable.Creator<Assessor> {
+        override fun createFromParcel(parcel: Parcel): Assessor = Assessor(parcel)
+        override fun newArray(size: Int): Array<Assessor?> = arrayOfNulls(size)
+    }
+}

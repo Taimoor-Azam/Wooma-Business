@@ -3,7 +3,6 @@ package com.wooma.business.model
 import android.os.Parcel
 import android.os.Parcelable
 import com.google.gson.annotations.SerializedName
-import kotlinx.parcelize.Parcelize
 
 data class TenantPropertiesResponse(
     val success: Boolean,
@@ -19,7 +18,6 @@ data class TenantPropertiesWrapper(
     val limit: Int
 )
 
-@Parcelize
 data class Property(
     val id: String?,
     @SerializedName("created_by")
@@ -42,4 +40,44 @@ data class Property(
     val createdAt: String?,
     @SerializedName("updated_at")
     val updatedAt: String?
-) : Parcelable
+) : Parcelable {
+
+    constructor(parcel: Parcel) : this(
+        id = parcel.readString(),
+        createdBy = parcel.readString(),
+        address = parcel.readString(),
+        addressLine2 = parcel.readString(),
+        city = parcel.readString(),
+        postcode = parcel.readString(),
+        country = parcel.readString(),
+        propertyType = parcel.readString(),
+        isActive = parcel.readValue(Boolean::class.java.classLoader) as? Boolean,
+        noOfReports = parcel.readValue(Int::class.java.classLoader) as? Int,
+        lastActivity = parcel.readString(),
+        createdAt = parcel.readString(),
+        updatedAt = parcel.readString()
+    )
+
+    override fun describeContents(): Int = 0
+
+    override fun writeToParcel(parcel: Parcel, flags: Int) {
+        parcel.writeString(id)
+        parcel.writeString(createdBy)
+        parcel.writeString(address)
+        parcel.writeString(addressLine2)
+        parcel.writeString(city)
+        parcel.writeString(postcode)
+        parcel.writeString(country)
+        parcel.writeString(propertyType)
+        parcel.writeValue(isActive)
+        parcel.writeValue(noOfReports)
+        parcel.writeString(lastActivity)
+        parcel.writeString(createdAt)
+        parcel.writeString(updatedAt)
+    }
+
+    companion object CREATOR : Parcelable.Creator<Property> {
+        override fun createFromParcel(parcel: Parcel): Property = Property(parcel)
+        override fun newArray(size: Int): Array<Property?> = arrayOfNulls(size)
+    }
+}

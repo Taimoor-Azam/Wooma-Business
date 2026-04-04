@@ -19,6 +19,7 @@
         android:layout_gravity="end|top"
         android:layout_margin="@dimen/_4sdp"
         android:padding="@dimen/_4sdp"
-        android:src="@drawable/svg_bin" />
+        android:src="@drawable/svg_bin"
+        app:tint="#FF0000" />
 
 </FrameLayout>

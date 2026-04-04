@@ -13,7 +13,8 @@ import retrofit2.converter.gson.GsonConverterFactory;
 public class ApiClient {
     //    private static String BASE_URL = "https://cloudwapp.in/AH/motorcar/api/";
 //   public static String BASE_URL = "https://motorcar.ae/";
-    public static String BASE_URL = "https://api-dev-business.wooma.com";
+    public static String BASE_URL = "https://ae88-181-215-188-210.ngrok-free.app";
+//    public static String BASE_URL = "https://api-dev-business.wooma.com";
     public static String IMAGE_BASE_URL = "https://wooma-business.s3.eu-north-1.amazonaws.com/";
 //    public static String BASE_URL = "https://api.motorcar.ae/";
 
