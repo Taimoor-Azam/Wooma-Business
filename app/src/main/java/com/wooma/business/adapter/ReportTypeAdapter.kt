@@ -9,6 +9,7 @@ import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.recyclerview.widget.RecyclerView
 import com.wooma.business.R
+import com.wooma.business.activities.report.CheckoutCopyOptionActivity
 import com.wooma.business.activities.report.ConfigureReportActivity
 import com.wooma.business.model.ReportType
 
@@ -39,11 +40,14 @@ class ReportTypeAdapter(
         holder.tvReportType.text = filteredList[position].display_name
         holder.tvReportTypeDetail.text = filteredList[position].description
         holder.reportTypeLayout.setOnClickListener {
+            val reportType = filteredList[position]
+            val isCheckout = reportType.type_code.contains("check_out", ignoreCase = true) ||
+                    reportType.type_code.contains("checkout", ignoreCase = true)
+            val targetActivity = if (isCheckout) CheckoutCopyOptionActivity::class.java
+                                 else ConfigureReportActivity::class.java
             context.startActivity(
-                Intent(
-                    context,
-                    ConfigureReportActivity::class.java
-                ).putExtra("reportTypeId", filteredList[position].id)
+                Intent(context, targetActivity)
+                    .putExtra("reportTypeId", reportType.id)
                     .putExtra("propertyId", propertyId)
             )
         }

@@ -15,7 +15,6 @@ import com.wooma.business.model.ErrorResponse
 import com.wooma.business.model.PropertyDetailResponse
 
 class CheckoutCopyOptionActivity : BaseActivity() {
-
     private lateinit var binding: ActivityCheckoutCopyOptionBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -12,8 +12,11 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.annotation.RequiresApi
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.RecyclerView
 import androidx.viewpager2.widget.ViewPager2
 import com.bumptech.glide.Glide
@@ -96,6 +99,13 @@ object Utils {
         val tvCounter = dialog.findViewById<TextView>(R.id.tvCounter)
         val ivBack = dialog.findViewById<ImageView>(R.id.ivBack)
         val ivDelete = dialog.findViewById<ImageView>(R.id.ivDelete)
+        val topBar = dialog.findViewById<LinearLayout>(R.id.topBar)
+
+        ViewCompat.setOnApplyWindowInsetsListener(topBar) { view, insets ->
+            val statusBarHeight = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            view.setPadding(view.paddingLeft, statusBarHeight, view.paddingRight, view.paddingBottom)
+            insets
+        }
 
         val mutableImages = images.toMutableList()
 

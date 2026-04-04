@@ -1,12 +1,11 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-    id("kotlin-parcelize")
+    id("org.jetbrains.kotlin.plugin.parcelize")
 }
 
 android {
     namespace 'com.wooma.business'
-    compileSdk 35
+    compileSdk 36
 
     buildFeatures {
         viewBinding = true
@@ -15,11 +14,12 @@ android {
     defaultConfig {
         applicationId "com.wooma.business"
         minSdk 24
-        targetSdk 35
+        targetSdk 36
         versionCode 1
         versionName "1.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        multiDexEnabled true
     }
 
     buildTypes {
@@ -29,18 +29,17 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = '11'
-    }
+
 }
 
 dependencies {
 
     implementation libs.androidx.core.ktx
     implementation libs.androidx.appcompat
+    implementation libs.kotlin.parcelize.runtime
     implementation libs.material
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit
@@ -74,5 +73,9 @@ dependencies {
 
     // Rounded ImageView
     implementation "com.makeramen:roundedimageview:2.3.0"
+
+    // Crisp chat SDK
+    implementation "im.crisp:crisp-sdk:2.0.18"
+    implementation "androidx.multidex:multidex:2.0.1"
 
 }

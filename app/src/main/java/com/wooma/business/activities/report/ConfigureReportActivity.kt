@@ -62,9 +62,12 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
 
         propertyId = intent.getStringExtra("propertyId") ?: ""
         reportTypeId = intent.getStringExtra("reportTypeId") ?: ""
+        val isCheckout = intent.getBooleanExtra("isCheckout", false)
 
         adapter = ReportRoomsAdapter(this, roomsList)
         binding.rvRooms.adapter = adapter
+
+        if (isCheckout) binding.configureLayout.visibility = View.GONE
 
 //        loadProperties()
         getReportTemplates()
@@ -233,20 +236,26 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
             listener = object : ApiResponseListener<ApiResponse<PropertyDetailResponse>> {
                 override fun onSuccess(response: ApiResponse<PropertyDetailResponse>) {
                     if (response.success && response.data.reports.isNotEmpty()) {
-                        previousReportsList = response.data.reports
-                        binding.configureLayout.visibility = View.VISIBLE
+                        previousReportsList = ArrayList(response.data.reports.filter {
+                            it.report_type?.id == reportTypeId
+                        })
 
-                        setSpinner()
-                        binding.switchButton.setOnCheckedChangeListener { button, bool ->
-                            if (bool) {
-                                binding.rvTemplate.visibility = View.GONE
-                                binding.roomsRelLayout.visibility = View.GONE
-                                binding.previousReportLayout.visibility = View.VISIBLE
-                            } else {
-                                binding.rvTemplate.visibility = View.VISIBLE
-                                binding.roomsRelLayout.visibility = View.VISIBLE
-                                binding.previousReportLayout.visibility = View.GONE
+                        if (previousReportsList.isNotEmpty()) {
+                            binding.configureLayout.visibility = View.VISIBLE
+                            setSpinner()
+                            binding.switchButton.setOnCheckedChangeListener { button, bool ->
+                                if (bool) {
+                                    binding.rvTemplate.visibility = View.GONE
+                                    binding.roomsRelLayout.visibility = View.GONE
+                                    binding.previousReportLayout.visibility = View.VISIBLE
+                                } else {
+                                    binding.rvTemplate.visibility = View.VISIBLE
+                                    binding.roomsRelLayout.visibility = View.VISIBLE
+                                    binding.previousReportLayout.visibility = View.GONE
+                                }
                             }
+                        } else {
+                            binding.configureLayout.visibility = View.GONE
                         }
                     } else {
                         binding.configureLayout.visibility = View.GONE

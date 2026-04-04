@@ -6,6 +6,10 @@ import android.view.View
 import android.view.ViewGroup
 import androidx.fragment.app.Fragment
 import com.wooma.business.databinding.FragmentMessagesBinding
+import android.content.Intent
+import com.wooma.business.storage.Prefs
+import im.crisp.client.external.ChatActivity
+import im.crisp.client.external.Crisp
 
 class MessagesFragment : Fragment() {
 
@@ -24,6 +28,16 @@ class MessagesFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        val user = Prefs.getUser(requireContext())
+        if (user != null) {
+            Crisp.setUserEmail(user.email)
+            Crisp.setUserNickname("${user.first_name} ${user.last_name}".trim())
+        }
+
+        binding.btnOpenChat.setOnClickListener {
+            startActivity(Intent(requireContext(), ChatActivity::class.java))
+        }
     }
 
     override fun onDestroyView() {
