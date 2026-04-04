@@ -1,5 +1,6 @@
 package com.wooma.business.activities
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import androidx.core.view.ViewCompat
@@ -11,6 +12,9 @@ import com.wooma.business.databinding.ActivityMainBinding
 import com.wooma.business.fragment.MessagesFragment
 import com.wooma.business.fragment.PropertiesFragment
 import com.wooma.business.fragment.SettingsFragment
+import com.wooma.business.storage.Prefs
+import im.crisp.client.external.ChatActivity
+import im.crisp.client.external.Crisp
 
 class MainActivity : BaseActivity() {
 
@@ -33,12 +37,12 @@ class MainActivity : BaseActivity() {
             when (it.itemId) {
                 R.id.nav_home -> loadFragment(PropertiesFragment())
                 R.id.nav_settings -> loadFragment(SettingsFragment())
-                R.id.nav_support -> loadFragment(MessagesFragment())
+                R.id.nav_support -> /*openSupportChat()*/loadFragment(MessagesFragment())
             }
             true
         }
 
-        ViewCompat.setOnApplyWindowInsetsListener( binding.bottomNavigation) { view, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(binding.bottomNavigation) { view, insets ->
             val systemBarsInsets =
                 insets.getInsets(WindowInsetsCompat.Type.systemBars())
 
@@ -53,13 +57,23 @@ class MainActivity : BaseActivity() {
         }
     }
 
+    fun openSupportChat() {
+        val user = Prefs.getUser(this)
+        if (user != null) {
+            Crisp.setUserEmail(user.email)
+            Crisp.setUserNickname("${user.first_name} ${user.last_name}".trim())
+        }
+
+        startActivity(Intent(this, ChatActivity::class.java))
+    }
+
     private fun loadFragment(fragment: Fragment) {
         supportFragmentManager.beginTransaction()
             .replace(R.id.fragmentContainer, fragment)
             .commit()
     }
 
-     private fun applyWindowInsetsToBindingView(rootView: View) {
+    private fun applyWindowInsetsToBindingView(rootView: View) {
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { v, insets ->
 
             val systemBarsInsets =
