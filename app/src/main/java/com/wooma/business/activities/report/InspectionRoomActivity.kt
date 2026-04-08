@@ -8,7 +8,6 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
 import android.view.View
-import android.widget.ArrayAdapter
 import android.widget.ListPopupWindow
 import android.widget.TextView
 import androidx.core.content.ContextCompat
@@ -51,6 +50,7 @@ class InspectionRoomActivity : BaseActivity() {
     private val priorityLabels = listOf("Select priority", "Observation", "Action required", "Urgent")
 
     private lateinit var issueSuggestionsAdapter: SuggestionsAdapter
+    private var isHandlingEnter = false
 
     companion object {
         val ISSUE_SUGGESTIONS = mutableListOf(
@@ -301,7 +301,18 @@ class InspectionRoomActivity : BaseActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
+                if (isHandlingEnter) return
                 val fullText = s?.toString() ?: ""
+                if (fullText.contains('\n')) {
+                    isHandlingEnter = true
+                    val newText = fullText.replace("\n", "").trimEnd()
+                    val withSemicolon = if (newText.endsWith(';')) "$newText " else "$newText; "
+                    binding.etIssueNote.setText(withSemicolon)
+                    binding.etIssueNote.setSelection(withSemicolon.length)
+                    issueSuggestionsAdapter.filter("")
+                    isHandlingEnter = false
+                    return
+                }
                 val lastSemicolon = fullText.lastIndexOf(';')
                 val currentWord = if (lastSemicolon >= 0) fullText.substring(lastSemicolon + 1).trim() else fullText.trim()
                 issueSuggestionsAdapter.filter(currentWord)
@@ -398,15 +409,54 @@ class InspectionRoomActivity : BaseActivity() {
                 val label = priorityLabels[priorityValues.indexOf(matched)]
                 binding.tvPriorityValue.text = label
                 binding.tvPriorityValue.setTextColor(ContextCompat.getColor(this, R.color.black))
+                val iconRes = when (matched) {
+                    "observation" -> R.drawable.svg_observation
+                    "action required" -> R.drawable.svg_action_required
+                    "urgent" -> R.drawable.svg_urgent
+                    else -> null
+                }
+                val subtitle = when (matched) {
+                    "observation" -> "Minor issue for information only"
+                    "action required" -> "Issue that needs to be addressed"
+                    "urgent" -> "Critical issue requiring immediate attention"
+                    else -> null
+                }
+                if (iconRes != null) {
+                    binding.ivSelectedPriorityIcon.setImageResource(iconRes)
+                    binding.ivSelectedPriorityIcon.visibility = View.VISIBLE
+                }
+                if (subtitle != null) {
+                    binding.tvPrioritySubtitleValue.text = subtitle
+                    binding.tvPrioritySubtitleValue.visibility = View.VISIBLE
+                }
             }
         }
     }
 
     private fun showPriorityDropdown() {
-        val options = listOf("Observation", "Action required", "Urgent")
-        val values = listOf("observation", "action required", "urgent")
+        data class PriorityItem(val label: String, val value: String, val subtitle: String, val iconRes: Int)
 
-        val adapter = ArrayAdapter(this, R.layout.item_priority_option, options)
+        val items = listOf(
+            PriorityItem("Observation", "observation", "Minor issue for information only", R.drawable.svg_observation),
+            PriorityItem("Action required", "action required", "Issue that needs to be addressed", R.drawable.svg_action_required),
+            PriorityItem("Urgent", "urgent", "Critical issue requiring immediate attention", R.drawable.svg_urgent)
+        )
+
+        val adapter = object : android.widget.BaseAdapter() {
+            override fun getCount() = items.size
+            override fun getItem(position: Int) = items[position]
+            override fun getItemId(position: Int) = position.toLong()
+            override fun getView(position: Int, convertView: android.view.View?, parent: android.view.ViewGroup): android.view.View {
+                val view = convertView ?: layoutInflater.inflate(R.layout.item_priority_option, parent, false)
+                val item = items[position]
+                view.findViewById<android.widget.ImageView>(R.id.ivPriorityIcon).setImageResource(item.iconRes)
+                view.findViewById<android.widget.TextView>(R.id.tvPriorityTitle).text = item.label
+                view.findViewById<android.widget.TextView>(R.id.tvPrioritySubtitle).text = item.subtitle
+                val ivCheck = view.findViewById<android.widget.ImageView>(R.id.ivCheck)
+                ivCheck.visibility = if (item.value == selectedPriority) android.view.View.VISIBLE else android.view.View.GONE
+                return view
+            }
+        }
 
         val popup = ListPopupWindow(this)
         popup.anchorView = binding.spinnerPriority
@@ -417,9 +467,14 @@ class InspectionRoomActivity : BaseActivity() {
         popup.setBackgroundDrawable(ContextCompat.getDrawable(this, R.drawable.bg_edittext))
         popup.isModal = true
         popup.setOnItemClickListener { _, _, position, _ ->
-            selectedPriority = values[position]
-            binding.tvPriorityValue.text = options[position]
+            val item = items[position]
+            selectedPriority = item.value
+            binding.tvPriorityValue.text = item.label
             binding.tvPriorityValue.setTextColor(ContextCompat.getColor(this, R.color.black))
+            binding.tvPrioritySubtitleValue.text = item.subtitle
+            binding.tvPrioritySubtitleValue.visibility = View.VISIBLE
+            binding.ivSelectedPriorityIcon.setImageResource(item.iconRes)
+            binding.ivSelectedPriorityIcon.visibility = View.VISIBLE
             popup.dismiss()
         }
         popup.show()
