@@ -47,20 +47,20 @@
         </LinearLayout>
 
         <!-- Search Bar -->
-       <!-- <androidx.appcompat.widget.SearchView
-            android:id="@+id/searchView"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/_8sdp"
-            android:background="@drawable/bg_edittext"
-            android:paddingTop="@dimen/_5sdp"
-            android:paddingBottom="@dimen/_5sdp"
-            android:queryHint="Search address..."
-            android:textColorHint="#888888"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/topLayout" />
--->
+        <!-- <androidx.appcompat.widget.SearchView
+             android:id="@+id/searchView"
+             android:layout_width="0dp"
+             android:layout_height="wrap_content"
+             android:layout_marginTop="@dimen/_8sdp"
+             android:background="@drawable/bg_edittext"
+             android:paddingTop="@dimen/_5sdp"
+             android:paddingBottom="@dimen/_5sdp"
+             android:queryHint="Search address..."
+             android:textColorHint="#888888"
+             app:layout_constraintEnd_toEndOf="parent"
+             app:layout_constraintStart_toStartOf="parent"
+             app:layout_constraintTop_toBottomOf="@+id/topLayout" />
+ -->
         <LinearLayout
             android:id="@+id/searchLayout"
             android:layout_width="match_parent"
@@ -77,17 +77,17 @@
                 android:layout_marginTop="@dimen/_4sdp"
                 android:background="@drawable/bg_edittext"
                 android:drawableStart="@drawable/svg_search"
-                android:fontFamily="@font/sofiasans_regular"
-                android:imeOptions="actionDone"
-                android:inputType="text"
-                android:hint="@string/search_address"
-                android:textColorHint="@color/light_grey"
                 android:drawablePadding="@dimen/_8sdp"
+                android:fontFamily="@font/sofiasans_regular"
+                android:hint="@string/search_address"
+                android:imeOptions="actionDone"
+                android:inputType="textCapSentences"
                 android:paddingStart="@dimen/_10sdp"
                 android:paddingTop="@dimen/_10sdp"
                 android:paddingEnd="@dimen/_10sdp"
                 android:paddingBottom="@dimen/_10sdp"
                 android:textColor="@color/black"
+                android:textColorHint="@color/light_grey"
                 android:textSize="@dimen/_12ssp" />
 
         </LinearLayout>
@@ -180,7 +180,7 @@
             android:layout_marginBottom="@dimen/_16sdp"
             android:src="@drawable/svg_add_prop_arrow" />
 
-        <androidx.appcompat.widget.AppCompatButton
+        <androidx.appcompat.widget.AppCompatTextView
             android:id="@+id/btnAddProperty"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -188,6 +188,7 @@
             android:layout_marginEnd="@dimen/_16sdp"
             android:layout_marginBottom="@dimen/_15sdp"
             android:background="@drawable/bg_button_green"
+            android:gravity="center"
             android:paddingTop="@dimen/_10sdp"
             android:paddingBottom="@dimen/_10sdp"
             android:text="@string/add_property"
@@ -213,7 +214,7 @@
             android:layout_marginBottom="@dimen/_15sdp"
             android:background="@color/border_stroke" />
         <!-- Button -->
-        <androidx.appcompat.widget.AppCompatButton
+        <androidx.appcompat.widget.AppCompatTextView
             android:id="@+id/btnCreateReport"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -221,6 +222,7 @@
             android:layout_marginEnd="@dimen/_16sdp"
             android:layout_marginBottom="@dimen/_15sdp"
             android:background="@drawable/bg_button_green"
+            android:gravity="center"
             android:paddingTop="@dimen/_10sdp"
             android:paddingBottom="@dimen/_10sdp"
             android:text="@string/create_new_report"

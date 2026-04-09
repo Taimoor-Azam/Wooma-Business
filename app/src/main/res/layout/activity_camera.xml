@@ -67,15 +67,15 @@
     </LinearLayout>
 
     <!-- Camera Preview with rounded corners -->
-    <androidx.cardview.widget.CardView
+    <FrameLayout
         android:id="@+id/previewCard"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginStart="@dimen/_12sdp"
         android:layout_marginTop="@dimen/_8sdp"
         android:layout_marginEnd="@dimen/_12sdp"
-        app:cardCornerRadius="@dimen/_16sdp"
-        app:cardElevation="0dp"
+        android:background="@drawable/bg_camera_preview"
+        android:clipToOutline="true"
         app:layout_constraintBottom_toTopOf="@+id/bottomControls"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -127,8 +127,8 @@
 
             <RelativeLayout
                 android:layout_width="match_parent"
-                android:layout_alignParentBottom="true"
-                android:layout_height="@dimen/_80sdp">
+                android:layout_height="@dimen/_80sdp"
+                android:layout_alignParentBottom="true">
 
                 <ImageView
                     android:id="@+id/btnGallery"
@@ -162,7 +162,7 @@
             android:padding="@dimen/_8sdp"
             android:src="@drawable/svg_flash_active" />
 
-    </androidx.cardview.widget.CardView>
+    </FrameLayout>
 
     <!-- Bottom Controls -->
     <LinearLayout
@@ -187,7 +187,7 @@
             android:padding="@dimen/_6sdp" />
 
         <!-- Done Button -->
-        <androidx.appcompat.widget.AppCompatButton
+        <androidx.appcompat.widget.AppCompatTextView
             android:id="@+id/btnDone"
             android:layout_width="match_parent"
             android:layout_height="@dimen/_50sdp"
@@ -196,6 +196,9 @@
             android:layout_marginEnd="@dimen/_16sdp"
             android:background="@drawable/bg_button_green"
             android:fontFamily="@font/sofiasans_bold"
+            android:gravity="center"
+            android:paddingTop="@dimen/_10sdp"
+            android:paddingBottom="@dimen/_10sdp"
             android:text="Done"
             android:textAllCaps="false"
             android:textColor="@color/white"

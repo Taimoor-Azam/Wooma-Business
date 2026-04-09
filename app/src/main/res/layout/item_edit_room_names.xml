@@ -13,7 +13,7 @@
         android:hint="Enter Room"
         android:textColorHint="@color/light_grey"
         android:imeOptions="actionNext"
-        android:inputType="text"
+        android:inputType="textCapSentences"
         android:maxLines="1"
         android:paddingStart="@dimen/_10sdp"
         android:paddingTop="@dimen/_10sdp"

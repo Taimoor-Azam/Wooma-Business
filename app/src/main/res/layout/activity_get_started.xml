@@ -60,7 +60,7 @@
             android:layout_marginTop="@dimen/_16sdp"
             android:background="@drawable/bg_button_green">
 
-            <androidx.appcompat.widget.AppCompatButton
+            <androidx.appcompat.widget.AppCompatTextView
                 android:id="@+id/btnCreate"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

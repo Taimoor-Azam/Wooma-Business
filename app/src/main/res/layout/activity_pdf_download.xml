@@ -128,7 +128,7 @@
             android:textColor="@color/lbls_color"
             android:textSize="@dimen/_12ssp" />
 
-        <androidx.appcompat.widget.AppCompatButton
+        <androidx.appcompat.widget.AppCompatTextView
             android:id="@+id/btnRetry"
             android:layout_width="@dimen/_140sdp"
             android:layout_height="wrap_content"
@@ -137,6 +137,7 @@
             android:fontFamily="@font/sofiasans_semibold"
             android:paddingTop="@dimen/_10sdp"
             android:paddingBottom="@dimen/_10sdp"
+            android:gravity="center"
             android:text="Retry"
             android:textAllCaps="false"
             android:textColor="@color/white"

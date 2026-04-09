@@ -9,7 +9,6 @@ import android.text.TextWatcher
 import android.util.Log
 import android.view.View
 import android.widget.ListPopupWindow
-import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.business.R
@@ -41,16 +40,17 @@ class InspectionRoomActivity : BaseActivity() {
     private var reportId = ""
     private var reportStatus = ""
     private var isIssue = false
-    private var selectedPriority: String? = null
+    private var selectedPriority: String? = "observation"
     private val capturedUris = mutableListOf<Uri>()
     private val allImages = mutableListOf<ImageItem>()
     private val CAMERA_REQUEST = 1001
 
-    private val priorityValues = listOf(null, "observation", "action required", "urgent")
-    private val priorityLabels = listOf("Select priority", "Observation", "Action required", "Urgent")
+    private val priorityValues = listOf("observation", "action required", "urgent")
+    private val priorityLabels = listOf("Observation", "Action required", "Urgent")
 
     private lateinit var issueSuggestionsAdapter: SuggestionsAdapter
     private var isHandlingEnter = false
+    private var hasChanges = false
 
     companion object {
         val ISSUE_SUGGESTIONS = mutableListOf(
@@ -274,8 +274,8 @@ class InspectionRoomActivity : BaseActivity() {
         }
 
         // All ok / Issues found toggles
-        binding.btnAllOk.setOnClickListener { setIssueState(false) }
-        binding.btnIssuesFound.setOnClickListener { setIssueState(true) }
+        binding.btnAllOk.setOnClickListener { setIssueState(false); hasChanges = true }
+        binding.btnIssuesFound.setOnClickListener { setIssueState(true); hasChanges = true }
 
         // Issue suggestions
         issueSuggestionsAdapter = SuggestionsAdapter(
@@ -290,6 +290,7 @@ class InspectionRoomActivity : BaseActivity() {
                     binding.etIssueNote.setText(newText)
                     binding.etIssueNote.setSelection(newText.length)
                     issueSuggestionsAdapter.filter("")
+                    hasChanges = true
                 }
             }
         )
@@ -302,6 +303,7 @@ class InspectionRoomActivity : BaseActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
                 if (isHandlingEnter) return
+                hasChanges = true
                 val fullText = s?.toString() ?: ""
                 if (fullText.contains('\n')) {
                     isHandlingEnter = true
@@ -319,11 +321,19 @@ class InspectionRoomActivity : BaseActivity() {
             }
         })
 
-        // Priority dropdown
+        // Priority dropdown — default to Observation
+        binding.tvPriorityValue.text = "Observation"
+        binding.tvPriorityValue.setTextColor(ContextCompat.getColor(this, R.color.black))
+        binding.tvPrioritySubtitleValue.text = "Minor issue for information only"
+        binding.tvPrioritySubtitleValue.visibility = View.VISIBLE
+        binding.ivSelectedPriorityIcon.setImageResource(R.drawable.svg_observation)
+        binding.ivSelectedPriorityIcon.visibility = View.VISIBLE
         binding.spinnerPriority.setOnClickListener { showPriorityDropdown() }
 
         binding.btnDone.setOnClickListener { upsertRoomInspectionApi() }
-        binding.ivBack.setOnClickListener { finish() }
+        binding.ivBack.setOnClickListener {
+            if (hasChanges) showUnsavedChangesDialog { finish() } else finish()
+        }
 
         setIssueState(false)
         fetchRoomData()
@@ -334,6 +344,11 @@ class InspectionRoomActivity : BaseActivity() {
         if (isReadOnly) applyReadOnlyMode()
     }
 
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        if (hasChanges) showUnsavedChangesDialog { super.onBackPressed() } else super.onBackPressed()
+    }
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
@@ -341,6 +356,7 @@ class InspectionRoomActivity : BaseActivity() {
             capturedUris.addAll(newUris)
             allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
+            if (newUris.isNotEmpty()) hasChanges = true
         }
     }
 
@@ -389,6 +405,7 @@ class InspectionRoomActivity : BaseActivity() {
                     }
                     cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
                     roomData.inspection?.firstOrNull()?.let { populateInspection(it) }
+                    binding.root.post { hasChanges = false }
                 }
                 override fun onFailure(errorMessage: ErrorResponse?) {}
                 override fun onError(throwable: Throwable) {}
@@ -403,7 +420,7 @@ class InspectionRoomActivity : BaseActivity() {
         if (issue) {
             inspection.note?.let { binding.etIssueNote.setText(it) }
 
-            val matched = priorityValues.firstOrNull { it != null && it.equals(inspection.priority, ignoreCase = true) }
+            val matched = priorityValues.firstOrNull { it.equals(inspection.priority, ignoreCase = true) }
             if (matched != null) {
                 selectedPriority = matched
                 val label = priorityLabels[priorityValues.indexOf(matched)]
@@ -475,6 +492,7 @@ class InspectionRoomActivity : BaseActivity() {
             binding.tvPrioritySubtitleValue.visibility = View.VISIBLE
             binding.ivSelectedPriorityIcon.setImageResource(item.iconRes)
             binding.ivSelectedPriorityIcon.visibility = View.VISIBLE
+            hasChanges = true
             popup.dismiss()
         }
         popup.show()

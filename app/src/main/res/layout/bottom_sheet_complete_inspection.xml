@@ -53,7 +53,7 @@
     </LinearLayout>
 
     <!-- Complete report button -->
-    <androidx.appcompat.widget.AppCompatButton
+    <androidx.appcompat.widget.AppCompatTextView
         android:id="@+id/btnCompleteReport"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -61,6 +61,9 @@
         android:background="@drawable/bg_button_green_disabled"
         android:enabled="false"
         android:fontFamily="@font/sofiasans_semibold"
+        android:gravity="center"
+        android:paddingTop="@dimen/_10sdp"
+        android:paddingBottom="@dimen/_10sdp"
         android:text="@string/complete_report"
         android:textAllCaps="false"
         android:textColor="@color/white"

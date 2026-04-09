@@ -101,7 +101,7 @@
             android:layout_marginBottom="@dimen/_15sdp"
             android:background="@color/border_stroke" />
         <!-- Button -->
-        <androidx.appcompat.widget.AppCompatButton
+        <androidx.appcompat.widget.AppCompatTextView
             android:id="@+id/btnContinue"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -111,6 +111,7 @@
             android:background="@drawable/bg_button_green"
             android:paddingTop="@dimen/_10sdp"
             android:paddingBottom="@dimen/_10sdp"
+            android:gravity="center"
             android:text="@string/create_new_report"
             android:textAllCaps="false"
             android:textColor="@color/white"

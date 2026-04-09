@@ -85,7 +85,7 @@
             android:hint="Enter Type"
             android:textColorHint="@color/light_grey"
             android:imeOptions="actionNext"
-            android:inputType="text"
+            android:inputType="textCapSentences"
             android:maxLines="1"
             android:paddingStart="@dimen/_10sdp"
             android:paddingTop="@dimen/_10sdp"
@@ -134,22 +134,20 @@
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:background="@drawable/bg_gray"
-                android:paddingHorizontal="@dimen/_12sdp"
-                android:paddingVertical="@dimen/_8sdp">
+                android:background="@drawable/bg_gray">
 
                 <ImageView
                     android:id="@+id/ivMinus"
                     android:layout_width="wrap_content"
                     android:layout_height="match_parent"
                     android:layout_gravity="center"
+                    android:paddingHorizontal="@dimen/_12sdp"
+                    android:paddingVertical="@dimen/_8sdp"
                     android:src="@drawable/svg_minus" />
 
                 <View
                     android:layout_width="@dimen/_1sdp"
                     android:layout_height="match_parent"
-                    android:layout_marginStart="@dimen/_8sdp"
-                    android:layout_marginEnd="@dimen/_8sdp"
                     android:background="#5C3C3C43" />
 
                 <ImageView
@@ -157,6 +155,8 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:layout_gravity="center"
+                    android:paddingHorizontal="@dimen/_12sdp"
+                    android:paddingVertical="@dimen/_8sdp"
                     android:src="@drawable/svg_plus" />
 
             </LinearLayout>
@@ -181,7 +181,7 @@
             android:hint="Enter what's for"
             android:textColorHint="@color/light_grey"
             android:imeOptions="actionNext"
-            android:inputType="text"
+            android:inputType="textCapSentences"
             android:maxLines="1"
             android:paddingStart="@dimen/_10sdp"
             android:paddingTop="@dimen/_10sdp"
@@ -198,7 +198,7 @@
             android:orientation="horizontal"
             app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
-        <androidx.appcompat.widget.AppCompatButton
+        <androidx.appcompat.widget.AppCompatTextView
             android:id="@+id/btnSave"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -206,6 +206,7 @@
             android:background="@drawable/bg_button_green"
             android:paddingTop="@dimen/_10sdp"
             android:paddingBottom="@dimen/_10sdp"
+            android:gravity="center"
             android:text="@string/save_"
             android:textAllCaps="false"
             android:textColor="@color/white"

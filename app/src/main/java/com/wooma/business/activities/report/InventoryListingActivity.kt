@@ -12,6 +12,7 @@ import android.content.res.ColorStateList
 import android.graphics.Color
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -70,10 +71,10 @@ class InventoryListingActivity : BaseActivity() {
     @Suppress("OVERRIDE_DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == TENANT_REQUEST_CODE && resultCode == android.app.Activity.RESULT_OK) {
+        if (requestCode == TENANT_REQUEST_CODE && resultCode == RESULT_OK) {
             getTenantReviewsApi()
         }
-        if (requestCode == CAMERA_REQUEST && resultCode == android.app.Activity.RESULT_OK) {
+        if (requestCode == CAMERA_REQUEST && resultCode == RESULT_OK) {
             val uri = CameraActivity.pendingUris.firstOrNull() ?: return
             uploadCoverImageApi(uri)
         }
@@ -188,6 +189,11 @@ class InventoryListingActivity : BaseActivity() {
         }
 
         binding.coverImageSection.setOnClickListener {
+            if (reportStatus == TenantReportStatus.TENANT_REVIEW.value ||
+                reportStatus == TenantReportStatus.COMPLETED.value) {
+                if (!coverImageStorageKey.isNullOrEmpty()) viewCoverImage()
+                return@setOnClickListener
+            }
             if (reportStatus != TenantReportStatus.IN_PROGRESS.value) return@setOnClickListener
             if (coverImageStorageKey.isNullOrEmpty()) {
                 CameraActivity.pendingUris.clear()
@@ -202,8 +208,7 @@ class InventoryListingActivity : BaseActivity() {
 
         binding.btnCompleteReport.setOnClickListener {
             when (reportType?.type_code) {
-                ReportTypes.INSPECTION.value -> showCompleteInspectionBottomSheet()
-                ReportTypes.CHECK_OUT.value -> completeCheckoutReportApi()
+                ReportTypes.INSPECTION.value, ReportTypes.CHECK_OUT.value -> showCompleteInspectionBottomSheet()
                 else -> startActivity(
                     Intent(this, CompleteReportActivity::class.java).putExtra("reportId", reportId)
                 )
@@ -415,48 +420,19 @@ class InventoryListingActivity : BaseActivity() {
                                 response.data.status
                             )
 
-                        if (response.data.status == TenantReportStatus.IN_PROGRESS.value) {
-                            val rawDate = response.data.completionDate
-                            if (rawDate.isNotEmpty()) {
-                                try {
-                                    val inSdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
-                                    val outSdf = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
-                                    val parsed = inSdf.parse(rawDate)
-                                    if (parsed != null) binding.tvDate.text = outSdf.format(parsed)
-                                } catch (_: Exception) {}
-                            }
-                        } else if (response.data.status == TenantReportStatus.TENANT_REVIEW.value) {
+                        val rawDate = response.data.completionDate
+                        if (rawDate.isNotEmpty()) {
+                            try {
+                                val inSdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", java.util.Locale.getDefault())
+                                val outSdf = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+                                val parsed = inSdf.parse(rawDate)
+                                if (parsed != null) binding.tvDate.text = outSdf.format(parsed)
+                            } catch (_: Exception) {}
+                        }
+
+                        if (response.data.status == TenantReportStatus.TENANT_REVIEW.value) {
                             getTenantReviewsApi()
-                            binding.tvDate.text = "Tenant Review"
-
-                            binding.tvDate.setTextColor(
-                                ContextCompat.getColor(
-                                    this@InventoryListingActivity,
-                                    R.color.blue
-                                )
-                            )
-
-                            binding.tvDate.background = ContextCompat.getDrawable(
-                                this@InventoryListingActivity,
-                                R.drawable.bg_report_status
-                            )
                         } else if (response.data.status == TenantReportStatus.COMPLETED.value) {
-                            binding.tvDate.text = "Completed"
-                            binding.tvDate.setTextColor(
-                                ContextCompat.getColor(
-                                    this@InventoryListingActivity,
-                                    R.color.green
-                                )
-                            )
-
-                            binding.tvDate.background = ContextCompat.getDrawable(
-                                this@InventoryListingActivity,
-                                R.drawable.bg_report_status
-                            )
-                            ViewCompat.setBackgroundTintList(
-                                binding.tvDate,
-                                ColorStateList.valueOf(Color.parseColor("#DCFCE7"))
-                            )
 
                             val blankCount = response.data.blankSpacesCount
                             val isCheckout = reportType?.type_code == ReportTypes.CHECK_OUT.value
@@ -467,6 +443,7 @@ class InventoryListingActivity : BaseActivity() {
 
                             pdfUrl = response.data.pdfUrl?.let { "${ApiClient.IMAGE_BASE_URL}$it" }
                             updateViewForCompletedReport()
+                            getTenantReviewsApi()
                         }
                     } else {
                     }
@@ -497,7 +474,11 @@ class InventoryListingActivity : BaseActivity() {
                 @RequiresApi(Build.VERSION_CODES.O)
                 override fun onSuccess(response: ApiResponse<ArrayList<TenantReview>>) {
                     if (response.success) {
-                        updateViewForTenantReview(response.data)
+                        if (reportStatus == TenantReportStatus.COMPLETED.value) {
+                            updateCompletedWithTenants(response.data)
+                        } else {
+                            updateViewForTenantReview(response.data)
+                        }
                     } else {
                     }
                 }
@@ -530,6 +511,18 @@ class InventoryListingActivity : BaseActivity() {
                     .putExtra(PdfDownloadActivity.EXTRA_REPORT_ID, reportId)
             )
         }
+    }
+
+    private fun updateCompletedWithTenants(data: ArrayList<TenantReview>) {
+        if (data.isEmpty()) return
+        val count = data.count { it.is_submitted }
+        binding.completedTenantSection.visibility = View.VISIBLE
+        binding.tvReviewPeriodEnded.text = "Review period ended with $count of ${data.size} signatures"
+        binding.tvCompletedTenantSignatures.text = "Tenant signatures ($count of ${data.size})"
+        binding.rvCompletedTenants.adapter = ReportTenantsAdapter(
+            context = this,
+            originalList = data
+        )
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -742,6 +735,11 @@ class InventoryListingActivity : BaseActivity() {
             )
             scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
             setOnClickListener { dialog.dismiss() }
+        }
+        ViewCompat.setOnApplyWindowInsetsListener(imageView) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            insets
         }
         Glide.with(this).load(url).into(imageView)
         dialog.setContentView(imageView)

@@ -136,7 +136,7 @@ class CameraActivity : BaseActivity() {
         imageCapture.takePicture(output, ContextCompat.getMainExecutor(this),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(result: ImageCapture.OutputFileResults) {
-                    val stampedFile = stampDateTimeOnImage(file)
+                    val stampedFile = if (isCoverImage) file else stampDateTimeOnImage(file)
                     val uri = Uri.fromFile(stampedFile)
 
                     images.add(ImageItem.Local(uri))
@@ -163,15 +163,15 @@ class CameraActivity : BaseActivity() {
         val mutable = original.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(mutable)
 
-        val dateText = SimpleDateFormat("dd/MM/yyyy  HH:mm", Locale.getDefault()).format(Date())
+        val dateText = SimpleDateFormat("dd MMM yyyy, HH:mm:ss", Locale.getDefault()).format(Date())
 
-        val density = resources.displayMetrics.density
-        val textSizePx = 28f * density
-        val paddingH = 16f * density
-        val paddingV = 10f * density
-        val cornerRadius = 12f * density
-        val marginLeft = 24f * density
-        val marginBottom = 40f * density
+        val scale = mutable.width / 1080f
+        val textSizePx = 28f * scale
+        val paddingH = 16f * scale
+        val paddingV = 10f * scale
+        val cornerRadius = 12f * scale
+        val marginLeft = 24f * scale
+        val marginBottom = 40f * scale
 
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
@@ -242,24 +242,43 @@ class CameraActivity : BaseActivity() {
         binding.txtCounter.text = "${images.size}/50"
     }
 
-    private val galleryLauncher =
+    private val coverGalleryLauncher =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             uri?.let {
-                images.add(ImageItem.Local(it))
+                val file = copyUriToFile(it)
+                images.add(ImageItem.Local(Uri.fromFile(file)))
                 adapter.notifyItemInserted(images.size - 1)
                 updateCounter()
-
-                if (isCoverImage) {
-                    pendingUris.clear()
-                    pendingUris.addAll(images.filterIsInstance<ImageItem.Local>().map { img -> img.uri })
-                    setResult(RESULT_OK)
-                    finish()
-                }
+                pendingUris.clear()
+                pendingUris.addAll(images.filterIsInstance<ImageItem.Local>().map { img -> img.uri })
+                setResult(RESULT_OK)
+                finish()
             }
         }
 
+    private val multiGalleryLauncher =
+        registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+            if (uris.isNullOrEmpty()) return@registerForActivityResult
+            for (uri in uris) {
+                if (images.size >= 50) break
+                val file = copyUriToFile(uri)
+                val stampedFile = stampDateTimeOnImage(file)
+                images.add(ImageItem.Local(Uri.fromFile(stampedFile)))
+                adapter.notifyItemInserted(images.size - 1)
+            }
+            updateCounter()
+        }
+
     private fun openGallery() {
-        galleryLauncher.launch("image/*")
+        if (isCoverImage) coverGalleryLauncher.launch("image/*")
+        else multiGalleryLauncher.launch("image/*")
+    }
+
+    private fun copyUriToFile(uri: Uri): File {
+        val input = contentResolver.openInputStream(uri) ?: error("Cannot open URI: $uri")
+        val file = File(externalMediaDirs.first(), "gallery_${System.currentTimeMillis()}.jpg")
+        file.outputStream().use { out -> input.use { it.copyTo(out) } }
+        return file
     }
 
     override fun onDestroy() {

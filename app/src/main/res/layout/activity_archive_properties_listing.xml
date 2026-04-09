@@ -62,6 +62,20 @@
             android:textColor="@color/black"
             android:textSize="@dimen/_13ssp" />
 
+        <!-- Empty state -->
+        <TextView
+            android:id="@+id/tvNoArchive"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginTop="@dimen/_24sdp"
+            android:fontFamily="@font/sofiasans_regular"
+            android:gravity="center"
+            android:text="No archived properties"
+            android:textColor="@color/lbls_color"
+            android:textSize="@dimen/_13ssp"
+            android:visibility="gone" />
+
         <!-- RecyclerView -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/rvArchiveProperties"

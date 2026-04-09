@@ -2,13 +2,14 @@ package com.wooma.business.activities
 
 
 import android.app.ProgressDialog
+import android.content.res.Configuration
 import android.graphics.Color
 import android.os.Bundle
-import android.util.TypedValue
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import com.wooma.business.R
 import java.util.Locale
 
@@ -35,30 +36,12 @@ open class BaseActivity : AppCompatActivity() {
     }
 
     private fun setupWindowInsets() {
-        val window = window
-
-        // Try multiple ways to get your yellow color
-        val typedValue = TypedValue()
-        var statusBarColor = Color.WHITE // fallback
-
-        // Try colorPrimary first
-        statusBarColor = Color.parseColor("#FFC107") // Your yellow color
-           /* if (theme.resolveAttribute(androidx.appcompat.R.attr.colorPrimary, typedValue, true)) {
-                typedValue.data
-            }
-            // Try colorPrimaryVariant
-            else if (theme.resolveAttribute(R.attr.colorPrimaryVariant, typedValue, true)) {
-                typedValue.data
-            }
-            // Or set your yellow color directly
-            else {
-                Color.parseColor("#FFC107") // Your yellow color
-            }*/
-
-        window.statusBarColor = statusBarColor
-
-        // Set light status bar for dark icons on yellow background
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR
+        window.statusBarColor = Color.parseColor("#FFC107")
+        val isLightMode = (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_NO
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = isLightMode
+        }
     }
 
     private fun applyWindowInsets() {

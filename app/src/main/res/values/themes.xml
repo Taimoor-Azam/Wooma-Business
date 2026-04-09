@@ -20,9 +20,14 @@
         <!-- Light status bar icons (dark icons) -->
         <item name="android:windowLightStatusBar">true</item>
 
-        <!-- Optional: navigation bar -->
-        <item name="android:navigationBarColor">@android:color/white</item>
-        <item name="android:windowLightNavigationBar" tools:ignore="NewApi">true</item>
+    </style>
+
+    <style name="CalendarDateText">
+        <item name="android:textColor">#FF000000</item>
+    </style>
+
+    <style name="CalendarWeekDayText">
+        <item name="android:textColor">#FF4A4A4A</item>
     </style>
 
     <style name="BottomNavText">

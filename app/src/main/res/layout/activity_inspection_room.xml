@@ -71,216 +71,212 @@
                 layout="@layout/add_image_layout" />
 
             <!-- Issue toggle card -->
-            <androidx.cardview.widget.CardView
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/_12sdp"
-                app:cardBackgroundColor="@color/white"
-                app:cardCornerRadius="@dimen/_12sdp"
-                app:cardElevation="@dimen/_2sdp">
+                android:background="@drawable/bg_edittext"
+                android:orientation="vertical"
+                android:padding="@dimen/_16sdp">
 
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/sofiasans_semibold"
+                    android:text="Any issues to report?"
+                    android:textColor="@color/black"
+                    android:textSize="@dimen/_13ssp" />
+
+                <!-- All ok / Issues found buttons -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_10sdp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:id="@+id/btnAllOk"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_edittext"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:padding="@dimen/_8sdp">
+
+                        <ImageView
+                            android:id="@+id/ivAllOkIcon"
+                            android:layout_width="@dimen/_13sdp"
+                            android:layout_height="@dimen/_12sdp"
+                            android:src="@drawable/svg_excellent" />
+
+                        <TextView
+                            android:id="@+id/tvAllOk"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/_3sdp"
+                            android:fontFamily="@font/sofiasans_regular"
+                            android:text="All ok"
+                            android:textColor="@color/black"
+                            android:textSize="@dimen/_11ssp" />
+
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:id="@+id/btnIssuesFound"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="@dimen/_10sdp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_edittext"
+                        android:gravity="center"
+                        android:orientation="horizontal"
+                        android:padding="@dimen/_8sdp">
+
+                        <ImageView
+                            android:id="@+id/ivIssuesFoundIcon"
+                            android:layout_width="@dimen/_13sdp"
+                            android:layout_height="@dimen/_12sdp"
+                            android:src="@drawable/svg_poor" />
+
+                        <TextView
+                            android:id="@+id/tvIssuesFound"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/_3sdp"
+                            android:fontFamily="@font/sofiasans_regular"
+                            android:text="Issues found"
+                            android:textColor="@color/black"
+                            android:textSize="@dimen/_11ssp" />
+
+                    </LinearLayout>
+                </LinearLayout>
+
+                <!-- Issues expanded section -->
+                <LinearLayout
+                    android:id="@+id/issuesExpandedLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_14sdp"
                     android:orientation="vertical"
-                    android:padding="@dimen/_16sdp">
+                    android:visibility="visible">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:fontFamily="@font/sofiasans_regular"
+                        android:text="Note what's wrong and what needs fixing"
+                        android:textColor="@color/lbls_color"
+                        android:textSize="@dimen/_11ssp" />
+
+                    <EditText
+                        android:id="@+id/etIssueNote"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_8sdp"
+                        android:background="@drawable/bg_edittext"
+                        android:fontFamily="@font/sofiasans_regular"
+                        android:hint="Describe the issue..."
+                        android:inputType="textMultiLine|textCapSentences"
+                        android:minLines="2"
+                        android:padding="@dimen/_10sdp"
+                        android:textColor="@color/black"
+                        android:textColorHint="@color/light_grey"
+                        android:textSize="@dimen/_12ssp" />
+
+                    <!-- Issue suggestions -->
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvIssueSuggestions"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_8sdp"
+                        android:orientation="horizontal"
+                        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+                    <!-- Priority -->
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_14sdp"
                         android:fontFamily="@font/sofiasans_semibold"
-                        android:text="Any issues to report?"
+                        android:text="Priority"
                         android:textColor="@color/black"
                         android:textSize="@dimen/_13ssp" />
 
-                    <!-- All ok / Issues found buttons -->
                     <LinearLayout
+                        android:id="@+id/spinnerPriority"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="@dimen/_10sdp"
-                        android:orientation="horizontal">
+                        android:layout_marginTop="@dimen/_8sdp"
+                        android:background="@drawable/bg_edittext"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:padding="@dimen/_12sdp">
+
+                        <ImageView
+                            android:id="@+id/ivSelectedPriorityIcon"
+                            android:layout_width="@dimen/_20sdp"
+                            android:layout_height="@dimen/_20sdp"
+                            android:layout_marginEnd="@dimen/_8sdp"
+                            android:contentDescription="Priority icon"
+                            android:visibility="gone" />
 
                         <LinearLayout
-                            android:id="@+id/btnAllOk"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:background="@drawable/bg_edittext"
-                            android:gravity="center"
-                            android:orientation="horizontal"
-                            android:padding="@dimen/_8sdp">
-
-                            <ImageView
-                                android:id="@+id/ivAllOkIcon"
-                                android:layout_width="@dimen/_13sdp"
-                                android:layout_height="@dimen/_12sdp"
-                                android:src="@drawable/svg_excellent" />
+                            android:orientation="vertical">
 
                             <TextView
-                                android:id="@+id/tvAllOk"
-                                android:layout_width="wrap_content"
+                                android:id="@+id/tvPriorityValue"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginStart="@dimen/_3sdp"
                                 android:fontFamily="@font/sofiasans_regular"
-                                android:text="All ok"
-                                android:textColor="@color/black"
-                                android:textSize="@dimen/_11ssp" />
-
-                        </LinearLayout>
-
-                        <LinearLayout
-                            android:id="@+id/btnIssuesFound"
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_marginStart="@dimen/_10sdp"
-                            android:layout_weight="1"
-                            android:background="@drawable/bg_edittext"
-                            android:gravity="center"
-                            android:orientation="horizontal"
-                            android:padding="@dimen/_8sdp">
-
-                            <ImageView
-                                android:id="@+id/ivIssuesFoundIcon"
-                                android:layout_width="@dimen/_13sdp"
-                                android:layout_height="@dimen/_12sdp"
-                                android:src="@drawable/svg_poor" />
+                                android:text="Select priority"
+                                android:textColor="@color/lbls_color"
+                                android:textSize="@dimen/_12ssp" />
 
                             <TextView
-                                android:id="@+id/tvIssuesFound"
-                                android:layout_width="wrap_content"
+                                android:id="@+id/tvPrioritySubtitleValue"
+                                android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:layout_marginStart="@dimen/_3sdp"
+                                android:layout_marginTop="@dimen/_2sdp"
                                 android:fontFamily="@font/sofiasans_regular"
-                                android:text="Issues found"
-                                android:textColor="@color/black"
-                                android:textSize="@dimen/_11ssp" />
-
-                        </LinearLayout>
-                    </LinearLayout>
-
-                    <!-- Issues expanded section -->
-                    <LinearLayout
-                        android:id="@+id/issuesExpandedLayout"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="@dimen/_14sdp"
-                        android:orientation="vertical"
-                        android:visibility="visible">
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:fontFamily="@font/sofiasans_regular"
-                            android:text="Note what's wrong and what needs fixing"
-                            android:textColor="@color/lbls_color"
-                            android:textSize="@dimen/_11ssp" />
-
-                        <EditText
-                            android:id="@+id/etIssueNote"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="@dimen/_8sdp"
-                            android:background="@drawable/bg_edittext"
-                            android:fontFamily="@font/sofiasans_regular"
-                            android:hint="Describe the issue..."
-                            android:inputType="textMultiLine"
-                            android:minLines="2"
-                            android:padding="@dimen/_10sdp"
-                            android:textColor="@color/black"
-                            android:textColorHint="@color/light_grey"
-                            android:textSize="@dimen/_12ssp" />
-
-                        <!-- Issue suggestions -->
-                        <androidx.recyclerview.widget.RecyclerView
-                            android:id="@+id/rvIssueSuggestions"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="@dimen/_8sdp"
-                            android:orientation="horizontal"
-                            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
-
-                        <!-- Priority -->
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="@dimen/_14sdp"
-                            android:fontFamily="@font/sofiasans_semibold"
-                            android:text="Priority"
-                            android:textColor="@color/black"
-                            android:textSize="@dimen/_13ssp" />
-
-                        <LinearLayout
-                            android:id="@+id/spinnerPriority"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="@dimen/_8sdp"
-                            android:background="@drawable/bg_edittext"
-                            android:gravity="center_vertical"
-                            android:orientation="horizontal"
-                            android:padding="@dimen/_12sdp">
-
-                            <ImageView
-                                android:id="@+id/ivSelectedPriorityIcon"
-                                android:layout_width="@dimen/_20sdp"
-                                android:layout_height="@dimen/_20sdp"
-                                android:layout_marginEnd="@dimen/_8sdp"
-                                android:contentDescription="Priority icon"
+                                android:textColor="@color/lbls_color"
+                                android:textSize="@dimen/_10ssp"
                                 android:visibility="gone" />
 
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical">
-
-                                <TextView
-                                    android:id="@+id/tvPriorityValue"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:fontFamily="@font/sofiasans_regular"
-                                    android:text="Select priority"
-                                    android:textColor="@color/lbls_color"
-                                    android:textSize="@dimen/_12ssp" />
-
-                                <TextView
-                                    android:id="@+id/tvPrioritySubtitleValue"
-                                    android:layout_width="match_parent"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginTop="@dimen/_2sdp"
-                                    android:fontFamily="@font/sofiasans_regular"
-                                    android:textColor="@color/lbls_color"
-                                    android:textSize="@dimen/_10ssp"
-                                    android:visibility="gone" />
-
-                            </LinearLayout>
-
-                            <ImageView
-                                android:id="@+id/ivPriorityArrow"
-                                android:layout_width="@dimen/_14sdp"
-                                android:layout_height="@dimen/_14sdp"
-                                android:contentDescription="Dropdown"
-                                android:rotation="90"
-                                android:src="@drawable/svg_right_arrow" />
-
                         </LinearLayout>
+
+                        <ImageView
+                            android:id="@+id/ivPriorityArrow"
+                            android:layout_width="@dimen/_14sdp"
+                            android:layout_height="@dimen/_14sdp"
+                            android:contentDescription="Dropdown"
+                            android:rotation="90"
+                            android:src="@drawable/svg_right_arrow" />
 
                     </LinearLayout>
 
                 </LinearLayout>
-            </androidx.cardview.widget.CardView>
+
+            </LinearLayout>
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 
     <!-- Done button -->
-    <Button
+    <TextView
         android:id="@+id/btnDone"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_margin="@dimen/_16sdp"
         android:background="@drawable/bg_button_green"
         android:fontFamily="@font/sofiasans_semibold"
+        android:paddingTop="@dimen/_10sdp"
+        android:paddingBottom="@dimen/_10sdp"
         android:text="Done"
+        android:gravity="center"
         android:textColor="@color/white"
         android:textSize="@dimen/_14ssp"
         app:layout_constraintBottom_toBottomOf="parent"

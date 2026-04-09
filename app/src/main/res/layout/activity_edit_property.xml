@@ -71,15 +71,15 @@
             android:layout_marginTop="@dimen/_4sdp"
             android:background="@drawable/bg_edittext"
             android:hint="Enter Address Line 1"
-            android:textColorHint="@color/light_grey"
             android:imeOptions="actionNext"
-            android:inputType="text"
+            android:inputType="textCapSentences"
             android:maxLines="1"
             android:paddingStart="@dimen/_10sdp"
             android:paddingTop="@dimen/_10sdp"
             android:paddingEnd="@dimen/_10sdp"
             android:paddingBottom="@dimen/_10sdp"
             android:textColor="@color/black"
+            android:textColorHint="@color/light_grey"
             android:textSize="@dimen/_12ssp" />
 
         <TextView
@@ -99,15 +99,15 @@
             android:layout_marginTop="@dimen/_4sdp"
             android:background="@drawable/bg_edittext"
             android:hint="Enter Address Line 2"
-            android:textColorHint="@color/light_grey"
             android:imeOptions="actionNext"
-            android:inputType="text"
+            android:inputType="textCapSentences"
             android:maxLines="1"
             android:paddingStart="@dimen/_10sdp"
             android:paddingTop="@dimen/_10sdp"
             android:paddingEnd="@dimen/_10sdp"
             android:paddingBottom="@dimen/_10sdp"
             android:textColor="@color/black"
+            android:textColorHint="@color/light_grey"
             android:textSize="@dimen/_12ssp" />
 
         <TextView
@@ -127,15 +127,15 @@
             android:layout_marginTop="@dimen/_4sdp"
             android:background="@drawable/bg_edittext"
             android:hint="Enter City"
-            android:textColorHint="@color/light_grey"
             android:imeOptions="actionNext"
-            android:inputType="text"
+            android:inputType="textCapSentences"
             android:maxLines="1"
             android:paddingStart="@dimen/_10sdp"
             android:paddingTop="@dimen/_10sdp"
             android:paddingEnd="@dimen/_10sdp"
             android:paddingBottom="@dimen/_10sdp"
             android:textColor="@color/black"
+            android:textColorHint="@color/light_grey"
             android:textSize="@dimen/_12ssp" />
 
         <TextView
@@ -155,23 +155,24 @@
             android:layout_marginTop="@dimen/_4sdp"
             android:background="@drawable/bg_edittext"
             android:hint="Enter Postcode"
-            android:textColorHint="@color/light_grey"
             android:imeOptions="actionDone"
-            android:inputType="text"
+            android:inputType="textCapSentences"
             android:maxLines="1"
             android:paddingStart="@dimen/_10sdp"
             android:paddingTop="@dimen/_10sdp"
             android:paddingEnd="@dimen/_10sdp"
             android:paddingBottom="@dimen/_10sdp"
             android:textColor="@color/black"
+            android:textColorHint="@color/light_grey"
             android:textSize="@dimen/_12ssp" />
 
-        <androidx.appcompat.widget.AppCompatButton
+        <androidx.appcompat.widget.AppCompatTextView
             android:id="@+id/btnSave"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/_15sdp"
             android:background="@drawable/bg_button_green"
+            android:gravity="center"
             android:paddingTop="@dimen/_10sdp"
             android:paddingBottom="@dimen/_10sdp"
             android:text="@string/save_"

@@ -4,10 +4,10 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
+import android.view.View
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.adapter.SelectRoomItemAdapter
-import com.wooma.business.customs.AddCustomRoomDialog
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
 import com.wooma.business.data.network.makeApiRequest
@@ -35,6 +35,8 @@ class SelectRoomItemActivity : BaseActivity() {
         setContentView(binding.root)
         applyWindowInsetsToBinding(binding.root)
 
+        binding.tvTitle.text = "Add Room Item"
+        binding.tvCustomLabel.text = "Custom Item"
         reportId = intent.getStringExtra("reportId") ?: ""
         roomId = intent.getStringExtra("roomId") ?: ""
 
@@ -44,13 +46,22 @@ class SelectRoomItemActivity : BaseActivity() {
 
         binding.ivBack.setOnClickListener { finish() }
 
-        binding.ivAddCustom.setOnClickListener {
-            AddCustomRoomDialog("Add Custom Item").show(supportFragmentManager, "AddCustomItem")
-        }
+        binding.etCustomName.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                val hasText = !s.isNullOrBlank()
+                binding.tvAddCustom.alpha = if (hasText) 1f else 0.3f
+                binding.tvAddCustom.isClickable = hasText
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
 
-        supportFragmentManager.setFragmentResultListener("sheet_key", this) { _, bundle ->
-            val name = bundle.getString("added_room") ?: return@setFragmentResultListener
-            if (name.isNotEmpty()) adapter.addCustomItem(name)
+        binding.tvAddCustom.setOnClickListener {
+            val name = binding.etCustomName.text.toString().trim()
+            if (name.isNotEmpty()) {
+                adapter.addCustomItem(name)
+                binding.etCustomName.setText("")
+            }
         }
 
         binding.etSearch.addTextChangedListener(object : TextWatcher {

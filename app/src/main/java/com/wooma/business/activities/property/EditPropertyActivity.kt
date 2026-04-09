@@ -1,8 +1,10 @@
 package com.wooma.business.activities.property
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import com.wooma.business.activities.BaseActivity
+import com.wooma.business.activities.MainActivity
 import com.wooma.business.customs.Utils
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
@@ -131,7 +133,11 @@ class EditPropertyActivity : BaseActivity() {
             listener = object : ApiResponseListener<ApiResponse<Property>> {
                 override fun onSuccess(response: ApiResponse<Property>) {
                     if (response.success) {
-                        showToast("Archived SuccessFully")
+                        showToast("Archived Successfully")
+                        val intent = Intent(this@EditPropertyActivity, MainActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                        startActivity(intent)
+                        finish()
                     }
                 }
 

@@ -61,7 +61,7 @@ class InventoryRoomItemActivity : BaseActivity() {
         ConditionDAO(R.drawable.svg_excellent, "Good"),
         ConditionDAO(R.drawable.svg_poor, "Poor"),
         ConditionDAO(R.drawable.svg_poor, "Unacceptable"),
-        ConditionDAO(R.drawable.svg_poor, "N/A")
+        ConditionDAO(R.drawable.svg_n_a, "N/A")
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -87,8 +87,9 @@ class InventoryRoomItemActivity : BaseActivity() {
         reportType = intent.getParcelableExtra("reportType")
         isInspection = reportType?.type_code?.lowercase() == ReportTypes.INSPECTION.value
 
+        binding.tvTitle.text = if (roomItems != null) roomItems?.name ?: "" else "Add Room Item"
+
         if (roomItems != null) {
-            binding.tvTitle.text = roomItems?.name ?: ""
             binding.etItemName.setText(roomItems?.name ?: "")
 
             binding.etItemName.addTextChangedListener(object : android.text.TextWatcher {
@@ -180,8 +181,8 @@ class InventoryRoomItemActivity : BaseActivity() {
             } else {
                 val roomItem = UpdateRoomItemRequest(
                     name = binding.etItemName.text.toString().trim().ifEmpty { null },
-                    general_condition = selectedCondition.lowercase(Locale.ROOT).replace("/", ""),
-                    general_cleanliness = selectedCleanliness.lowercase(Locale.ROOT).replace("/", ""),
+                    general_condition = selectedCondition/*.lowercase(Locale.ROOT).replace("/", "")*/,
+                    general_cleanliness = selectedCleanliness/*.lowercase(Locale.ROOT).replace("/", "")*/,
                     description = binding.etDescription.text.toString(),
                     note = binding.etNote.text.toString()
                 )

@@ -20,9 +20,6 @@
         <!-- Light status bar icons (dark icons) -->
         <item name="android:windowLightStatusBar">true</item>
 
-        <!-- Optional: navigation bar -->
-        <item name="android:navigationBarColor">@android:color/white</item>
-        <item name="android:windowLightNavigationBar" tools:ignore="NewApi">true</item>
     </style>
 
     <style name="BottomNavText">

@@ -120,7 +120,7 @@
             android:background="@color/border_stroke" />
 
         <!-- Button -->
-        <androidx.appcompat.widget.AppCompatButton
+        <androidx.appcompat.widget.AppCompatTextView
             android:id="@+id/btnSendCode"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -132,6 +132,7 @@
             android:paddingBottom="@dimen/_10sdp"
             android:text="@string/send_verification_code"
             android:textAllCaps="false"
+            android:gravity="center"
             android:textColor="@color/white"
             android:textSize="@dimen/_14ssp" />
 

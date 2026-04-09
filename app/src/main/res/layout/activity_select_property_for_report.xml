@@ -66,7 +66,7 @@
             android:fontFamily="@font/sofiasans_regular"
             android:hint="@string/search_address"
             android:imeOptions="actionDone"
-            android:inputType="text"
+            android:inputType="textCapSentences"
             android:paddingStart="@dimen/_10sdp"
             android:paddingTop="@dimen/_10sdp"
             android:paddingEnd="@dimen/_10sdp"

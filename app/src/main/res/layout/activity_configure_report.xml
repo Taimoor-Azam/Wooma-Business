@@ -98,8 +98,8 @@
         android:layout_marginStart="@dimen/_12sdp"
         android:layout_marginTop="@dimen/_12sdp"
         android:layout_marginEnd="@dimen/_12sdp"
-        android:padding="@dimen/_8sdp"
         android:background="@drawable/bg_edittext"
+        android:padding="@dimen/_8sdp"
         android:visibility="gone"
         app:layout_constraintTop_toBottomOf="@+id/configureLayout">
 
@@ -235,7 +235,7 @@
             android:layout_marginBottom="@dimen/_15sdp"
             android:background="@color/border_stroke" />
         <!-- Button -->
-        <androidx.appcompat.widget.AppCompatButton
+        <androidx.appcompat.widget.AppCompatTextView
             android:id="@+id/btnCreateReport"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -243,6 +243,7 @@
             android:layout_marginEnd="@dimen/_16sdp"
             android:layout_marginBottom="@dimen/_15sdp"
             android:background="@drawable/bg_button_green"
+            android:gravity="center"
             android:paddingTop="@dimen/_10sdp"
             android:paddingBottom="@dimen/_10sdp"
             android:text="@string/create_report"

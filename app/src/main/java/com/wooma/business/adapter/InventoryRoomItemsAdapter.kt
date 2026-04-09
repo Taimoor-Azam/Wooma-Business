@@ -57,10 +57,21 @@ class InventoryRoomItemsAdapter(
         holder.tvNotes.text = item.note ?: ""
 
         val imageItems = item.attachments
-            ?.mapNotNull { att -> att.id?.let { id -> att.storageKey?.let { key -> ImageItem.Remote(id, "${ApiClient.IMAGE_BASE_URL}$key") } } }
+            ?.mapNotNull { att ->
+                att.id?.let { id ->
+                    att.storageKey?.let { key ->
+                        ImageItem.Remote(
+                            id,
+                            "${ApiClient.IMAGE_BASE_URL}$key"
+                        )
+                    }
+                }
+            }
             ?.toMutableList<ImageItem>() ?: mutableListOf()
-        holder.rvImages.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-        holder.rvImages.adapter = ImageAdapter(imageItems, showDelete = false, title = item.name?: "")
+        holder.rvImages.layoutManager =
+            LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+        holder.rvImages.adapter =
+            ImageAdapter(imageItems, showDelete = false, title = item.name ?: "")
 
 
         if (item.general_condition?.equals("poor") == true || item.general_condition?.equals("unacceptable") == true || item.general_condition?.equals(
@@ -82,14 +93,19 @@ class InventoryRoomItemsAdapter(
             )
         }
 
-        if (item.general_cleanliness?.equals("poor") == true || item.general_cleanliness?.equals("unacceptable") == true || item.general_cleanliness?.equals(
-                "n/a"
-            ) == true
+        if (item.general_cleanliness?.equals("poor") == true || item.general_cleanliness?.equals("unacceptable") == true
         ) {
             holder.ivCleanliness.setImageDrawable(
                 ContextCompat.getDrawable(
                     context,
                     R.drawable.svg_poor
+                )
+            )
+        } else if (item.general_cleanliness?.equals("N/A") == true) {
+            holder.ivCleanliness.setImageDrawable(
+                ContextCompat.getDrawable(
+                    context,
+                    R.drawable.svg_n_a
                 )
             )
         } else {

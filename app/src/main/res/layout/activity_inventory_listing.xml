@@ -294,13 +294,49 @@
                     android:textSize="@dimen/_13ssp"
                     android:visibility="gone" />
 
-                <androidx.appcompat.widget.AppCompatButton
+                <LinearLayout
+                    android:id="@+id/completedTenantSection"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/tvReviewPeriodEnded"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_4sdp"
+                        android:fontFamily="@font/sofiasans_regular"
+                        android:textColor="@color/lbls_color"
+                        android:textSize="@dimen/_12ssp" />
+
+                    <TextView
+                        android:id="@+id/tvCompletedTenantSignatures"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_10sdp"
+                        android:fontFamily="@font/sofiasans_semibold"
+                        android:textColor="@color/lbls_color"
+                        android:textSize="@dimen/_12ssp" />
+
+                    <androidx.recyclerview.widget.RecyclerView
+                        android:id="@+id/rvCompletedTenants"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_6sdp"
+                        android:orientation="vertical"
+                        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+                </LinearLayout>
+
+                <androidx.appcompat.widget.AppCompatTextView
                     android:id="@+id/viewFinalReport"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/_10sdp"
                     android:layout_marginBottom="@dimen/_15sdp"
                     android:background="@drawable/bg_button_green"
+                    android:gravity="center"
                     android:paddingTop="@dimen/_10sdp"
                     android:paddingBottom="@dimen/_10sdp"
                     android:text="@string/view_final_report"
@@ -457,7 +493,7 @@
             android:layout_marginBottom="@dimen/_15sdp"
             android:background="@color/border_stroke" />
         <!-- Button -->
-        <androidx.appcompat.widget.AppCompatButton
+        <androidx.appcompat.widget.AppCompatTextView
             android:id="@+id/btnCompleteReport"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -465,6 +501,7 @@
             android:layout_marginEnd="@dimen/_16sdp"
             android:layout_marginBottom="@dimen/_15sdp"
             android:background="@drawable/bg_button_green"
+            android:gravity="center"
             android:paddingTop="@dimen/_10sdp"
             android:paddingBottom="@dimen/_10sdp"
             android:text="@string/complete_report"

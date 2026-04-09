@@ -118,9 +118,9 @@
             android:layout_marginTop="@dimen/_5sdp"
             android:background="@drawable/bg_edittext"
             android:fontFamily="@font/sofiasans_regular"
+            android:hint="Select Report Type"
             android:padding="@dimen/_10sdp"
             android:textColor="@color/black"
-            android:hint="Select Report Type"
             android:textSize="@dimen/_14ssp" />
 
     </LinearLayout>
@@ -141,16 +141,17 @@
             android:layout_marginBottom="@dimen/_15sdp"
             android:background="@color/border_stroke" />
         <!-- Button -->
-        <androidx.appcompat.widget.AppCompatButton
+        <androidx.appcompat.widget.AppCompatTextView
             android:id="@+id/btnAddReport"
             android:layout_width="match_parent"
-            android:paddingTop="@dimen/_10sdp"
-            android:paddingBottom="@dimen/_10sdp"
             android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/_16sdp"
             android:layout_marginEnd="@dimen/_16sdp"
             android:layout_marginBottom="@dimen/_15sdp"
             android:background="@drawable/bg_button_green"
+            android:gravity="center"
+            android:paddingTop="@dimen/_10sdp"
+            android:paddingBottom="@dimen/_10sdp"
             android:text="@string/change_report_type"
             android:textAllCaps="false"
             android:textColor="@color/white"

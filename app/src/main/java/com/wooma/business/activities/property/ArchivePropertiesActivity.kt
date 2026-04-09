@@ -2,6 +2,7 @@ package com.wooma.business.activities.property
 
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.adapter.ArchivePropertyAdapter
 import com.wooma.business.customs.Utils
@@ -67,10 +68,15 @@ class ArchivePropertiesActivity : BaseActivity() {
             requestAction = { apiService -> apiService.getPropertiesList(queryMap) },
             listener = object : ApiResponseListener<ApiResponse<TenantPropertiesWrapper>> {
                 override fun onSuccess(response: ApiResponse<TenantPropertiesWrapper>) {
-                    if (response.data.data.isNotEmpty()) {
-                        properties.clear()
-                        properties.addAll(response.data.data)
-                        adapter.updateList(properties)
+                    properties.clear()
+                    properties.addAll(response.data.data)
+                    adapter.updateList(properties)
+                    if (properties.isEmpty()) {
+                        binding.tvNoArchive.visibility = View.VISIBLE
+                        binding.rvArchiveProperties.visibility = View.GONE
+                    } else {
+                        binding.tvNoArchive.visibility = View.GONE
+                        binding.rvArchiveProperties.visibility = View.VISIBLE
                     }
                 }
 
