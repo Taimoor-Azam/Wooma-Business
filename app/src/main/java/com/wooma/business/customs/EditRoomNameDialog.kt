@@ -8,6 +8,7 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.widget.AppCompatButton
+import androidx.appcompat.widget.AppCompatTextView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.wooma.business.R
 
@@ -26,7 +27,7 @@ class EditRoomNameDialog(
         val ivClose = view.findViewById<ImageView>(R.id.ivClose)
         val tvLabel = view.findViewById<TextView>(R.id.tvLabel)
         val etRoom = view.findViewById<EditText>(R.id.etRoom)
-        val btnContinue = view.findViewById<AppCompatButton>(R.id.btnContinue)
+        val btnContinue = view.findViewById<AppCompatTextView>(R.id.btnContinue)
 
         tvLabel.text = "Edit Room Name"
         etRoom.setText(currentName)

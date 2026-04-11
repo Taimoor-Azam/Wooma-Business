@@ -178,7 +178,7 @@
                         android:fontFamily="@font/sofiasans_regular"
                         android:hint="Describe the issue..."
                         android:inputType="textMultiLine|textCapSentences"
-                        android:minLines="2"
+                        android:minLines="1"
                         android:padding="@dimen/_10sdp"
                         android:textColor="@color/black"
                         android:textColorHint="@color/light_grey"

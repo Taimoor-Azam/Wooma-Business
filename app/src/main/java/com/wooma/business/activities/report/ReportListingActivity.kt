@@ -32,7 +32,7 @@ class ReportListingActivity : BaseActivity() {
         applyWindowInsetsToBinding(binding.root)
         propertyId = intent.getStringExtra("propertyId") ?: ""
 
-        adapter = ReportListingAdapter(this, reports)
+        adapter = ReportListingAdapter(this, reports, propertyId)
         binding.rvReports.adapter = adapter
 
         binding.btnContinue.setOnClickListener {

@@ -39,14 +39,18 @@ class ImageAdapter(
         val item = list[position]
 
         when (item) {
-            is ImageItem.Local -> Glide.with(holder.itemView.context).load(item.uri).into(holder.image)
-            is ImageItem.Remote -> Glide.with(holder.itemView.context).load(item.url).into(holder.image)
+            is ImageItem.Local -> Glide.with(holder.itemView.context).load(item.uri)
+                .placeholder(R.drawable.svg_img_placeholder).into(holder.image)
+
+            is ImageItem.Remote -> Glide.with(holder.itemView.context).load(item.url)
+                .placeholder(R.drawable.svg_img_placeholder).into(holder.image)
         }
 
         holder.image.setOnClickListener {
             val ctx = holder.itemView.context
             val activity = ctx as? Activity ?: return@setOnClickListener
-            val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnClickListener
+            val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() }
+                ?: return@setOnClickListener
 
             Utils.showFullScreenImage(
                 context = ctx,
@@ -54,48 +58,51 @@ class ImageAdapter(
                 startPosition = pos,
                 title = title,
                 onDelete = if (showDelete) { deletePos, deleteItem, onSuccess ->
-                    Utils.showDialogBox(ctx, "Delete Image", "Are you sure you want to delete this image?") {
-                        when (deleteItem) {
-                            is ImageItem.Remote -> {
-                                activity.makeApiRequest(
-                                    apiServiceClass = MyApi::class.java,
-                                    context = activity,
-                                    showLoading = true,
-                                    requestAction = { api -> api.deleteAttachment(deleteItem.id) },
-                                    listener = object : ApiResponseListener<ApiResponse<Any>> {
-                                        override fun onSuccess(response: ApiResponse<Any>) {
-                                            if (response.success) {
-                                                val adapterPos = list.indexOfFirst {
-                                                    it is ImageItem.Remote && it.id == deleteItem.id
-                                                }
-                                                if (adapterPos != -1) {
-                                                    list.removeAt(adapterPos)
-                                                    notifyItemRemoved(adapterPos)
-                                                }
-                                                onDelete?.invoke()
-                                                onSuccess()
+                    when (deleteItem) {
+                        is ImageItem.Remote -> {
+                            activity.makeApiRequest(
+                                apiServiceClass = MyApi::class.java,
+                                context = activity,
+                                showLoading = true,
+                                requestAction = { api -> api.deleteAttachment(deleteItem.id) },
+                                listener = object : ApiResponseListener<ApiResponse<Any>> {
+                                    override fun onSuccess(response: ApiResponse<Any>) {
+                                        if (response.success) {
+                                            val adapterPos = list.indexOfFirst {
+                                                it is ImageItem.Remote && it.id == deleteItem.id
                                             }
-                                        }
-                                        override fun onFailure(errorMessage: ErrorResponse?) {
-                                            ctx.showToast(errorMessage?.error?.message ?: "Failed to delete image")
-                                        }
-                                        override fun onError(throwable: Throwable) {
-                                            ctx.showToast("Error: ${throwable.message}")
+                                            if (adapterPos != -1) {
+                                                list.removeAt(adapterPos)
+                                                notifyItemRemoved(adapterPos)
+                                            }
+                                            onDelete?.invoke()
+                                            onSuccess()
                                         }
                                     }
-                                )
-                            }
-                            is ImageItem.Local -> {
-                                val adapterPos = list.indexOfFirst {
-                                    it is ImageItem.Local && it.uri == deleteItem.uri
+
+                                    override fun onFailure(errorMessage: ErrorResponse?) {
+                                        ctx.showToast(
+                                            errorMessage?.error?.message ?: "Failed to delete image"
+                                        )
+                                    }
+
+                                    override fun onError(throwable: Throwable) {
+                                        ctx.showToast("Error: ${throwable.message}")
+                                    }
                                 }
-                                if (adapterPos != -1) {
-                                    list.removeAt(adapterPos)
-                                    notifyItemRemoved(adapterPos)
-                                }
-                                onDelete?.invoke()
-                                onSuccess()
+                            )
+                        }
+
+                        is ImageItem.Local -> {
+                            val adapterPos = list.indexOfFirst {
+                                it is ImageItem.Local && it.uri == deleteItem.uri
                             }
+                            if (adapterPos != -1) {
+                                list.removeAt(adapterPos)
+                                notifyItemRemoved(adapterPos)
+                            }
+                            onDelete?.invoke()
+                            onSuccess()
                         }
                     }
                 } else null
@@ -111,7 +118,11 @@ class ImageAdapter(
                 if (pos == RecyclerView.NO_ID.toInt()) return@setOnClickListener
                 val ctx = holder.itemView.context
                 val activity = ctx as? Activity ?: return@setOnClickListener
-                Utils.showDialogBox(ctx, "Delete Image", "Are you sure you want to delete this image?") {
+                Utils.showDialogBox(
+                    ctx,
+                    "Delete Image",
+                    "Are you sure you want to delete this image?"
+                ) {
                     when (val current = list[pos]) {
                         is ImageItem.Remote -> {
                             activity.makeApiRequest(
@@ -127,15 +138,20 @@ class ImageAdapter(
                                             onDelete?.invoke()
                                         }
                                     }
+
                                     override fun onFailure(errorMessage: ErrorResponse?) {
-                                        ctx.showToast(errorMessage?.error?.message ?: "Failed to delete image")
+                                        ctx.showToast(
+                                            errorMessage?.error?.message ?: "Failed to delete image"
+                                        )
                                     }
+
                                     override fun onError(throwable: Throwable) {
                                         ctx.showToast("Error: ${throwable.message}")
                                     }
                                 }
                             )
                         }
+
                         is ImageItem.Local -> {
                             list.removeAt(pos)
                             notifyItemRemoved(pos)

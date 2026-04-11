@@ -11,8 +11,6 @@ import androidx.annotation.RequiresApi
 import android.content.res.ColorStateList
 import android.graphics.Color
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
@@ -27,6 +25,7 @@ import com.wooma.business.adapter.InventoryRoomsAdapter
 import com.wooma.business.adapter.ReportTenantsAdapter
 import com.wooma.business.customs.AttachmentUploadHelper
 import com.wooma.business.customs.GridSpacingItemDecoration
+import com.wooma.business.activities.FullscreenImageActivity
 import com.wooma.business.customs.Utils
 import com.wooma.business.data.network.ApiClient
 import com.wooma.business.data.network.ApiResponseListener
@@ -57,6 +56,7 @@ class InventoryListingActivity : BaseActivity() {
     private val roomsList = mutableListOf<RoomsResponse>()
     private lateinit var binding: ActivityInventoryListingBinding
     var reportId = ""
+    var propertyId = ""
     var reportStatus = ""
     var reportType: PropertyReportType? = null
     var reportData: ReportData? = null
@@ -90,6 +90,7 @@ class InventoryListingActivity : BaseActivity() {
         reportId = intent.getStringExtra("reportId") ?: ""
         reportStatus = intent.getStringExtra("reportStatus") ?: ""
         reportType = intent.getParcelableExtra("reportType")
+        propertyId = intent.getStringExtra("propertyId") ?: ""
 
         binding.tvReportType.text = reportType?.type_code
             ?.replace("_", " ")
@@ -185,6 +186,7 @@ class InventoryListingActivity : BaseActivity() {
                     .putExtra("reportType", reportType)
                     .putExtra("assessor", reportData?.assessor)
                     .putExtra("completionDate", reportData?.completionDate)
+                    .putExtra("propertyId", propertyId)
             )
         }
 
@@ -727,23 +729,13 @@ class InventoryListingActivity : BaseActivity() {
 
     private fun viewCoverImage() {
         val url = "${ApiClient.IMAGE_BASE_URL}$coverImageStorageKey".takeIf { !coverImageStorageKey.isNullOrEmpty() } ?: return
-        val dialog = android.app.Dialog(this, android.R.style.Theme_Black_NoTitleBar_Fullscreen)
-        val imageView = android.widget.ImageView(this).apply {
-            layoutParams = android.view.ViewGroup.LayoutParams(
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT,
-                android.view.ViewGroup.LayoutParams.MATCH_PARENT
-            )
-            scaleType = android.widget.ImageView.ScaleType.FIT_CENTER
-            setOnClickListener { dialog.dismiss() }
-        }
-        ViewCompat.setOnApplyWindowInsetsListener(imageView) { v, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            insets
-        }
-        Glide.with(this).load(url).into(imageView)
-        dialog.setContentView(imageView)
-        dialog.show()
+        Utils.showFullScreenImage(
+            context = this,
+            images = listOf(com.wooma.business.model.ImageItem.Remote("", url)),
+            startPosition = 0,
+            title = "",
+            onDelete = null
+        )
     }
 
     private fun uploadCoverImageApi(uri: Uri) {

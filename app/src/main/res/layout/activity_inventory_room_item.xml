@@ -22,6 +22,7 @@
         android:layout_height="wrap_content"
         android:fontFamily="@font/sofiasans_bold"
         android:text="Bedroom"
+        android:textColor="@color/black"
         android:textSize="@dimen/_16ssp"
         android:textStyle="bold"
         app:layout_constraintBottom_toBottomOf="@id/ivBack"
@@ -56,7 +57,7 @@
 
             <include
                 android:id="@+id/cameraLayout"
-                layout="@layout/add_image_layout"/>
+                layout="@layout/add_image_layout" />
 
             <LinearLayout
                 android:id="@+id/regularLayout"
@@ -130,12 +131,12 @@
                     android:background="@drawable/bg_edittext"
                     android:fontFamily="@font/sofiasans_regular"
                     android:hint="Enter item name"
-                    android:textColorHint="@color/light_grey"
                     android:inputType="textCapSentences"
                     android:maxLines="1"
                     android:paddingHorizontal="@dimen/_10sdp"
                     android:paddingVertical="@dimen/_10sdp"
                     android:textColor="@color/black"
+                    android:textColorHint="@color/light_grey"
                     android:textSize="@dimen/_13ssp" />
 
                 <TextView
@@ -157,16 +158,23 @@
                     android:fontFamily="@font/sofiasans_regular"
                     android:gravity="top"
                     android:hint="Enter Condition note here..."
-                    android:textColorHint="@color/light_grey"
-                    android:imeOptions="actionDone"
-                    android:inputType="textCapSentences"
-                    android:minHeight="@dimen/_100sdp"
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:minLines="1"
                     android:paddingStart="@dimen/_10sdp"
                     android:paddingTop="@dimen/_10sdp"
                     android:paddingEnd="@dimen/_10sdp"
                     android:paddingBottom="@dimen/_10sdp"
                     android:textColor="@color/black"
+                    android:textColorHint="@color/light_grey"
                     android:textSize="@dimen/_12ssp" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvNoteSuggestions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_8sdp"
+                    android:orientation="horizontal"
+                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
                 <TextView
                     android:layout_width="wrap_content"
@@ -187,16 +195,23 @@
                     android:fontFamily="@font/sofiasans_regular"
                     android:gravity="top"
                     android:hint="Enter Description here..."
-                    android:textColorHint="@color/light_grey"
-                    android:imeOptions="actionDone"
-                    android:inputType="textCapSentences"
-                    android:minHeight="@dimen/_100sdp"
+                    android:inputType="textMultiLine|textCapSentences"
+                    android:minLines="1"
                     android:paddingStart="@dimen/_10sdp"
                     android:paddingTop="@dimen/_10sdp"
                     android:paddingEnd="@dimen/_10sdp"
                     android:paddingBottom="@dimen/_10sdp"
                     android:textColor="@color/black"
+                    android:textColorHint="@color/light_grey"
                     android:textSize="@dimen/_12ssp" />
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/rvDescriptionSuggestions"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_8sdp"
+                    android:orientation="horizontal"
+                    app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
             </LinearLayout>
 
@@ -204,37 +219,37 @@
                 android:id="@+id/inspectionLayout"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
                 android:layout_marginTop="@dimen/_12sdp"
+                android:orientation="vertical"
                 android:visibility="gone">
 
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Any issues to report?"
                     android:fontFamily="@font/sofiasans_regular"
+                    android:text="Any issues to report?"
                     android:textColor="@color/black"
                     android:textSize="@dimen/_11ssp" />
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="horizontal"
                     android:layout_marginTop="@dimen/_8sdp"
+                    android:orientation="horizontal"
                     android:weightSum="2">
 
                     <TextView
                         android:id="@+id/btnAllOk"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
                         android:layout_marginEnd="@dimen/_4sdp"
-                        android:text="👍  All ok"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_edittext"
+                        android:fontFamily="@font/sofiasans_regular"
                         android:gravity="center"
                         android:paddingTop="@dimen/_10sdp"
                         android:paddingBottom="@dimen/_10sdp"
-                        android:background="@drawable/bg_edittext"
-                        android:fontFamily="@font/sofiasans_regular"
+                        android:text="👍  All ok"
                         android:textColor="@color/black"
                         android:textSize="@dimen/_12ssp" />
 
@@ -242,14 +257,14 @@
                         android:id="@+id/btnIssuesFound"
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
                         android:layout_marginStart="@dimen/_4sdp"
-                        android:text="🚩  Issues found"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_edittext"
+                        android:fontFamily="@font/sofiasans_regular"
                         android:gravity="center"
                         android:paddingTop="@dimen/_10sdp"
                         android:paddingBottom="@dimen/_10sdp"
-                        android:background="@drawable/bg_edittext"
-                        android:fontFamily="@font/sofiasans_regular"
+                        android:text="🚩  Issues found"
                         android:textColor="@color/black"
                         android:textSize="@dimen/_12ssp" />
 
@@ -259,15 +274,15 @@
                     android:id="@+id/issuesExpandedLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
                     android:layout_marginTop="@dimen/_12sdp"
+                    android:orientation="vertical"
                     android:visibility="gone">
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="Note what's wrong and what needs fixing"
                         android:fontFamily="@font/sofiasans_regular"
+                        android:text="Note what's wrong and what needs fixing"
                         android:textColor="@color/black"
                         android:textSize="@dimen/_11ssp" />
 
@@ -280,7 +295,6 @@
                         android:fontFamily="@font/sofiasans_regular"
                         android:gravity="top"
                         android:hint="Describe the issue..."
-                        android:textColorHint="@color/light_grey"
                         android:inputType="textMultiLine|textCapSentences"
                         android:minHeight="@dimen/_80sdp"
                         android:paddingStart="@dimen/_10sdp"
@@ -288,6 +302,7 @@
                         android:paddingEnd="@dimen/_10sdp"
                         android:paddingBottom="@dimen/_10sdp"
                         android:textColor="@color/black"
+                        android:textColorHint="@color/light_grey"
                         android:textSize="@dimen/_12ssp" />
 
                     <androidx.recyclerview.widget.RecyclerView
@@ -302,30 +317,30 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="@dimen/_12sdp"
-                        android:text="Priority"
                         android:fontFamily="@font/sofiasans_regular"
+                        android:text="Priority"
                         android:textColor="@color/black"
                         android:textSize="@dimen/_11ssp" />
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:orientation="horizontal"
                         android:layout_marginTop="@dimen/_8sdp"
+                        android:orientation="horizontal"
                         android:weightSum="3">
 
                         <TextView
                             android:id="@+id/btnObservation"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
                             android:layout_marginEnd="@dimen/_3sdp"
-                            android:text="Observation"
+                            android:layout_weight="1"
+                            android:background="@drawable/bg_edittext"
+                            android:fontFamily="@font/sofiasans_regular"
                             android:gravity="center"
                             android:paddingTop="@dimen/_8sdp"
                             android:paddingBottom="@dimen/_8sdp"
-                            android:background="@drawable/bg_edittext"
-                            android:fontFamily="@font/sofiasans_regular"
+                            android:text="Observation"
                             android:textColor="@color/black"
                             android:textSize="@dimen/_10ssp" />
 
@@ -333,15 +348,15 @@
                             android:id="@+id/btnActionRequired"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
                             android:layout_marginStart="@dimen/_3sdp"
                             android:layout_marginEnd="@dimen/_3sdp"
-                            android:text="Action required"
+                            android:layout_weight="1"
+                            android:background="@drawable/bg_edittext"
+                            android:fontFamily="@font/sofiasans_regular"
                             android:gravity="center"
                             android:paddingTop="@dimen/_8sdp"
                             android:paddingBottom="@dimen/_8sdp"
-                            android:background="@drawable/bg_edittext"
-                            android:fontFamily="@font/sofiasans_regular"
+                            android:text="Action required"
                             android:textColor="@color/black"
                             android:textSize="@dimen/_10ssp" />
 
@@ -349,14 +364,14 @@
                             android:id="@+id/btnUrgent"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
-                            android:layout_weight="1"
                             android:layout_marginStart="@dimen/_3sdp"
-                            android:text="Urgent"
+                            android:layout_weight="1"
+                            android:background="@drawable/bg_edittext"
+                            android:fontFamily="@font/sofiasans_regular"
                             android:gravity="center"
                             android:paddingTop="@dimen/_8sdp"
                             android:paddingBottom="@dimen/_8sdp"
-                            android:background="@drawable/bg_edittext"
-                            android:fontFamily="@font/sofiasans_regular"
+                            android:text="Urgent"
                             android:textColor="@color/black"
                             android:textSize="@dimen/_10ssp" />
 
@@ -377,9 +392,9 @@
         android:layout_marginEnd="@dimen/_16sdp"
         android:layout_marginBottom="@dimen/_15sdp"
         android:background="@drawable/bg_button_green"
+        android:gravity="center"
         android:paddingTop="@dimen/_10sdp"
         android:paddingBottom="@dimen/_10sdp"
-        android:gravity="center"
         android:text="@string/save_"
         android:textAllCaps="false"
         android:textColor="@color/white"

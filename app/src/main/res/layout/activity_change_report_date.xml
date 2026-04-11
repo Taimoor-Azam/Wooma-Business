@@ -109,6 +109,8 @@
             android:background="@android:color/white"
             android:dateTextAppearance="@style/CalendarDateText"
             android:weekDayTextAppearance="@style/CalendarWeekDayText"
+            android:headerBackground="@android:color/white"
+            android:theme="@style/CalendarHeaderTheme"
             android:forceDarkAllowed="false" />
       <!--  <com.prolificinteractive.materialcalendarview.MaterialCalendarView
             android:id="@+id/calendarView"

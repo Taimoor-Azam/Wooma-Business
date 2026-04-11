@@ -16,7 +16,8 @@ import com.wooma.business.model.enums.TenantReportStatus
 
 class ReportListingAdapter(
     val context: Context,
-    private val originalList: MutableList<Report>
+    private val originalList: MutableList<Report>,
+    private val propertyId: String = ""
 ) : RecyclerView.Adapter<ReportListingAdapter.ViewHolder>() {
 
     private var filteredList = originalList.toMutableList()
@@ -60,6 +61,7 @@ class ReportListingAdapter(
                     .putExtra("reportId", item.id)
                     .putExtra("reportType", item.report_type)
                     .putExtra("assessor", item.assessor)
+                    .putExtra("propertyId", propertyId)
             )
         }
 

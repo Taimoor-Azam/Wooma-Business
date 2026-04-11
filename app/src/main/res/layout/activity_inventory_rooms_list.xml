@@ -22,6 +22,7 @@
         android:layout_height="wrap_content"
         android:fontFamily="@font/sofiasans_bold"
         android:text="Bedroom"
+        android:textColor="@color/black"
         android:textSize="@dimen/_16ssp"
         android:textStyle="bold"
         app:layout_constraintBottom_toBottomOf="@id/ivBack"

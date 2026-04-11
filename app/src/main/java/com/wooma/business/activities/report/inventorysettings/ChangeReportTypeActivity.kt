@@ -1,6 +1,10 @@
 package com.wooma.business.activities.report.inventorysettings
 
+import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.Gravity
 import android.view.Menu
@@ -8,6 +12,7 @@ import android.view.View
 import androidx.appcompat.widget.PopupMenu
 import com.wooma.business.R
 import com.wooma.business.activities.BaseActivity
+import com.wooma.business.activities.report.ReportListingActivity
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
 import com.wooma.business.data.network.makeApiRequest
@@ -30,6 +35,7 @@ class ChangeReportTypeActivity : BaseActivity() {
     var reportTypeName = ""
     var reportTypeId = ""
     var reportId = ""
+    var propertyId = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,6 +47,7 @@ class ChangeReportTypeActivity : BaseActivity() {
         reportTypeName = intent.getStringExtra("reportTypeName") ?: ""
         reportTypeId = intent.getStringExtra("reportTypeId") ?: ""
         reportId = intent.getStringExtra("reportId") ?: ""
+        propertyId = intent.getStringExtra("propertyId") ?: ""
 
 
         if (reportTypeName.isNotEmpty()) {
@@ -107,6 +114,12 @@ class ChangeReportTypeActivity : BaseActivity() {
         for (i in reportTypeList.indices) {
             popup.menu.add(Menu.NONE, i, Menu.NONE, reportTypeList[i].display_name)
         }
+        for (i in 0 until popup.menu.size()) {
+            val item = popup.menu.getItem(i)
+            val spannable = SpannableString(item.title)
+            spannable.setSpan(ForegroundColorSpan(Color.BLACK), 0, spannable.length, 0)
+            item.title = spannable
+        }
 
         // 4. Handle Clicks
         popup.setOnMenuItemClickListener { menuItem ->
@@ -130,6 +143,11 @@ class ChangeReportTypeActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
                         showToast("Report Type changed successfully")
+                        startActivity(
+                            Intent(this@ChangeReportTypeActivity, ReportListingActivity::class.java)
+                                .putExtra("propertyId", propertyId)
+                                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                        )
                     }
                 }
 

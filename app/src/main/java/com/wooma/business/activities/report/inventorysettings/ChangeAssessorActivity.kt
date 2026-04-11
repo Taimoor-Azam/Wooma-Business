@@ -1,6 +1,9 @@
 package com.wooma.business.activities.report.inventorysettings
 
+import android.graphics.Color
 import android.os.Bundle
+import android.text.SpannableString
+import android.text.style.ForegroundColorSpan
 import android.util.Log
 import android.view.Gravity
 import android.view.Menu
@@ -116,6 +119,12 @@ class ChangeAssessorActivity : BaseActivity() {
                 Menu.NONE,
                 assessorsList[i].first_name + " " + assessorsList[i].last_name
             )
+        }
+        for (i in 0 until popup.menu.size()) {
+            val item = popup.menu.getItem(i)
+            val spannable = SpannableString(item.title)
+            spannable.setSpan(ForegroundColorSpan(Color.BLACK), 0, spannable.length, 0)
+            item.title = spannable
         }
 
         // 4. Handle Clicks

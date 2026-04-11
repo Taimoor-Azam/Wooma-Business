@@ -74,14 +74,20 @@ class InventoryRoomItemsAdapter(
             ImageAdapter(imageItems, showDelete = false, title = item.name ?: "")
 
 
-        if (item.general_condition?.equals("poor") == true || item.general_condition?.equals("unacceptable") == true || item.general_condition?.equals(
-                "n/a"
-            ) == true
-        ) {
+        if (item.general_condition?.equals("poor") == true || item.general_condition?.equals("unacceptable") == true) {
             holder.ivConditionIcon.setImageDrawable(
                 ContextCompat.getDrawable(
                     context,
                     R.drawable.svg_poor
+                )
+            )
+        } else if (item.general_condition?.equals("n/a") == true
+            || item.general_condition?.equals("N/A") == true
+        ) {
+            holder.ivConditionIcon.setImageDrawable(
+                ContextCompat.getDrawable(
+                    context,
+                    R.drawable.svg_n_a
                 )
             )
         } else {

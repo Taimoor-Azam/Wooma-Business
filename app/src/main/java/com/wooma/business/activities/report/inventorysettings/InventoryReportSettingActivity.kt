@@ -9,6 +9,7 @@ import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.activities.MainActivity
+import com.wooma.business.activities.report.ReportListingActivity
 import com.wooma.business.customs.Utils
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
@@ -28,6 +29,7 @@ class InventoryReportSettingActivity : BaseActivity() {
     private lateinit var binding: ActivityInventoryReportSettingBinding
     var reportStatus = ""
     var reportId = ""
+    var propertyId = ""
 
     var assessor: Assessor? = null
     var reportType: PropertyReportType? = null
@@ -47,6 +49,7 @@ class InventoryReportSettingActivity : BaseActivity() {
         applyWindowInsetsToBinding(binding.root)
         reportStatus = intent.getStringExtra("reportStatus") ?: ""
         reportId = intent.getStringExtra("reportId") ?: ""
+        propertyId = intent.getStringExtra("propertyId") ?: ""
 
         assessor = intent.getParcelableExtra("assessor")
         reportType = intent.getParcelableExtra("reportType")
@@ -85,12 +88,11 @@ class InventoryReportSettingActivity : BaseActivity() {
         }
 
         binding.reportTypeLayout.setOnClickListener {
-            val intent = Intent(this, ChangeReportTypeActivity::class.java).putExtra(
-                "reportTypeName",
-                reportType?.display_name
-            )
+            val intent = Intent(this, ChangeReportTypeActivity::class.java)
+                .putExtra("reportTypeName", reportType?.display_name)
                 .putExtra("reportTypeId", reportType?.id)
                 .putExtra("reportId", reportId)
+                .putExtra("propertyId", propertyId)
             startActivity(intent)
         }
 
@@ -125,14 +127,9 @@ class InventoryReportSettingActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
                         showToast("Report archived successfully")
-
-                        val intent =
-                            Intent(
-                                this@InventoryReportSettingActivity,
-                                MainActivity::class.java
-                            ).apply {
-                                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                            }
+                        val intent = Intent(this@InventoryReportSettingActivity, ReportListingActivity::class.java)
+                            .putExtra("propertyId", propertyId)
+                            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                         startActivity(intent)
                         finish()
                     }

@@ -81,6 +81,7 @@
                 android:fontFamily="@font/sofiasans_regular"
                 android:hint="Select Property"
                 android:textColor="@color/black"
+                android:textColorHint="@color/lbls_color"
                 android:textSize="@dimen/_14ssp" />
 
             <ImageView

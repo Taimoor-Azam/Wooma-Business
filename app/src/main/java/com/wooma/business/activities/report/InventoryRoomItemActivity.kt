@@ -1,6 +1,8 @@
 package com.wooma.business.activities.report
 
 import android.app.Activity
+import android.text.Editable
+import android.text.TextWatcher
 import com.wooma.business.data.network.ApiClient
 import com.wooma.business.model.ImageItem
 import android.content.Intent
@@ -14,6 +16,7 @@ import com.wooma.business.activities.BaseActivity
 import com.wooma.business.adapter.ConditionChipAdapter
 import com.wooma.business.adapter.ImageAdapter
 import com.wooma.business.adapter.ItemConditionAdapter
+import com.wooma.business.adapter.SuggestionsAdapter
 import com.wooma.business.customs.AttachmentUploadHelper
 import com.wooma.business.customs.Utils
 import com.wooma.business.data.network.ApiResponseListener
@@ -47,6 +50,10 @@ class InventoryRoomItemActivity : BaseActivity() {
     var isIssue: Boolean = false
     var selectedPriority: String? = null
     private var hasChanges = false
+    private lateinit var noteSuggestionsAdapter: SuggestionsAdapter
+    private var isHandlingNoteEnter = false
+    private lateinit var descriptionSuggestionsAdapter: SuggestionsAdapter
+    private var isHandlingDescriptionEnter = false
     private val conditionChips =
         listOf("Marked", "Scuffed", "Stained", "Loose fitting", "Cracked", "Damp", "Mould", "Faded")
     private val selectedChips = mutableSetOf<String>()
@@ -63,6 +70,91 @@ class InventoryRoomItemActivity : BaseActivity() {
         ConditionDAO(R.drawable.svg_poor, "Unacceptable"),
         ConditionDAO(R.drawable.svg_n_a, "N/A")
     )
+
+    companion object {
+        val NOTE_SUGGESTIONS = mutableListOf(
+            "Excellent", "Very good", "Good", "Fair", "Poor", "New", "As new", "Like new",
+            "Well maintained", "Showing wear", "Dated", "Old but serviceable", "End of life",
+            "Clean", "Very clean", "Spotless", "Dirty", "Dusty", "Grimy", "Stained", "Marked",
+            "Lightly soiled", "Heavily soiled", "Requires cleaning", "Recently cleaned",
+            "Scratched", "Light scratches", "Heavy scratches", "Scuffed", "Scuff marks",
+            "Dented", "Chipped", "Cracked", "Hairline crack", "Large crack", "Gouged", "Scored",
+            "Abraded", "Worn smooth", "Pitted", "Indented", "Peeling", "Flaking", "Bubbling",
+            "Blistering", "Faded", "Discoloured", "Yellowed", "Scuffed paint", "Paint splashes",
+            "Uneven coverage", "Touch-ups visible", "Patchy", "Chalking", "Loose", "Wobbly",
+            "Unstable", "Broken", "Split", "Warped", "Bowed", "Sagging", "Twisted", "Misaligned",
+            "Out of square", "Failing", "Collapsed", "Water stained", "Water marked",
+            "Water damage", "Damp patch", "Damp staining", "Mould present", "Mildew",
+            "Waterlogged", "Tide marks", "Condensation damage", "Leak staining", "Worn",
+            "Heavily worn", "Lightly worn", "Frayed", "Threadbare", "Balding", "Flattened",
+            "Compressed", "Traffic wear", "High traffic wear", "Uneven wear", "Age-related wear",
+            "Hole", "Small hole", "Large hole", "Pin holes", "Nail holes", "Screw holes",
+            "Tear", "Small tear", "Large tear", "Rip", "Split seam", "Missing section",
+            "Light staining", "Heavy staining", "Ink stain", "Grease stain", "Oil stain",
+            "Rust stain", "Food stain", "Beverage stain", "Paint marks", "Pen marks",
+            "Burn mark", "Heat mark", "Ring mark", "Blu-tack marks", "Tape residue",
+            "Adhesive residue", "Sticky residue", "Glue marks", "Poster marks", "Picture hooks",
+            "Command strip residue", "Missing", "Incomplete", "Snapped", "Bent", "Shattered",
+            "Damaged", "Faulty", "Not working", "Inoperable", "Seized", "Working",
+            "Fully functional", "Partially working", "Intermittent", "Stiff", "Jammed", "Stuck",
+            "Won't open", "Won't close", "Draughty", "Rattles", "Squeaks", "Binding",
+            "Catching", "Poorly fitted", "Loose fit", "Gaps visible", "Uneven", "Skewed",
+            "Crooked", "Sloping", "Not flush", "Proud", "Recessed", "Out of level",
+            "Grout missing", "Grout cracked", "Grout discoloured", "Grout mouldy",
+            "Sealant missing", "Sealant cracked", "Sealant peeling", "Sealant discoloured",
+            "Sealant mouldy", "Poor grouting", "Poor sealing", "Tile cracked", "Tile chipped",
+            "Tile loose", "Tile missing", "Tile stained", "Tile discoloured", "Hollow sounding",
+            "Rotten", "Decayed", "Soft spots", "Woodworm", "Insect damage", "Splintered",
+            "Knot holes", "Veneer lifting", "Veneer bubbling", "Delaminating", "Rusty",
+            "Corroded", "Tarnished", "Oxidised", "Stiff to operate", "Loose fixings",
+            "Missing screws", "Stripped threads"
+        )
+
+        val DESCRIPTION_SUGGESTIONS = mutableListOf(
+            "Timber", "UPVC", "Composite", "Oak", "Pine", "MDF", "Hardwood", "Softwood",
+            "Glass", "Metal", "Fire-rated", "Panel", "Flush", "Glazed", "Half-glazed",
+            "Fully glazed", "Bi-fold", "Sliding", "French", "Pocket", "4-panel", "6-panel",
+            "Gloss", "Matt", "Satin", "Eggshell", "Varnished", "Lacquered", "Waxed", "Painted",
+            "Chrome handle", "Brass handle", "Nickel handle", "Stainless steel handle",
+            "Lever handle", "Round knob", "D-handle", "Mortice lock", "Yale lock",
+            "Multi-point lock", "Barrel bolt", "Chain", "Spy hole", "Letter plate",
+            "Brass hinges", "Chrome hinges", "Self-closing", "Wallpapered", "Textured",
+            "Smooth", "Plastered", "Rendered", "Tiled", "Wood panelled", "Brick",
+            "Exposed brick", "Feature wall", "Dado rail", "Picture rail", "Coving",
+            "Matt emulsion", "Silk emulsion", "Vinyl matt", "Vinyl silk", "Ceramic",
+            "Porcelain", "Metro", "Subway", "Mosaic", "Marble", "Travertine", "Full height",
+            "Half height", "Splashback only", "Carpet", "Laminate", "Vinyl",
+            "Engineered wood", "Tile", "Ceramic tile", "Porcelain tile", "Stone", "Slate",
+            "Linoleum", "Cork", "Parquet", "LVT", "Vinyl planks", "Concrete", "Beige",
+            "Light grey", "Dark grey", "Light brown", "Dark brown", "Walnut", "Natural",
+            "Terracotta", "Blue", "Polished", "Honed", "Rustic", "Distressed",
+            "Short pile", "Medium pile", "Long pile", "Loop pile", "Twist pile", "Berber",
+            "Shag", "Plain", "Patterned", "Striped", "Herringbone", "Chevron",
+            "Wood effect", "Stone effect", "Marble effect", "Artex", "Stippled",
+            "Ceiling rose", "Beamed", "Cornicing", "Suspended", "Coffered",
+            "Pendant", "Ceiling light", "Chandelier", "Downlights", "Spotlights",
+            "Strip light", "LED panel", "Track lighting", "Wall light", "Wall sconce",
+            "Picture light", "Under-cabinet", "Recessed", "Flush mount", "Semi-flush",
+            "Statement light", "Bayonet", "Screw", "GU10", "E27", "E14", "LED", "Halogen",
+            "Fluorescent", "Chrome", "Brass", "Brushed nickel", "Brushed steel", "Copper",
+            "Bronze", "Fabric shade", "Metal shade", "Dimmable", "Dimmer switch", "Pull cord",
+            "Motion sensor", "Timer", "Smart bulb", "Multiple bulbs", "Single bulb",
+            "Sash", "Casement", "Tilt and turn", "Bay", "Bow", "Skylight", "Velux",
+            "Awning", "Picture window", "Fixed", "Aluminium", "Wood", "Double glazed",
+            "Triple glazed", "Single glazed", "Secondary glazing", "White", "Oak effect",
+            "Rosewood effect", "Espagnolette lock", "Key lock", "Sash lock", "Trickle vent",
+            "Window restrictor", "Clear glass", "Frosted glass", "Obscured glass",
+            "Tinted glass", "Patterned glass", "Low-E glass", "Leaded glass", "Georgian bars",
+            "Single socket", "Double socket", "USB socket", "Single switch", "Double switch",
+            "Cooker switch", "Fused spur", "Shaver socket", "TV point", "Telephone point",
+            "Ethernet point", "White plastic", "Brushed chrome", "Polished chrome",
+            "Stainless steel", "Modern", "Victorian", "Edwardian", "Art deco",
+            "Surface mounted", "Bullnose", "Torus", "Ogee", "Square edge", "Chamfered",
+            "Traditional", "Ornate", "White", "Cream", "Magnolia", "Grey", "Black", "Brown",
+            "Natural wood", "Stained", "Off-white", "Ivory", "Neutral",
+            "50mm", "70mm", "95mm", "120mm", "145mm", "170mm", "220mm"
+        )
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -204,11 +296,101 @@ class InventoryRoomItemActivity : BaseActivity() {
             if (hasChanges) showUnsavedChangesDialog { finish() } else finish()
         }
         attachChangeWatchers()
+        setupNoteSuggestions()
+        setupDescriptionSuggestions()
     }
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (hasChanges) showUnsavedChangesDialog { super.onBackPressed() } else super.onBackPressed()
+    }
+
+    private fun setupNoteSuggestions() {
+        noteSuggestionsAdapter = SuggestionsAdapter(
+            this,
+            NOTE_SUGGESTIONS,
+            object : SuggestionsAdapter.OnItemClickInterface {
+                override fun onItemClick(item: String) {
+                    val fullText = binding.etNote.text.toString()
+                    val lastSemicolon = fullText.lastIndexOf(';')
+                    val prefix = if (lastSemicolon >= 0) fullText.substring(0, lastSemicolon + 1).trimEnd() + " " else ""
+                    val newText = "$prefix$item; "
+                    binding.etNote.setText(newText)
+                    binding.etNote.setSelection(newText.length)
+                    noteSuggestionsAdapter.filter("")
+                    hasChanges = true
+                }
+            }
+        )
+        binding.rvNoteSuggestions.layoutManager =
+            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        binding.rvNoteSuggestions.adapter = noteSuggestionsAdapter
+
+        binding.etNote.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                if (isHandlingNoteEnter) return
+                val fullText = s?.toString() ?: ""
+                if (fullText.contains('\n')) {
+                    isHandlingNoteEnter = true
+                    val newText = fullText.replace("\n", "").trimEnd()
+                    val withSemicolon = if (newText.endsWith(';')) "$newText " else "$newText; "
+                    binding.etNote.setText(withSemicolon)
+                    binding.etNote.setSelection(withSemicolon.length)
+                    noteSuggestionsAdapter.filter("")
+                    isHandlingNoteEnter = false
+                    return
+                }
+                val lastSemicolon = fullText.lastIndexOf(';')
+                val currentWord = if (lastSemicolon >= 0) fullText.substring(lastSemicolon + 1).trim() else fullText.trim()
+                noteSuggestionsAdapter.filter(currentWord)
+            }
+        })
+    }
+
+    private fun setupDescriptionSuggestions() {
+        descriptionSuggestionsAdapter = SuggestionsAdapter(
+            this,
+            DESCRIPTION_SUGGESTIONS,
+            object : SuggestionsAdapter.OnItemClickInterface {
+                override fun onItemClick(item: String) {
+                    val fullText = binding.etDescription.text.toString()
+                    val lastSemicolon = fullText.lastIndexOf(';')
+                    val prefix = if (lastSemicolon >= 0) fullText.substring(0, lastSemicolon + 1).trimEnd() + " " else ""
+                    val newText = "$prefix$item; "
+                    binding.etDescription.setText(newText)
+                    binding.etDescription.setSelection(newText.length)
+                    descriptionSuggestionsAdapter.filter("")
+                    hasChanges = true
+                }
+            }
+        )
+        binding.rvDescriptionSuggestions.layoutManager =
+            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        binding.rvDescriptionSuggestions.adapter = descriptionSuggestionsAdapter
+
+        binding.etDescription.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                if (isHandlingDescriptionEnter) return
+                val fullText = s?.toString() ?: ""
+                if (fullText.contains('\n')) {
+                    isHandlingDescriptionEnter = true
+                    val newText = fullText.replace("\n", "").trimEnd()
+                    val withSemicolon = if (newText.endsWith(';')) "$newText " else "$newText; "
+                    binding.etDescription.setText(withSemicolon)
+                    binding.etDescription.setSelection(withSemicolon.length)
+                    descriptionSuggestionsAdapter.filter("")
+                    isHandlingDescriptionEnter = false
+                    return
+                }
+                val lastSemicolon = fullText.lastIndexOf(';')
+                val currentWord = if (lastSemicolon >= 0) fullText.substring(lastSemicolon + 1).trim() else fullText.trim()
+                descriptionSuggestionsAdapter.filter(currentWord)
+            }
+        })
     }
 
     private fun attachChangeWatchers() {
