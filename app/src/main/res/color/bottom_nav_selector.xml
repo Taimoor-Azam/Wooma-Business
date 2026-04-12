@@ -3,7 +3,7 @@
 
     <item
         android:state_checked="true"
-        android:color="@color/black" />
+        android:color="@color/green" />
 
     <item
         android:color="@color/bottom_nav_unselected" />

@@ -35,6 +35,7 @@ class InventoryRoomItemsAdapter(
         val tvDescription: TextView = view.findViewById(R.id.tvDescription)
         val tvCondition: TextView = view.findViewById(R.id.tvCondition)
         val tvCleanliness: TextView = view.findViewById(R.id.tvCleanliness)
+        val tvNotesLabel: TextView = view.findViewById(R.id.tvNotesLabel)
         val tvNotes: TextView = view.findViewById(R.id.tvNotes)
         val ivCleanliness: ImageView = view.findViewById(R.id.ivCleanliness)
         val ivConditionIcon: ImageView = view.findViewById(R.id.ivConditionIcon)
@@ -53,8 +54,15 @@ class InventoryRoomItemsAdapter(
         val item = filteredList[position]
 
         holder.tvItemName.text = item.name
-        holder.tvDescription.text = item.description ?: ""
-        holder.tvNotes.text = item.note ?: ""
+        val description = item.description.orEmpty()
+        holder.tvDescription.text = description
+        holder.tvDescription.visibility = if (description.isBlank()) View.GONE else View.VISIBLE
+
+        val notes = item.note.orEmpty()
+        holder.tvNotes.text = notes
+        val notesVisible = if (notes.isBlank()) View.GONE else View.VISIBLE
+        holder.tvNotesLabel.visibility = notesVisible
+        holder.tvNotes.visibility = notesVisible
 
         val imageItems = item.attachments
             ?.mapNotNull { att ->
@@ -68,6 +76,7 @@ class InventoryRoomItemsAdapter(
                 }
             }
             ?.toMutableList<ImageItem>() ?: mutableListOf()
+        holder.rvImages.visibility = if (imageItems.isEmpty()) View.GONE else View.VISIBLE
         holder.rvImages.layoutManager =
             LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         holder.rvImages.adapter =

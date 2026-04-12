@@ -1,6 +1,7 @@
 package com.wooma.business.activities.report
 
 import android.app.Activity
+import android.app.ProgressDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -353,10 +354,27 @@ class InspectionRoomActivity : BaseActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
             val newUris = CameraActivity.pendingUris.toList()
-            capturedUris.addAll(newUris)
             allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
             if (newUris.isNotEmpty()) hasChanges = true
+            val entityId = room?.id ?: ""
+            if (entityId.isNotEmpty() && newUris.isNotEmpty()) {
+                val progress = ProgressDialog(this).apply {
+                    setMessage("Uploading images...")
+                    setCancelable(false)
+                    show()
+                }
+                AttachmentUploadHelper.uploadImages(
+                    activity = this,
+                    imageUris = newUris,
+                    entityId = entityId,
+                    entityType = "ROOM",
+                    onComplete = { progress.dismiss() },
+                    onError = { progress.dismiss() }
+                )
+            } else {
+                capturedUris.addAll(newUris)
+            }
         }
     }
 

@@ -42,19 +42,6 @@ class MainActivity : BaseActivity() {
             true
         }
 
-        ViewCompat.setOnApplyWindowInsetsListener(binding.bottomNavigation) { view, insets ->
-            val systemBarsInsets =
-                insets.getInsets(WindowInsetsCompat.Type.systemBars())
-
-            view.setPadding(
-                view.paddingLeft,
-                view.paddingTop,
-                view.paddingRight,
-                systemBarsInsets.bottom
-            )
-
-            insets
-        }
     }
 
     fun openSupportChat() {
@@ -75,18 +62,14 @@ class MainActivity : BaseActivity() {
 
     private fun applyWindowInsetsToBindingView(rootView: View) {
         ViewCompat.setOnApplyWindowInsetsListener(rootView) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.setPadding(bars.left, bars.top, bars.right, 0)
 
-            val systemBarsInsets =
-                insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val cardParams = binding.carView.layoutParams as androidx.constraintlayout.widget.ConstraintLayout.LayoutParams
+            cardParams.bottomMargin = bars.bottom + resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._15sdp)
+            binding.carView.layoutParams = cardParams
 
-            v.setPadding(
-                systemBarsInsets.left,
-                systemBarsInsets.top,
-                systemBarsInsets.right,
-                0
-            )
-
-            insets
+            WindowInsetsCompat.CONSUMED
         }
     }
 }

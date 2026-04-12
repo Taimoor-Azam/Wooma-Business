@@ -36,7 +36,19 @@
     </style>
 
     <style name="BottomNavText">
-        <item name="android:textSize">@dimen/_10ssp</item>
+        <item name="android:textSize">@dimen/_9ssp</item>
+    </style>
+
+    <style name="BottomNavIndicatorStyle" parent="">
+        <item name="android:color">@color/nav_indicator_bg</item>
+        <item name="shapeAppearance">@style/NavIndicatorShape</item>
+        <item name="android:width">@dimen/_80sdp</item>
+        <item name="android:height">@dimen/_40sdp</item>
+    </style>
+
+    <style name="NavIndicatorShape" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
     </style>
 
     <style name="RoundedCoverImage" parent="">

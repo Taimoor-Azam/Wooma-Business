@@ -27,6 +27,7 @@
         android:textColor="@android:color/black"
         android:textSize="@dimen/_14ssp"
         app:layout_constraintEnd_toStartOf="@id/ivSync"
+        app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toEndOf="@id/ivDragHandle"
         app:layout_constraintTop_toTopOf="parent" />
 

@@ -275,7 +275,7 @@
         android:fontFamily="@font/sofiasans_semibold"
         android:paddingTop="@dimen/_10sdp"
         android:paddingBottom="@dimen/_10sdp"
-        android:text="Done"
+        android:text="@string/save_"
         android:gravity="center"
         android:textColor="@color/white"
         android:textSize="@dimen/_14ssp"

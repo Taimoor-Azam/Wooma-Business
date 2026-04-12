@@ -1,6 +1,7 @@
 package com.wooma.business.activities.report
 
 import android.app.Activity
+import android.app.ProgressDialog
 import android.text.Editable
 import android.text.TextWatcher
 import com.wooma.business.data.network.ApiClient
@@ -271,10 +272,20 @@ class InventoryRoomItemActivity : BaseActivity() {
             if (isInspection) {
                 upsertRoomInspectionApi()
             } else {
+                var genCondition = selectedCondition.lowercase(Locale.ROOT)
+                if (selectedCondition.equals("N/A")){
+                    genCondition = selectedCondition
+                }
+
+                var genCleanliness = selectedCleanliness.lowercase(Locale.ROOT)
+                if (selectedCleanliness.equals("N/A")){
+                    genCleanliness = selectedCleanliness
+                }
+
                 val roomItem = UpdateRoomItemRequest(
                     name = binding.etItemName.text.toString().trim().ifEmpty { null },
-                    general_condition = selectedCondition/*.lowercase(Locale.ROOT).replace("/", "")*/,
-                    general_cleanliness = selectedCleanliness/*.lowercase(Locale.ROOT).replace("/", "")*/,
+                    general_condition = genCondition/*.replace("/", "")*/,
+                    general_cleanliness = genCleanliness/*.replace("/", "")*/,
                     description = binding.etDescription.text.toString(),
                     note = binding.etNote.text.toString()
                 )
@@ -421,9 +432,26 @@ class InventoryRoomItemActivity : BaseActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
             val newUris = CameraActivity.pendingUris.toList()
-            capturedUris.addAll(newUris)
             allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
+            val entityId = roomItems?.id ?: ""
+            if (entityId.isNotEmpty() && newUris.isNotEmpty()) {
+                val progress = ProgressDialog(this).apply {
+                    setMessage("Uploading images...")
+                    setCancelable(false)
+                    show()
+                }
+                AttachmentUploadHelper.uploadImages(
+                    activity = this,
+                    imageUris = newUris,
+                    entityId = entityId,
+                    entityType = "ROOM_ITEM",
+                    onComplete = { progress.dismiss() },
+                    onError = { progress.dismiss() }
+                )
+            } else {
+                capturedUris.addAll(newUris)
+            }
         }
     }
 

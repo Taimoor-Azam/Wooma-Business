@@ -44,7 +44,7 @@
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/_12sdp"
+        android:layout_marginTop="@dimen/_8sdp"
         android:orientation="horizontal">
 
         <LinearLayout
@@ -83,7 +83,7 @@
                     android:fontFamily="@font/sofiasans_regular"
                     android:text="Excellent"
                     android:textColor="@color/black"
-                    android:textSize="@dimen/_11ssp" />
+                    android:textSize="@dimen/_10ssp" />
             </LinearLayout>
 
         </LinearLayout>
@@ -124,21 +124,21 @@
                     android:fontFamily="@font/sofiasans_regular"
                     android:text="Excellent"
                     android:textColor="@color/black"
-                    android:textSize="@dimen/_11ssp" />
+                    android:textSize="@dimen/_10ssp" />
             </LinearLayout>
         </LinearLayout>
-
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvImages"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/_12sdp"
+        android:layout_marginTop="@dimen/_5sdp"
         android:orientation="horizontal"
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
     <TextView
+        android:id="@+id/tvNotesLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/_8sdp"

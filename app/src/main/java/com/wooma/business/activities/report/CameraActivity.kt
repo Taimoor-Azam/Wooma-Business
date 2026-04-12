@@ -1,6 +1,7 @@
 package com.wooma.business.activities.report
 
 import android.Manifest
+import androidx.core.content.res.ResourcesCompat
 import android.content.Context
 import android.content.pm.PackageManager
 import android.media.AudioManager
@@ -166,17 +167,17 @@ class CameraActivity : BaseActivity() {
         val dateText = SimpleDateFormat("dd MMM yyyy, HH:mm:ss", Locale.getDefault()).format(Date())
 
         val scale = mutable.width / 1080f
-        val textSizePx = 28f * scale
-        val paddingH = 16f * scale
-        val paddingV = 10f * scale
-        val cornerRadius = 12f * scale
-        val marginLeft = 24f * scale
-        val marginBottom = 40f * scale
+        val textSizePx = 40f * scale
+        val paddingH = 28f * scale
+        val paddingV = 14f * scale
+        val cornerRadius = 18f * scale
+        val marginLeft = 30f * scale
+        val marginBottom = 55f * scale
 
         val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             textSize = textSizePx
-            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+            typeface = ResourcesCompat.getFont(this@CameraActivity, R.font.sofiasans_bold)
         }
 
         val textWidth = textPaint.measureText(dateText)
@@ -188,7 +189,7 @@ class CameraActivity : BaseActivity() {
         val rectTop = rectBottom - textHeight - paddingV * 2
 
         val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#99000000")
+            color = Color.parseColor("#E6000000")
         }
         canvas.drawRoundRect(RectF(rectLeft, rectTop, rectRight, rectBottom), cornerRadius, cornerRadius, bgPaint)
 

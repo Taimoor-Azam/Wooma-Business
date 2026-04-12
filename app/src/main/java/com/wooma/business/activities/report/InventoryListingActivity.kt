@@ -10,6 +10,7 @@ import android.widget.PopupWindow
 import androidx.annotation.RequiresApi
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
@@ -633,7 +634,7 @@ class InventoryListingActivity : BaseActivity() {
         bottomSheet.setContentView(sheetView)
 
         val cbConfirm = sheetView.findViewById<android.widget.ImageView>(R.id.cbConfirm)
-        val btnComplete = sheetView.findViewById<android.widget.Button>(R.id.btnCompleteReport)
+        val btnComplete = sheetView.findViewById<TextView>(R.id.btnCompleteReport)
         val ivClose = sheetView.findViewById<android.widget.ImageView>(R.id.ivClose)
 
         ivClose.setOnClickListener { bottomSheet.dismiss() }

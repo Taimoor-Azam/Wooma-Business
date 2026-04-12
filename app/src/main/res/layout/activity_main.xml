@@ -14,25 +14,46 @@
             android:id="@+id/fragmentContainer"
             android:layout_width="match_parent"
             android:layout_height="0dp"
-            app:layout_constraintBottom_toTopOf="@+id/bottomNavigation"
+            app:layout_constraintBottom_toTopOf="@+id/carView"
             app:layout_constraintTop_toTopOf="parent" />
 
         <!-- Bottom Navigation -->
-        <com.google.android.material.bottomnavigation.BottomNavigationView
-            android:id="@+id/bottomNavigation"
-            android:layout_width="match_parent"
+        <androidx.cardview.widget.CardView
+            android:id="@+id/carView"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_gravity="bottom"
-            android:background="@android:color/white"
-            android:paddingStart="@dimen/_50sdp"
-            android:paddingEnd="@dimen/_50sdp"
-            app:itemActiveIndicatorStyle="@null"
-            app:itemHorizontalTranslationEnabled="false"
-            app:itemIconSize="@dimen/_24sdp"
-            app:itemIconTint="@color/bottom_nav_selector"
-            app:paddingBottomSystemWindowInsets="false"
-            app:itemRippleColor="@null"
+            android:layout_marginStart="@dimen/_30sdp"
+            android:layout_marginEnd="@dimen/_30sdp"
+            android:layout_marginBottom="@dimen/_15sdp"
+            app:cardBackgroundColor="@color/white"
+            app:cardCornerRadius="@dimen/_30sdp"
+            app:cardElevation="@dimen/_4sdp"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:menu="@menu/menu_bottom_nav" />
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent">
+
+            <com.google.android.material.bottomnavigation.BottomNavigationView
+                android:id="@+id/bottomNavigation"
+                android:layout_width="match_parent"
+                android:layout_height="@dimen/_56sdp"
+                android:background="@color/white"
+                android:minHeight="0dp"
+                android:paddingBottom="0dp"
+                android:paddingTop="0dp"
+                android:layout_marginStart="@dimen/_3sdp"
+                android:layout_marginEnd="@dimen/_3sdp"
+                app:itemActiveIndicatorStyle="@null"
+                app:itemBackground="@drawable/bottom_nav_item_bg"
+                app:itemHorizontalTranslationEnabled="false"
+                app:itemIconSize="@dimen/_14sdp"
+                app:itemIconTint="@color/bottom_nav_selector"
+                app:itemRippleColor="@color/nav_ripple_color"
+                app:itemTextAppearanceActive="@style/BottomNavText"
+                app:itemTextAppearanceInactive="@style/BottomNavText"
+                app:itemTextColor="@color/bottom_nav_selector"
+                app:paddingBottomSystemWindowInsets="false"
+                app:menu="@menu/menu_bottom_nav" />
+
+        </androidx.cardview.widget.CardView>
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

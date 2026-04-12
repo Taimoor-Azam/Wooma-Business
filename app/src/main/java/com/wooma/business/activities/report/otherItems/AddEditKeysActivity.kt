@@ -1,6 +1,7 @@
 package com.wooma.business.activities.report.otherItems
 
 import android.app.Activity
+import android.app.ProgressDialog
 import com.wooma.business.data.network.ApiClient
 import com.wooma.business.model.ImageItem
 import android.content.Intent
@@ -200,9 +201,25 @@ class AddEditKeysActivity : BaseActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
             val newUris = CameraActivity.pendingUris.toList()
-            capturedUris.addAll(newUris)
             allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
+            if (savedKeyId.isNotEmpty() && newUris.isNotEmpty()) {
+                val progress = ProgressDialog(this).apply {
+                    setMessage("Uploading images...")
+                    setCancelable(false)
+                    show()
+                }
+                AttachmentUploadHelper.uploadImages(
+                    activity = this,
+                    imageUris = newUris,
+                    entityId = savedKeyId,
+                    entityType = "KEY",
+                    onComplete = { progress.dismiss() },
+                    onError = { progress.dismiss() }
+                )
+            } else {
+                capturedUris.addAll(newUris)
+            }
         }
     }
 
