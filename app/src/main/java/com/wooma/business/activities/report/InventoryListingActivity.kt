@@ -503,16 +503,19 @@ class InventoryListingActivity : BaseActivity() {
 
     private fun updateViewForCompletedReport() {
         binding.completedReportLayout.visibility = View.VISIBLE
-        binding.viewFinalReport.setOnClickListener {
-            if (pdfUrl.isNullOrEmpty()) {
-                showToast("PDF not available yet")
-                return@setOnClickListener
+        if (pdfUrl.isNullOrEmpty()) {
+            binding.pdfPreparingLayout.visibility = View.VISIBLE
+            binding.viewFinalReport.visibility = View.GONE
+        } else {
+            binding.pdfPreparingLayout.visibility = View.GONE
+            binding.viewFinalReport.visibility = View.VISIBLE
+            binding.viewFinalReport.setOnClickListener {
+                startActivity(
+                    Intent(this, PdfDownloadActivity::class.java)
+                        .putExtra(PdfDownloadActivity.EXTRA_PDF_URL, pdfUrl)
+                        .putExtra(PdfDownloadActivity.EXTRA_REPORT_ID, reportId)
+                )
             }
-            startActivity(
-                Intent(this, PdfDownloadActivity::class.java)
-                    .putExtra(PdfDownloadActivity.EXTRA_PDF_URL, pdfUrl)
-                    .putExtra(PdfDownloadActivity.EXTRA_REPORT_ID, reportId)
-            )
         }
     }
 
@@ -524,7 +527,8 @@ class InventoryListingActivity : BaseActivity() {
         binding.tvCompletedTenantSignatures.text = "Tenant signatures ($count of ${data.size})"
         binding.rvCompletedTenants.adapter = ReportTenantsAdapter(
             context = this,
-            originalList = data
+            originalList = data,
+            reportStatus = TenantReportStatus.COMPLETED.value
         )
     }
 
@@ -535,6 +539,7 @@ class InventoryListingActivity : BaseActivity() {
             context = this,
             originalList = data,
             reportId = reportId,
+            reportStatus = TenantReportStatus.TENANT_REVIEW.value,
             onTenantClick = { tenant ->
                 startActivityForResult(
                     Intent(this, EditTenantActivity::class.java)
@@ -560,7 +565,6 @@ class InventoryListingActivity : BaseActivity() {
 
         binding.signProgress.max = data.size
         binding.signProgress.progress = count
-
         binding.tvReceivedSigns.text = "${count}/${data.size}"
         binding.tvTotalTenants.text = "Tenant (${data.size})"
 
@@ -612,8 +616,7 @@ class InventoryListingActivity : BaseActivity() {
             listener = object : ApiResponseListener<ApiResponse<ReportData>> {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
-                        showToast("Report completed successfully")
-                        getReportByIdApi()
+                        showReportCompletedDialog()
                     }
                 }
 
@@ -660,7 +663,7 @@ class InventoryListingActivity : BaseActivity() {
                 listener = object : ApiResponseListener<ApiResponse<ReportData>> {
                     override fun onSuccess(response: ApiResponse<ReportData>) {
                         bottomSheet.dismiss()
-                        finish()
+                        showReportCompletedDialog()
                     }
 
                     override fun onFailure(errorMessage: ErrorResponse?) {
@@ -678,6 +681,13 @@ class InventoryListingActivity : BaseActivity() {
     }
 
     private fun updateCoverImageView() {
+        val isReviewOrComplete = reportStatus == TenantReportStatus.TENANT_REVIEW.value ||
+                reportStatus == TenantReportStatus.COMPLETED.value
+        if (isReviewOrComplete && coverImageStorageKey.isNullOrEmpty()) {
+            binding.coverImageSection.visibility = View.GONE
+            return
+        }
+        binding.coverImageSection.visibility = View.VISIBLE
         if (!coverImageStorageKey.isNullOrEmpty()) {
             Glide.with(this)
                 .load("${ApiClient.IMAGE_BASE_URL}$coverImageStorageKey")
@@ -688,6 +698,10 @@ class InventoryListingActivity : BaseActivity() {
                 ContextCompat.getDrawable(this, R.drawable.svg_img_placeholder)
             )
         }
+    }
+
+    private fun showReportCompletedDialog() {
+        Utils.showReportCompletedDialog(this) { getReportByIdApi() }
     }
 
     private fun showCoverImagePopup(anchor: View) {

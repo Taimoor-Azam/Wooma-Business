@@ -9,9 +9,11 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.Matrix
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.Typeface
+import androidx.exifinterface.media.ExifInterface
 import android.media.MediaActionSound
 import android.net.Uri
 import android.os.Bundle
@@ -137,7 +139,8 @@ class CameraActivity : BaseActivity() {
         imageCapture.takePicture(output, ContextCompat.getMainExecutor(this),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(result: ImageCapture.OutputFileResults) {
-                    val stampedFile = if (isCoverImage) file else stampDateTimeOnImage(file)
+                    val fixedFile = fixOrientationToPortrait(file)
+                    val stampedFile = if (isCoverImage) fixedFile else stampDateTimeOnImage(fixedFile)
                     val uri = Uri.fromFile(stampedFile)
 
                     images.add(ImageItem.Local(uri))
@@ -164,13 +167,13 @@ class CameraActivity : BaseActivity() {
         val mutable = original.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(mutable)
 
-        val dateText = SimpleDateFormat("dd MMM yyyy, HH:mm:ss", Locale.getDefault()).format(Date())
+        val dateText = SimpleDateFormat("dd  MMM  yyyy,  HH:mm:ss", Locale.getDefault()).format(Date())
 
         val scale = mutable.width / 1080f
         val textSizePx = 40f * scale
-        val paddingH = 28f * scale
+        val paddingH = 50f * scale
         val paddingV = 14f * scale
-        val cornerRadius = 18f * scale
+        val cornerRadius = 10f * scale
         val marginLeft = 30f * scale
         val marginBottom = 55f * scale
 
@@ -189,7 +192,7 @@ class CameraActivity : BaseActivity() {
         val rectTop = rectBottom - textHeight - paddingV * 2
 
         val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-            color = Color.parseColor("#E6000000")
+            color = Color.parseColor("#80000000")
         }
         canvas.drawRoundRect(RectF(rectLeft, rectTop, rectRight, rectBottom), cornerRadius, cornerRadius, bgPaint)
 
@@ -246,7 +249,7 @@ class CameraActivity : BaseActivity() {
     private val coverGalleryLauncher =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             uri?.let {
-                val file = copyUriToFile(it)
+                val file = fixOrientationToPortrait(copyUriToFile(it))
                 images.add(ImageItem.Local(Uri.fromFile(file)))
                 adapter.notifyItemInserted(images.size - 1)
                 updateCounter()
@@ -262,7 +265,7 @@ class CameraActivity : BaseActivity() {
             if (uris.isNullOrEmpty()) return@registerForActivityResult
             for (uri in uris) {
                 if (images.size >= 50) break
-                val file = copyUriToFile(uri)
+                val file = fixOrientationToPortrait(copyUriToFile(uri))
                 val stampedFile = stampDateTimeOnImage(file)
                 images.add(ImageItem.Local(Uri.fromFile(stampedFile)))
                 adapter.notifyItemInserted(images.size - 1)
@@ -273,6 +276,42 @@ class CameraActivity : BaseActivity() {
     private fun openGallery() {
         if (isCoverImage) coverGalleryLauncher.launch("image/*")
         else multiGalleryLauncher.launch("image/*")
+    }
+
+    private fun fixOrientationToPortrait(file: File): File {
+        val exif = ExifInterface(file.absolutePath)
+        val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
+        val rotationDegrees = when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+            ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+            ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+            else -> 0f
+        }
+
+        var bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return file
+
+        if (rotationDegrees != 0f) {
+            val matrix = Matrix()
+            matrix.postRotate(rotationDegrees)
+            val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            bitmap.recycle()
+            bitmap = rotated
+        }
+
+        // If still landscape after EXIF correction, rotate 90° clockwise to portrait
+        if (bitmap.width > bitmap.height) {
+            val matrix = Matrix()
+            matrix.postRotate(90f)
+            val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+            bitmap.recycle()
+            bitmap = rotated
+        }
+
+        val outFile = File(externalMediaDirs.first(), "portrait_${System.currentTimeMillis()}.jpg")
+        FileOutputStream(outFile).use { out -> bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out) }
+        bitmap.recycle()
+        file.delete()
+        return outFile
     }
 
     private fun copyUriToFile(uri: Uri): File {

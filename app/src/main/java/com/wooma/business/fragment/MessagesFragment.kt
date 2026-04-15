@@ -13,6 +13,10 @@ import im.crisp.client.external.Crisp
 
 class MessagesFragment : Fragment() {
 
+    companion object {
+        var autoOpenChat = false
+    }
+
     private var _binding: FragmentMessagesBinding? = null
     private val binding get() = _binding!!
 

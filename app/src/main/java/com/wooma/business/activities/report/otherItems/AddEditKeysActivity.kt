@@ -194,6 +194,7 @@ class AddEditKeysActivity : BaseActivity() {
         cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages, title = keyItem?.name ?: "", onDelete = {
             capturedUris.clear()
             capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
+            hasChanges = true
         })
     }
 
@@ -203,6 +204,7 @@ class AddEditKeysActivity : BaseActivity() {
             val newUris = CameraActivity.pendingUris.toList()
             allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
+            if (newUris.isNotEmpty()) hasChanges = true
             if (savedKeyId.isNotEmpty() && newUris.isNotEmpty()) {
                 val progress = ProgressDialog(this).apply {
                     setMessage("Uploading images...")
@@ -240,9 +242,6 @@ class AddEditKeysActivity : BaseActivity() {
     private fun isValid(): Boolean {
         if (binding.etType.text.toString().isEmpty()) {
             showToast("Please enter Key Type")
-            return false
-        } else if (binding.etNote.text.toString().isEmpty()) {
-            showToast("Please enter Note")
             return false
         }
         return true

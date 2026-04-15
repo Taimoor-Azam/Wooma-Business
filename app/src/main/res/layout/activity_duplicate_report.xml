@@ -108,6 +108,7 @@
                 android:layout_gravity="center"
                 android:fontFamily="@font/sofiasans_regular"
                 android:minWidth="0dp"
+                android:checked="true"
                 android:minHeight="0dp"
                 android:paddingStart="@dimen/_3sdp"
                 android:text="@string/copy_photos"

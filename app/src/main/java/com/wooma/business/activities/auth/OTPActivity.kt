@@ -169,6 +169,7 @@ class OTPActivity : BaseActivity() {
                                 "",
                                 "",
                                 response.data.accessToken,
+                                response.data.user.role,
                                 response.data.refreshToken
                             )
                             Prefs.saveUser(this@OTPActivity, user)

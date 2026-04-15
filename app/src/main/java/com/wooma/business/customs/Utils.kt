@@ -51,6 +51,32 @@ object Utils {
         }
     }
 
+    fun showReportCompletedDialog(
+        context: Context,
+        title: String? = null,
+        message: String? = null,
+        onOkClick: (() -> Unit)? = null
+    ) {
+        val dialog = Dialog(context)
+        dialog.setContentView(R.layout.dialog_report_completed)
+        dialog.setCancelable(false)
+
+        if (title != null) dialog.findViewById<TextView>(R.id.tvTitle).text = title
+        if (message != null) dialog.findViewById<TextView>(R.id.tvMessage).text = message
+
+        dialog.findViewById<TextView>(R.id.btnOk).setOnClickListener {
+            dialog.dismiss()
+            onOkClick?.invoke()
+        }
+
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.window?.setLayout(
+            (context.resources.displayMetrics.widthPixels * 0.85).toInt(),
+            android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+        )
+        dialog.show()
+    }
+
     fun showDialogBox(
         context: Context,
         title: String,

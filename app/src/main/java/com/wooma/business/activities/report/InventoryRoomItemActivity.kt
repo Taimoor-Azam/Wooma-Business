@@ -225,6 +225,12 @@ class InventoryRoomItemActivity : BaseActivity() {
                     selectedCleanliness = it?.name ?: ""
                     hasChanges = true
                 }
+
+            val conditionIndex = conditionItems.indexOfFirst { it.name.equals(selectedCondition, ignoreCase = true) }
+            if (conditionIndex >= 0) binding.rvCondition.scrollToPosition(conditionIndex)
+
+            val cleanlinessIndex = conditionItems.indexOfFirst { it.name.equals(selectedCleanliness, ignoreCase = true) }
+            if (cleanlinessIndex >= 0) binding.tvCleanliness.scrollToPosition(cleanlinessIndex)
         }
 
         if (isInspection) {

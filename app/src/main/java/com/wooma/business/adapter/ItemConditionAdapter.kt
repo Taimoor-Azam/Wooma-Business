@@ -45,21 +45,11 @@ class ItemConditionAdapter(
                 filteredList[position].icon
             )
         )
-        if (selectedPostion == position || selectedValue.lowercase() == filteredList[position].name.lowercase()) {
-            holder.mainLayout.setBackgroundDrawable(
-                ContextCompat.getDrawable(
-                    context,
-                    R.drawable.bg_white_selected_black_stroke
-                )
-            )
-        } else {
-            holder.mainLayout.setBackgroundDrawable(
-                ContextCompat.getDrawable(
-                    context,
-                    R.drawable.bg_edittext
-                )
-            )
-        }
+        val isSelected = selectedPostion == position || selectedValue.lowercase() == filteredList[position].name.lowercase()
+        holder.mainLayout.background = ContextCompat.getDrawable(
+            context,
+            if (isSelected) R.drawable.bg_condition_selected else R.drawable.bg_edittext
+        )
         holder.itemView.setOnClickListener {
             selectedPostion = position
             selectedValue = filteredList[position].name

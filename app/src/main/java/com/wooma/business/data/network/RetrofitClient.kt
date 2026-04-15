@@ -3,7 +3,9 @@ package com.wooma.business.data.network
 import android.app.Activity
 import android.app.ProgressDialog
 import android.content.Context
+import android.content.Intent
 import android.widget.Toast
+import com.wooma.business.activities.auth.GetStartedActivity
 import com.google.gson.Gson
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.model.ErrorResponse
@@ -87,6 +89,15 @@ fun <T, R> Activity.makeApiRequest(
     call.enqueue(object : Callback<R> {
         override fun onResponse(call: Call<R>, response: Response<R>) {
             if (showLoading && progressBar.isShowing) progressBar.dismiss()
+
+            if (response.code() == 401) {
+                Prefs.clearUser(context)
+                context.startActivity(
+                    Intent(context, GetStartedActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                )
+                return
+            }
 
             if (response.isSuccessful) {
                 response.body()?.let { body ->

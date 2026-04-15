@@ -38,6 +38,7 @@ class CheckListDetailActivity : BaseActivity() {
     private var checklistId = ""
     private var checklistName = ""
     private var isReadOnly = false
+    private var hasChanges = false
 
     private val CAMERA_REQUEST = 1001
     private var pendingCameraQuestionId = ""
@@ -76,9 +77,11 @@ class CheckListDetailActivity : BaseActivity() {
             reportId = reportId,
             isReadOnly = isReadOnly,
             onAnswerSelected = { question, answerOption ->
+                hasChanges = true
                 upsertQuestionAnswerApi(question, answerOption, question.note)
             },
             onNoteChanged = { question, note ->
+                hasChanges = true
                 upsertQuestionAnswerApi(question, question.answer_option, note)
             },
             onCameraClick = { questionId ->
@@ -91,7 +94,9 @@ class CheckListDetailActivity : BaseActivity() {
         binding.rvInfo.adapter = infoAdapter
         binding.rvQuestions.adapter = questionAdapter
 
-        binding.ivBack.setOnClickListener { finish() }
+        binding.ivBack.setOnClickListener {
+            if (hasChanges && !isReadOnly) showUnsavedChangesDialog { finish() } else finish()
+        }
 
         getChecklistDetailApi(checklistId)
     }
@@ -102,10 +107,17 @@ class CheckListDetailActivity : BaseActivity() {
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
             val uris = CameraActivity.pendingUris.toList()
             if (uris.isNotEmpty() && pendingCameraQuestionId.isNotEmpty()) {
+                hasChanges = true
                 questionAdapter.deliverPhotos(pendingCameraQuestionId, uris)
                 uploadQuestionPhotos(pendingCameraQuestionId, uris)
             }
         }
+    }
+
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onBackPressed() {
+        if (hasChanges && !isReadOnly) showUnsavedChangesDialog { super.onBackPressed() }
+        else super.onBackPressed()
     }
 
     private fun uploadQuestionPhotos(questionId: String, uris: List<Uri>) {

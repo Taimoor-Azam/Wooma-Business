@@ -41,6 +41,7 @@
         android:textSize="@dimen/_12ssp" />
 
     <TextView
+        android:id="@+id/tvReadingLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/_8sdp"
@@ -73,6 +74,7 @@
         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
     <TextView
+        android:id="@+id/tvLocationLabel"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/_8sdp"

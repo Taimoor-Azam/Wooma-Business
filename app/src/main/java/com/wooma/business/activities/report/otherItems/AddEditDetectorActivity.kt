@@ -214,6 +214,7 @@ class AddEditDetectorActivity : BaseActivity() {
         cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages, title = detectorItem?.name ?: "", onDelete = {
             capturedUris.clear()
             capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
+            hasChanges = true
         })
     }
 
@@ -223,6 +224,7 @@ class AddEditDetectorActivity : BaseActivity() {
             val newUris = CameraActivity.pendingUris.toList()
             allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
+            if (newUris.isNotEmpty()) hasChanges = true
             if (savedDetectorId.isNotEmpty() && newUris.isNotEmpty()) {
                 val progress = ProgressDialog(this).apply {
                     setMessage("Uploading images...")
@@ -259,12 +261,6 @@ class AddEditDetectorActivity : BaseActivity() {
     private fun isValid(): Boolean {
         if (binding.etType.text.toString().isEmpty()) {
             showToast("Please enter Detector Type")
-            return false
-        } else if (binding.etLocation.text.toString().isEmpty()) {
-            showToast("Please enter Location")
-            return false
-        } else if (binding.etTestResult.text.toString().isEmpty()) {
-            showToast("Please enter Test Result")
             return false
         }
         return true

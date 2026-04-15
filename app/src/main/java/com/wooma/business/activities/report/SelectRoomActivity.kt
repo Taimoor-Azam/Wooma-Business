@@ -74,7 +74,15 @@ class SelectRoomActivity : BaseActivity() {
                 showToast("Please select at least one room")
                 return@setOnClickListener
             }
-            addRoomsApi()
+            if (reportId.isEmpty()) {
+                val result = android.content.Intent().putStringArrayListExtra(
+                    RESULT_ROOMS, ArrayList(checkedItems)
+                )
+                setResult(RESULT_OK, result)
+                finish()
+            } else {
+                addRoomsApi()
+            }
         }
     }
 
@@ -107,6 +115,7 @@ class SelectRoomActivity : BaseActivity() {
     }
 
     companion object {
+        const val RESULT_ROOMS = "result_rooms"
         val PREDEFINED_ROOMS = listOf(
             "Living room",
             "Lounge",

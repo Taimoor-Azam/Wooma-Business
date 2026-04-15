@@ -66,6 +66,14 @@ class SelectPropertyForReportActivity : BaseActivity() {
         super.onResume()
         if (ConfigureReportActivity.reportCreated) {
             ConfigureReportActivity.reportCreated = false
+            val pid = ConfigureReportActivity.createdPropertyId
+            ConfigureReportActivity.createdPropertyId = ""
+            if (pid.isNotEmpty()) {
+                startActivity(
+                    Intent(this, ReportListingActivity::class.java)
+                        .putExtra("propertyId", pid)
+                )
+            }
             finish()
         }
     }

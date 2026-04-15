@@ -22,6 +22,7 @@ class ReportTenantsAdapter(
     val context: Context,
     private val originalList: MutableList<TenantReview>,
     private val reportId: String = "",
+    private val reportStatus: String = "",
     private val onTenantClick: ((TenantReview) -> Unit)? = null
 ) : RecyclerView.Adapter<ReportTenantsAdapter.ViewHolder>() {
 
@@ -46,7 +47,7 @@ class ReportTenantsAdapter(
         val item = originalList.get(position)
         holder.tvName.text = item.first_name + " " + item.last_name
         holder.tvTenantEmail.text = item.email_address
-        if (item.mobile_number.isNotEmpty()) {
+        if (!item.mobile_number.isNullOrEmpty()) {
             holder.tvTenantPhone.visibility = View.VISIBLE
             holder.tvTenantPhone.text = item.mobile_number
         } else {
@@ -59,14 +60,18 @@ class ReportTenantsAdapter(
                 holder.tvStatus,
                 ColorStateList.valueOf(ContextCompat.getColor(context, R.color.complete_clr))
             )
+        } else if (reportStatus == "tenant_review") {
+            holder.tvStatus.text = "Pending"
+            ViewCompat.setBackgroundTintList(
+                holder.tvStatus,
+                ColorStateList.valueOf(android.graphics.Color.parseColor("#FFF3CD"))
+            )
         } else {
+            holder.tvStatus.text = "Not Signed"
             ViewCompat.setBackgroundTintList(
                 holder.tvStatus,
                 ColorStateList.valueOf(ContextCompat.getColor(context, R.color.complete_clr))
             )
-
-            holder.tvStatus.text = "Not Signed"
-
         }
 
         holder.tenantLayout.setOnClickListener {

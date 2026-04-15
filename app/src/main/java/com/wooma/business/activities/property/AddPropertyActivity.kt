@@ -94,6 +94,11 @@ class AddPropertyActivity : BaseActivity() {
                         showToast("Property Added successfully")
                         val resultIntent = Intent()
                         resultIntent.putExtra("propertyAdded", true)
+                        resultIntent.putExtra("propertyId", response.data.id ?: "")
+                        resultIntent.putExtra("address", response.data.address ?: "")
+                        resultIntent.putExtra("address_line_2", response.data.addressLine2 ?: "")
+                        resultIntent.putExtra("city", response.data.city ?: "")
+                        resultIntent.putExtra("postcode", response.data.postcode ?: "")
                         setResult(Activity.RESULT_OK, resultIntent)
                         finish()
                     }

@@ -16,6 +16,7 @@ import com.wooma.business.databinding.ActivityCompleteReportBinding
 import com.wooma.business.model.ApiResponse
 import com.wooma.business.model.CompleteReportRequest
 import com.wooma.business.model.ErrorResponse
+import com.wooma.business.customs.Utils
 import com.wooma.business.model.ReportData
 import com.wooma.business.model.Tenant
 import com.wooma.business.model.TenantsRequest
@@ -108,9 +109,11 @@ class CompleteReportActivity : BaseActivity() {
             listener = object : ApiResponseListener<ApiResponse<ArrayList<ReportData>>> {
                 override fun onSuccess(response: ApiResponse<ArrayList<ReportData>>) {
                     if (response.success) {
-                        showToast(response.message)
-                        finish()
-                    } else {
+                        Utils.showReportCompletedDialog(
+                            context = this@CompleteReportActivity,
+                            title = "Sent for review",
+                            message = "The report has been sent to tenant successfully"
+                        ) { finish() }
                     }
                 }
 
@@ -139,9 +142,7 @@ class CompleteReportActivity : BaseActivity() {
             listener = object : ApiResponseListener<ApiResponse<ReportData>> {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
-                        showToast("Report successfully completed.")
-                        finish()
-                    } else {
+                        Utils.showReportCompletedDialog(this@CompleteReportActivity) { finish() }
                     }
                 }
 

@@ -27,7 +27,9 @@ class InventoryMetersAdapter(
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvItemName: TextView = view.findViewById(R.id.tvItemName)
         val tvSerialNum: TextView = view.findViewById(R.id.tvSerialNum)
+        val tvReadingLabel: TextView = view.findViewById(R.id.tvReadingLabel)
         val tvReading: TextView = view.findViewById(R.id.tvReading)
+        val tvLocationLabel: TextView = view.findViewById(R.id.tvLocationLabel)
         val tvLocation: TextView = view.findViewById(R.id.tvLocation)
         val rvImages: RecyclerView = view.findViewById(R.id.rvImages)
     }
@@ -44,8 +46,19 @@ class InventoryMetersAdapter(
         val item = filteredList[position]
 
         holder.tvItemName.text = item.name
+
+        val serialVisible = !item.serial_number.isNullOrEmpty()
+        holder.tvSerialNum.visibility = if (serialVisible) View.VISIBLE else View.GONE
         holder.tvSerialNum.text = item.serial_number ?: ""
+
+        val readingVisible = !item.reading.isNullOrEmpty()
+        holder.tvReadingLabel.visibility = if (readingVisible) View.VISIBLE else View.GONE
+        holder.tvReading.visibility = if (readingVisible) View.VISIBLE else View.GONE
         holder.tvReading.text = item.reading ?: ""
+
+        val locationVisible = !item.location.isNullOrEmpty()
+        holder.tvLocationLabel.visibility = if (locationVisible) View.VISIBLE else View.GONE
+        holder.tvLocation.visibility = if (locationVisible) View.VISIBLE else View.GONE
         holder.tvLocation.text = item.location ?: ""
 
         val imageItems = item.attachments.map { ImageItem.Remote(it.id, "${ApiClient.IMAGE_BASE_URL}${it.storageKey}") }.toMutableList<ImageItem>()

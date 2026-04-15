@@ -3,6 +3,8 @@ package com.wooma.business.activities.report
 import android.app.Activity
 import android.os.Bundle
 import android.view.View
+import androidx.core.content.ContextCompat
+import com.wooma.business.R
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.customs.Utils
 import com.wooma.business.data.network.ApiResponseListener
@@ -48,6 +50,8 @@ class EditTenantActivity : BaseActivity() {
             binding.etEmail.isEnabled = false
             binding.etEmail.isFocusable = false
             binding.etEmail.isFocusableInTouchMode = false
+            binding.etEmail.setBackgroundResource(R.drawable.bg_edittext_disabled)
+            binding.etEmail.setTextColor(ContextCompat.getColor(this, R.color.light_grey))
 
             // Show delete icon only if more than one tenant
             binding.ivTenantDelete.visibility = if (tenantCount > 1) View.VISIBLE else View.GONE

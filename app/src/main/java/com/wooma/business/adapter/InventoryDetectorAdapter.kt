@@ -28,6 +28,7 @@ class InventoryDetectorAdapter(
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvItemName: TextView = view.findViewById(R.id.tvItemName)
         val tvLocation: TextView = view.findViewById(R.id.tvLocation)
+        val tvResultLabel: TextView = view.findViewById(R.id.tvResultLabel)
         val tvResult: TextView = view.findViewById(R.id.tvResult)
         val rvImages: RecyclerView = view.findViewById(R.id.rvImages)
     }
@@ -44,7 +45,14 @@ class InventoryDetectorAdapter(
         val item = filteredList[position]
 
         holder.tvItemName.text = item.name
-        holder.tvLocation.text = item.location.toString()
+
+        val locationVisible = !item.location.isNullOrEmpty()
+        holder.tvLocation.visibility = if (locationVisible) View.VISIBLE else View.GONE
+        holder.tvLocation.text = item.location ?: ""
+
+        val resultVisible = !item.note.isNullOrEmpty()
+        holder.tvResultLabel.visibility = if (resultVisible) View.VISIBLE else View.GONE
+        holder.tvResult.visibility = if (resultVisible) View.VISIBLE else View.GONE
         holder.tvResult.text = item.note ?: ""
 
         val imageItems = item.attachments.map { ImageItem.Remote(it.id, "${ApiClient.IMAGE_BASE_URL}${it.storageKey}") }.toMutableList<ImageItem>()

@@ -17,7 +17,6 @@ import com.wooma.business.R
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.adapter.ReportRoomsAdapter
 import com.wooma.business.adapter.TemplateHorizontalAdapter
-import com.wooma.business.customs.AddCustomRoomDialog
 import com.wooma.business.customs.Utils
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
@@ -42,6 +41,8 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
 
     companion object {
         var reportCreated = false
+        var createdPropertyId = ""
+        private const val REQUEST_ADD_ROOM = 2001
     }
 
     private lateinit var adapter: ReportRoomsAdapter
@@ -86,24 +87,10 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
           }*/
 
         binding.ivEdit.setOnClickListener {
-            /*               val intent = Intent(this, EditRoomNamesActivity::class.java)
-               intent.putParcelableArrayListExtra("roomNamesList", ArrayList(roomsList))
-               startActivity(intent)*/
-            AddCustomRoomDialog().show(
-                supportFragmentManager,
-                "InputBottomSheet"
+            startActivityForResult(
+                Intent(this, SelectRoomActivity::class.java),
+                REQUEST_ADD_ROOM
             )
-        }
-
-        supportFragmentManager.setFragmentResultListener(
-            "sheet_key",
-            this
-        ) { requestKey, bundle ->
-
-            val value = bundle.getString("added_room")
-            roomsList.add(0, Room("", "", value ?: "", "", true, ArrayList()))
-            println(value)
-            adapter.updateList(roomsList)
         }
 
         binding.btnCreateReport.setOnClickListener {
@@ -125,6 +112,18 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
                     addReportServerApi(sendRoomToServer)
                 }
             }
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_ADD_ROOM && resultCode == RESULT_OK) {
+            val rooms = data?.getStringArrayListExtra(SelectRoomActivity.RESULT_ROOMS) ?: return
+            rooms.forEach { name ->
+                roomsList.add(0, Room("", "", name, "", true, ArrayList()))
+            }
+            adapter.updateList(roomsList)
         }
     }
 
@@ -155,12 +154,12 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
                     if (response.success) {
                         showToast("Report Created Successfully")
                         reportCreated = true
+                        createdPropertyId = propertyId
                         startActivity(
-                            Intent(
-                                this@ConfigureReportActivity,
-                                InventoryListingActivity::class.java
-                            ).putExtra("reportId", response.data.report_id)
+                            Intent(this@ConfigureReportActivity, InventoryListingActivity::class.java)
+                                .putExtra("reportId", response.data.report_id)
                                 .putExtra("reportStatus", response.data.status)
+                                .putExtra("propertyId", propertyId)
                         )
                         finish()
                     }

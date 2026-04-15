@@ -125,6 +125,14 @@ class AddPropertyByPostalCodeActivity : BaseActivity() {
             val data: Intent? = result.data
             val isAdded = data?.getBooleanExtra("propertyAdded", false)
             if (isAdded == true) {
+                startActivity(
+                    Intent(this, EditPropertyActivity::class.java)
+                        .putExtra("id", data.getStringExtra("propertyId") ?: "")
+                        .putExtra("address", data.getStringExtra("address") ?: "")
+                        .putExtra("address_line_2", data.getStringExtra("address_line_2") ?: "")
+                        .putExtra("city", data.getStringExtra("city") ?: "")
+                        .putExtra("postcode", data.getStringExtra("postcode") ?: "")
+                )
                 finish()
             }
         }

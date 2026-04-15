@@ -136,6 +136,7 @@
                 android:orientation="horizontal"
                 android:clickable="true"
                 android:focusable="true"
+                android:visibility="gone"
                 android:background="?attr/selectableItemBackground"
                 android:paddingStart="@dimen/_14sdp"
                 android:paddingEnd="@dimen/_14sdp"
@@ -162,6 +163,7 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="@dimen/_1sdp"
+                android:visibility="gone"
                 android:background="@color/border_stroke" />
 
             <!-- Rate on App Store Row -->
@@ -343,6 +345,7 @@
                 android:orientation="horizontal"
                 android:clickable="true"
                 android:focusable="true"
+                android:visibility="gone"
                 android:background="?attr/selectableItemBackground"
                 android:paddingStart="@dimen/_14sdp"
                 android:paddingEnd="@dimen/_14sdp"
@@ -364,6 +367,74 @@
                     android:src="@drawable/svg_right_arrow" />
 
             </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- Deletion Scheduled Card -->
+        <LinearLayout
+            android:id="@+id/llDeletionScheduled"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_deletion_scheduled"
+            android:padding="@dimen/_14sdp"
+            android:layout_marginBottom="@dimen/_12sdp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="@dimen/_8sdp">
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="@dimen/_18sdp"
+                    android:layout_height="@dimen/_18sdp"
+                    android:src="@drawable/svg_warning"
+                    android:layout_marginEnd="@dimen/_6sdp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="@font/sofiasans_bold"
+                    android:text="Deletion scheduled"
+                    android:textColor="@color/red"
+                    android:textSize="@dimen/_14ssp" />
+
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/sofiasans_regular"
+                android:text="Your organization is scheduled for permanent deletion on"
+                android:textColor="@color/black"
+                android:textSize="@dimen/_13ssp" />
+
+            <TextView
+                android:id="@+id/tvDeleteAfterDate"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="@font/sofiasans_bold"
+                android:textColor="@color/black"
+                android:textSize="@dimen/_13ssp"
+                android:layout_marginTop="@dimen/_4sdp"
+                android:layout_marginBottom="@dimen/_12sdp" />
+
+            <androidx.appcompat.widget.AppCompatTextView
+                android:id="@+id/btnRestoreAccount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_button_green"
+                android:fontFamily="@font/sofiasans_semibold"
+                android:gravity="center"
+                android:paddingTop="@dimen/_10sdp"
+                android:paddingBottom="@dimen/_10sdp"
+                android:text="Restore account"
+                android:textColor="@color/white"
+                android:textAllCaps="false"
+                android:textSize="@dimen/_14ssp" />
 
         </LinearLayout>
 

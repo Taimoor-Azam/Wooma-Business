@@ -5,6 +5,8 @@ import android.net.Uri
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -99,20 +101,37 @@ class InventoryCheckListQuestionAdapter(
             holder.btnNA.setOnClickListener(null)
         }
 
-        // Note field — reset listener before setting text to avoid recycled-view interference
+        // Note field — reset listeners before setting text to avoid recycled-view interference
         holder.etNote.setOnFocusChangeListener(null)
+        holder.etNote.setOnEditorActionListener(null)
         holder.etNote.setText(item.note ?: "")
         holder.etNote.isEnabled = !isReadOnly
         holder.etNote.isFocusable = !isReadOnly
         holder.etNote.isFocusableInTouchMode = !isReadOnly
         if (!isReadOnly) {
+            // Save and dismiss keyboard when user presses Done (Enter key)
+            holder.etNote.setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_DONE) {
+                    val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnEditorActionListener false
+                    val current = filteredList.getOrNull(pos) ?: return@setOnEditorActionListener false
+                    val note = holder.etNote.text.toString()
+                    filteredList[pos] = current.copy(note = note)
+                    onNoteChanged(filteredList[pos], note)
+                    holder.etNote.clearFocus()
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(holder.etNote.windowToken, 0)
+                    true
+                } else false
+            }
+            // Fallback: save on focus loss if note changed
             holder.etNote.setOnFocusChangeListener { _, hasFocus ->
                 if (!hasFocus) {
                     val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnFocusChangeListener
                     val current = filteredList.getOrNull(pos) ?: return@setOnFocusChangeListener
                     val note = holder.etNote.text.toString()
                     if (note != (current.note ?: "")) {
-                        onNoteChanged(current, note)
+                        filteredList[pos] = current.copy(note = note)
+                        onNoteChanged(filteredList[pos], note)
                     }
                 }
             }

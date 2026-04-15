@@ -114,49 +114,10 @@
                 android:padding="@dimen/_10sdp"
                 android:visibility="gone">
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <androidx.appcompat.widget.AppCompatTextView
-                        android:id="@+id/tvExtendTime"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="@drawable/bg_border_info"
-                        android:drawableStart="@drawable/svg_time_extended"
-                        android:drawablePadding="@dimen/_5sdp"
-                        android:fontFamily="@font/sofiasans_bold"
-                        android:gravity="center"
-                        android:padding="@dimen/_4sdp"
-                        android:text="@string/extend_time"
-                        android:textColor="@color/blue" />
-
-                    <View
-                        android:layout_width="0dp"
-                        android:layout_height="0dp"
-                        android:layout_weight="1" />
-
-                    <TextView
-                        android:id="@+id/tvCancelSignatureRequest"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:background="@drawable/bg_border_info"
-                        android:drawableStart="@drawable/svg_cancel_circle"
-                        android:drawablePadding="@dimen/_4sdp"
-                        android:fontFamily="@font/sofiasans_bold"
-                        android:padding="@dimen/_4sdp"
-                        android:text="Signature Request"
-                        android:textColor="@color/red"
-                        android:textSize="@dimen/_11ssp" />
-
-                </LinearLayout>
-
+                <!-- Title + subtitle at top -->
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/_8sdp"
                     android:fontFamily="@font/sofiasans_bold"
                     android:text="@string/tenant_review_in_progress"
                     android:textColor="@color/black"
@@ -172,10 +133,51 @@
                     android:textColor="@color/lbls_color"
                     android:textSize="@dimen/_10ssp" />
 
+                <!-- Action buttons row below title -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="@dimen/_5sdp"
+                    android:layout_marginTop="@dimen/_8sdp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <androidx.appcompat.widget.AppCompatTextView
+                        android:id="@+id/tvExtendTime"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_edittext"
+                        android:drawableStart="@drawable/svg_time_extended"
+                        android:drawablePadding="@dimen/_5sdp"
+                        android:fontFamily="@font/sofiasans_bold"
+                        android:gravity="center"
+                        android:padding="@dimen/_6sdp"
+                        android:text="@string/extend_time"
+                        android:textColor="@color/blue" />
+
+                    <View
+                        android:layout_width="0dp"
+                        android:layout_height="0dp"
+                        android:layout_weight="1" />
+
+                    <TextView
+                        android:id="@+id/tvCancelSignatureRequest"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:background="@drawable/bg_edittext"
+                        android:drawableStart="@drawable/svg_cancel_circle"
+                        android:drawablePadding="@dimen/_4sdp"
+                        android:fontFamily="@font/sofiasans_bold"
+                        android:padding="@dimen/_6sdp"
+                        android:text="Signature Request"
+                        android:textColor="@color/red"
+                        android:textSize="@dimen/_11ssp" />
+                </LinearLayout>
+
+                <!-- Signatures received row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_8sdp"
                     android:orientation="horizontal">
 
                     <TextView
@@ -192,7 +194,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:fontFamily="@font/sofiasans_bold"
-                        android:text="1 of 2"
+                        android:text="0 of 1"
                         android:textColor="@color/lbls_color"
                         android:textSize="@dimen/_11ssp" />
                 </LinearLayout>
@@ -200,14 +202,13 @@
                 <com.google.android.material.progressindicator.LinearProgressIndicator
                     android:id="@+id/signProgress"
                     android:layout_width="match_parent"
-                    android:layout_height="@dimen/_20sdp"
+                    android:layout_height="@dimen/_6sdp"
                     android:layout_marginTop="@dimen/_5sdp"
                     android:max="2"
                     android:progress="1"
                     app:indicatorColor="@color/green"
                     app:trackColor="#E0E0E0"
-                    app:trackCornerRadius="0dp" />
-
+                    app:trackCornerRadius="@dimen/_3sdp" />
 
                 <TextView
                     android:id="@+id/tvTotalTenants"
@@ -215,7 +216,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="@dimen/_8sdp"
                     android:fontFamily="@font/sofiasans_regular"
-                    android:text="Tenants (2)"
+                    android:text="Tenants (1)"
                     android:textColor="@color/lbls_color"
                     android:textSize="@dimen/_10ssp" />
 
@@ -326,6 +327,47 @@
                         android:layout_marginTop="@dimen/_6sdp"
                         android:orientation="vertical"
                         app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/pdfPreparingLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="@dimen/_10sdp"
+                    android:orientation="vertical"
+                    android:visibility="gone">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal">
+
+                        <ProgressBar
+                            android:layout_width="@dimen/_16sdp"
+                            android:layout_height="@dimen/_16sdp"
+                            android:indeterminateTint="@color/black" />
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="@dimen/_8sdp"
+                            android:fontFamily="@font/sofiasans_semibold"
+                            android:text="Preparing your final PDF..."
+                            android:textColor="@color/black"
+                            android:textSize="@dimen/_13ssp" />
+
+                    </LinearLayout>
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="@dimen/_6sdp"
+                        android:fontFamily="@font/sofiasans_regular"
+                        android:text="This can take a couple of minutes. Open this report again later to view the PDF when it&#8217;s ready."
+                        android:textColor="@color/black"
+                        android:textSize="@dimen/_12ssp" />
 
                 </LinearLayout>
 

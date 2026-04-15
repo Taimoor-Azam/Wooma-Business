@@ -58,6 +58,10 @@ class AddEditMeterActivity : BaseActivity() {
 
     var isEdit = false
     private var hasChanges = false
+    private var initialType = ""
+    private var initialReading = ""
+    private var initialSerialNumber = ""
+    private var initialLocation = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -141,15 +145,20 @@ class AddEditMeterActivity : BaseActivity() {
         })
 
         binding.ivBack.setOnClickListener {
-            if (hasChanges) showUnsavedChangesDialog { finish() } else finish()
+            handleBackPress()
         }
         setMeterData()
+        cacheInitialValues()
         attachChangeWatchers()
+
+        onBackPressedDispatcher.addCallback(this) {
+            handleBackPress()
+        }
     }
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (hasChanges) showUnsavedChangesDialog { super.onBackPressed() } else super.onBackPressed()
+        handleBackPress()
     }
 
     private fun attachChangeWatchers() {
@@ -170,6 +179,7 @@ class AddEditMeterActivity : BaseActivity() {
         cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages, title = meterItem?.name ?: "", onDelete = {
             capturedUris.clear()
             capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
+            hasChanges = true
         })
     }
 
@@ -179,6 +189,7 @@ class AddEditMeterActivity : BaseActivity() {
             val newUris = CameraActivity.pendingUris.toList()
             allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
+            if (newUris.isNotEmpty()) hasChanges = true
             if (savedMeterId.isNotEmpty() && newUris.isNotEmpty()) {
                 val progress = ProgressDialog(this).apply {
                     setMessage("Uploading images...")
@@ -199,6 +210,37 @@ class AddEditMeterActivity : BaseActivity() {
         }
     }
 
+    private fun handleBackPress() {
+        if (hasUnsavedChanges()) {
+            showUnsavedChangesDialog { finish() }
+        } else {
+            finish()
+        }
+    }
+
+    private fun cacheInitialValues() {
+        initialType = binding.etType.text?.toString().orEmpty()
+        initialReading = binding.etReading.text?.toString().orEmpty()
+        initialSerialNumber = binding.etSerialNumber.text?.toString().orEmpty()
+        initialLocation = binding.etLocation.text?.toString().orEmpty()
+        hasChanges = false
+    }
+
+    private fun hasUnsavedChanges(): Boolean {
+        if (hasChanges) return true
+
+        val textChanged =
+            binding.etType.text?.toString().orEmpty() != initialType ||
+                    binding.etReading.text?.toString().orEmpty() != initialReading ||
+                    binding.etSerialNumber.text?.toString().orEmpty() != initialSerialNumber ||
+                    binding.etLocation.text?.toString().orEmpty() != initialLocation
+
+        // For new meters, images are only local until Save is tapped.
+        val hasPendingLocalImages = capturedUris.isNotEmpty()
+
+        return textChanged || hasPendingLocalImages
+    }
+
     fun setMeterData() {
         if (meterItem != null) {
             binding.etType.setText(meterItem?.name)
@@ -217,15 +259,6 @@ class AddEditMeterActivity : BaseActivity() {
     private fun isValid(): Boolean {
         if (binding.etType.text.toString().isEmpty()) {
             showToast("Please enter Meter Type")
-            return false
-        } else if (binding.etReading.text.toString().isEmpty()) {
-            showToast("Please enter Meter Reading")
-            return false
-        } else if (binding.etSerialNumber.text.toString().isEmpty()) {
-            showToast("Please enter Serial Number")
-            return false
-        } else if (binding.etLocation.text.toString().isEmpty()) {
-            showToast("Please enter Meter Location")
             return false
         }
         return true
@@ -281,6 +314,7 @@ class AddEditMeterActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
                         showToast("Meter Added successfully")
+                        hasChanges = false
                         uploadPhotosIfNeeded(savedMeterId)
                     }
                 }

@@ -63,7 +63,10 @@ data class VerifyUser(
     @SerializedName("is_new_user")
     val isNewUser: Boolean,
     @SerializedName("is_onboarded")
-    val isOnboarded: Boolean
+    val isOnboarded: Boolean,
+
+    @SerializedName("role")
+    val role: String,
 )
 
 data class UserOnBoardRequest(

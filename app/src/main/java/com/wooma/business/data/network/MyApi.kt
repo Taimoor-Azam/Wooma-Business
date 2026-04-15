@@ -40,6 +40,7 @@ import com.wooma.business.model.SendOtpData
 import com.wooma.business.model.SendOtpRequest
 import com.wooma.business.model.TemplateData
 import com.wooma.business.model.TenantPropertiesWrapper
+import com.wooma.business.model.TenantResponse
 import com.wooma.business.model.TenantReview
 import com.wooma.business.model.TenantsRequest
 import com.wooma.business.model.UpdateRoomItemRequest
@@ -435,4 +436,13 @@ interface MyApi {
     fun findOrCreateAnswerAttachment(
         @Body request: ChecklistAnswerAttachmentRequest
     ): Call<ApiResponse<ChecklistAnswerAttachmentResponse>>
+
+    @GET("/api/v1/tenant/me")
+    fun getTenantMe(): Call<ApiResponse<TenantResponse>>
+
+    @DELETE("/api/v1/tenant/me")
+    fun scheduleTenantDeletion(): Call<ApiResponse<TenantResponse>>
+
+    @POST("/api/v1/tenant/restore")
+    fun restoreTenantDeletion(): Call<ApiResponse<TenantResponse>>
 }

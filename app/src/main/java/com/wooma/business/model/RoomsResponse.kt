@@ -261,7 +261,7 @@ data class TenantReview(
     val first_name: String,
     val last_name: String,
     val email_address: String,
-    val mobile_number: String,
+    val mobile_number: String?,
     val report_id: String,
     val token: String,
     val lookup_key: String,

@@ -19,6 +19,7 @@ data class User(
     val tenant_id: String,
     val company_name: String,
     var access_token: String,
+    var role: String?,
     var refresh_token: String,
     val profile_image_url: String? = "",
 )
