@@ -27,6 +27,7 @@ class InventoryMetersAdapter(
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvItemName: TextView = view.findViewById(R.id.tvItemName)
         val tvSerialNum: TextView = view.findViewById(R.id.tvSerialNum)
+        val tvSerialLabel: TextView = view.findViewById(R.id.tvSerialLabel)
         val tvReadingLabel: TextView = view.findViewById(R.id.tvReadingLabel)
         val tvReading: TextView = view.findViewById(R.id.tvReading)
         val tvLocationLabel: TextView = view.findViewById(R.id.tvLocationLabel)
@@ -49,6 +50,7 @@ class InventoryMetersAdapter(
 
         val serialVisible = !item.serial_number.isNullOrEmpty()
         holder.tvSerialNum.visibility = if (serialVisible) View.VISIBLE else View.GONE
+        holder.tvSerialLabel.visibility = if (serialVisible) View.VISIBLE else View.GONE
         holder.tvSerialNum.text = item.serial_number ?: ""
 
         val readingVisible = !item.reading.isNullOrEmpty()

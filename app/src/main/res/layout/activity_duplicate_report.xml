@@ -44,51 +44,51 @@
     <LinearLayout
         android:id="@+id/configureLayout"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
         android:layout_marginStart="@dimen/_12sdp"
         android:layout_marginTop="@dimen/_12sdp"
         android:layout_marginEnd="@dimen/_12sdp"
         android:orientation="vertical"
+        app:layout_constraintBottom_toTopOf="@+id/bottomLayout"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/topLayout">
         <!-- Title -->
-        <TextView
+        <!--<TextView
             android:id="@+id/tvTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="@font/sofiasans_bold"
             android:text="@string/property"
             android:textColor="@color/black"
-            android:textSize="@dimen/_13ssp" />
+            android:textSize="@dimen/_13ssp" />-->
 
         <LinearLayout
-            android:id="@+id/propertyLayout"
+            android:id="@+id/propertyListContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/_5sdp"
-            android:background="@drawable/bg_edittext"
-            android:orientation="horizontal"
-            android:padding="@dimen/_10sdp">
+            android:orientation="vertical">
 
-            <TextView
-                android:id="@+id/tvProperty"
-                android:layout_width="0dp"
+            <EditText
+                android:id="@+id/searchView"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:layout_marginEnd="@dimen/_8sdp"
-                android:layout_weight="1"
+                android:background="@drawable/bg_edittext"
+                android:drawableStart="@drawable/svg_search"
+                android:drawablePadding="@dimen/_8sdp"
                 android:fontFamily="@font/sofiasans_regular"
-                android:hint="Select Property"
+                android:hint="@string/search_address"
+                android:imeOptions="actionDone"
+                android:inputType="textCapSentences"
+                android:paddingStart="@dimen/_10sdp"
+                android:paddingTop="@dimen/_10sdp"
+                android:paddingEnd="@dimen/_10sdp"
+                android:paddingBottom="@dimen/_10sdp"
                 android:textColor="@color/black"
-                android:textColorHint="@color/lbls_color"
-                android:textSize="@dimen/_14ssp" />
+                android:textColorHint="@color/light_grey"
+                android:textSize="@dimen/_12ssp" />
 
-            <ImageView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:src="@drawable/svg_right_arrow" />
         </LinearLayout>
 
         <LinearLayout
@@ -106,9 +106,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
+                android:checked="true"
                 android:fontFamily="@font/sofiasans_regular"
                 android:minWidth="0dp"
-                android:checked="true"
                 android:minHeight="0dp"
                 android:paddingStart="@dimen/_3sdp"
                 android:text="@string/copy_photos"
@@ -117,6 +117,16 @@
 
         </LinearLayout>
 
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvSelectProperty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/_8sdp"
+            android:clipToPadding="false"
+            android:orientation="vertical"
+            android:background="@drawable/bg_edittext"
+            android:paddingBottom="@dimen/_4sdp"
+            app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
         <!--<LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

@@ -2,7 +2,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="@dimen/_16sdp"
+    android:layout_margin="@dimen/_8sdp"
     android:background="@drawable/bg_edittext"
     android:orientation="vertical"
     android:padding="@dimen/_16sdp">
@@ -26,19 +26,9 @@
         <ImageView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:visibility="gone"
-            android:src="@drawable/svg_synced" />
+            android:src="@drawable/svg_synced"
+            android:visibility="gone" />
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/tvLocation"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="@dimen/_4sdp"
-        android:fontFamily="@font/sofiasans_regular"
-        android:hint="Location"
-        android:textColor="@color/lbls_color"
-        android:textSize="@dimen/_12ssp" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvImages"
@@ -68,4 +58,23 @@
         android:textColor="@color/lbls_color"
         android:textSize="@dimen/_12ssp" />
 
+    <TextView
+        android:id="@+id/tvLocationLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/_8sdp"
+        android:fontFamily="@font/sofiasans_regular"
+        android:text="Test Result"
+        android:textColor="@color/lbls_color"
+        android:textSize="@dimen/_10ssp" />
+
+    <TextView
+        android:id="@+id/tvLocation"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/_4sdp"
+        android:fontFamily="@font/sofiasans_regular"
+        android:hint="Location"
+        android:textColor="@color/lbls_color"
+        android:textSize="@dimen/_12ssp" />
 </LinearLayout>

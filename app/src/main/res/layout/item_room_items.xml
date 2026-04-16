@@ -30,6 +30,16 @@
     </LinearLayout>
 
     <TextView
+        android:id="@+id/tvDescLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/_8sdp"
+        android:fontFamily="@font/sofiasans_regular"
+        android:text="General Description"
+        android:textColor="@color/lbls_color"
+        android:textSize="@dimen/_10ssp" />
+
+    <TextView
         android:id="@+id/tvDescription"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -143,7 +153,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/_8sdp"
         android:fontFamily="@font/sofiasans_regular"
-        android:text="Notes"
+        android:text="Condition Notes"
         android:textColor="@color/lbls_color"
         android:textSize="@dimen/_10ssp" />
 

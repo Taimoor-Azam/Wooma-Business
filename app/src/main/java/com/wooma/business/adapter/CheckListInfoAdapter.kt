@@ -6,6 +6,8 @@ import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
@@ -49,7 +51,18 @@ class CheckListInfoAdapter(
         holder.etInfoAnswer.isFocusable = !isReadOnly
         holder.etInfoAnswer.isFocusableInTouchMode = !isReadOnly
 
+        holder.etInfoAnswer.setOnEditorActionListener(null)
         if (!isReadOnly) {
+            holder.etInfoAnswer.setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_DONE) {
+                    val text = holder.etInfoAnswer.text.toString()
+                    onFieldAnswerChanged(item.checklist_field_id, text)
+                    holder.etInfoAnswer.clearFocus()
+                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(holder.etInfoAnswer.windowToken, 0)
+                    true
+                } else false
+            }
             // Reset focus listener to avoid stale captures from recycled views
             holder.etInfoAnswer.setOnFocusChangeListener { _, hasFocus ->
                 if (!hasFocus) {

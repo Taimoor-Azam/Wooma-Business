@@ -10,7 +10,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.wooma.business.R
 import com.wooma.business.activities.report.otherItems.AddEditDetectorActivity
-import com.wooma.business.activities.report.otherItems.AddEditKeysActivity
 import com.wooma.business.data.network.ApiClient
 import com.wooma.business.model.DetectorItem
 import com.wooma.business.model.ImageItem
@@ -28,6 +27,7 @@ class InventoryDetectorAdapter(
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvItemName: TextView = view.findViewById(R.id.tvItemName)
         val tvLocation: TextView = view.findViewById(R.id.tvLocation)
+        val tvLocationLabel: TextView = view.findViewById(R.id.tvLocationLabel)
         val tvResultLabel: TextView = view.findViewById(R.id.tvResultLabel)
         val tvResult: TextView = view.findViewById(R.id.tvResult)
         val rvImages: RecyclerView = view.findViewById(R.id.rvImages)
@@ -48,6 +48,7 @@ class InventoryDetectorAdapter(
 
         val locationVisible = !item.location.isNullOrEmpty()
         holder.tvLocation.visibility = if (locationVisible) View.VISIBLE else View.GONE
+        holder.tvLocationLabel.visibility = if (locationVisible) View.VISIBLE else View.GONE
         holder.tvLocation.text = item.location ?: ""
 
         val resultVisible = !item.note.isNullOrEmpty()
@@ -55,8 +56,14 @@ class InventoryDetectorAdapter(
         holder.tvResult.visibility = if (resultVisible) View.VISIBLE else View.GONE
         holder.tvResult.text = item.note ?: ""
 
-        val imageItems = item.attachments.map { ImageItem.Remote(it.id, "${ApiClient.IMAGE_BASE_URL}${it.storageKey}") }.toMutableList<ImageItem>()
-        holder.rvImages.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+        val imageItems = item.attachments.map {
+            ImageItem.Remote(
+                it.id,
+                "${ApiClient.IMAGE_BASE_URL}${it.storageKey}"
+            )
+        }.toMutableList<ImageItem>()
+        holder.rvImages.layoutManager =
+            LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         holder.rvImages.adapter = ImageAdapter(imageItems, showDelete = false, title = item.name)
 
         holder.itemView.setOnClickListener {

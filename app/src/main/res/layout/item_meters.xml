@@ -2,7 +2,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="@dimen/_16sdp"
+    android:layout_margin="@dimen/_8sdp"
     android:background="@drawable/bg_edittext"
     android:orientation="vertical"
     android:padding="@dimen/_16sdp">
@@ -29,6 +29,16 @@
             android:visibility="gone"
             android:src="@drawable/svg_synced" />
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/tvSerialLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/_8sdp"
+        android:fontFamily="@font/sofiasans_regular"
+        android:text="Serial Number"
+        android:textColor="@color/lbls_color"
+        android:textSize="@dimen/_11ssp" />
 
     <TextView
         android:id="@+id/tvSerialNum"

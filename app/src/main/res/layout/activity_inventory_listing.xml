@@ -109,7 +109,7 @@
                 android:layout_marginStart="@dimen/_12sdp"
                 android:layout_marginTop="@dimen/_12sdp"
                 android:layout_marginEnd="@dimen/_12sdp"
-                android:background="@drawable/bg_report_review"
+                android:background="@drawable/bg_tenant_review_layout"
                 android:orientation="vertical"
                 android:padding="@dimen/_10sdp"
                 android:visibility="gone">

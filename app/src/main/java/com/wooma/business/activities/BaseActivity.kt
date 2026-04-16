@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.content.ContextCompat
 import com.wooma.business.R
 import java.util.Locale
 
@@ -90,12 +91,15 @@ open class BaseActivity : AppCompatActivity() {
    }
 
     fun showUnsavedChangesDialog(onDiscard: () -> Unit) {
-        androidx.appcompat.app.AlertDialog.Builder(this)
+        val dialog = androidx.appcompat.app.AlertDialog.Builder(this)
             .setTitle("Unsaved changes")
             .setMessage("You have unsaved changes. Are you sure you want to go back?")
             .setPositiveButton("Discard") { _, _ -> onDiscard() }
             .setNegativeButton("Keep editing", null)
             .show()
+
+        val discardColor = ContextCompat.getColor(this, R.color.red)
+        dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE)?.setTextColor(discardColor)
     }
 
     //check internet connection

@@ -11,6 +11,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
 import android.view.View
+import androidx.activity.addCallback
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.activities.report.CameraActivity
@@ -315,7 +316,11 @@ class AddEditMeterActivity : BaseActivity() {
                     if (response.success) {
                         showToast("Meter Added successfully")
                         hasChanges = false
-                        uploadPhotosIfNeeded(savedMeterId)
+                        if (meterItem != null) {
+                            uploadPhotosIfNeeded(savedMeterId)
+                        } else {
+                            uploadPhotosAfterCreate(body)
+                        }
                     }
                 }
 
@@ -344,6 +349,51 @@ class AddEditMeterActivity : BaseActivity() {
             entityType = "METER",
             onComplete = { finish() },
             onError = { finish() }
+        )
+    }
+
+    private fun uploadPhotosAfterCreate(requestBody: AddMeterRequest) {
+        if (capturedUris.isEmpty()) {
+            finish()
+            return
+        }
+
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = false,
+            requestAction = { api -> api.getReportMeters(reportId, include_attachments = false) },
+            listener = object : ApiResponseListener<ApiResponse<ArrayList<Meter>>> {
+                override fun onSuccess(response: ApiResponse<ArrayList<Meter>>) {
+                    val createdMeterId = response.data
+                        .asReversed()
+                        .firstOrNull { meter ->
+                            meter.name == requestBody.name &&
+                                    (meter.reading ?: "") == requestBody.reading &&
+                                    (meter.location ?: "") == requestBody.location &&
+                                    (meter.serial_number ?: "") == requestBody.serial_number
+                        }?.id.orEmpty()
+
+                    if (createdMeterId.isEmpty()) {
+                        showToast("Meter saved, but photos could not be attached")
+                        finish()
+                        return
+                    }
+
+                    savedMeterId = createdMeterId
+                    uploadPhotosIfNeeded(savedMeterId)
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    showToast("Meter saved, but photos could not be attached")
+                    finish()
+                }
+
+                override fun onError(throwable: Throwable) {
+                    showToast("Meter saved, but photos could not be attached")
+                    finish()
+                }
+            }
         )
     }
 }

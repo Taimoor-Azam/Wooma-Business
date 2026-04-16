@@ -318,7 +318,11 @@ class AddEditDetectorActivity : BaseActivity() {
                             if (detectorItem != null) "Detector Updated successfully"
                             else "Detector Added successfully"
                         )
-                        uploadPhotosIfNeeded(savedDetectorId)
+                        if (detectorItem != null) {
+                            uploadPhotosIfNeeded(savedDetectorId)
+                        } else {
+                            uploadPhotosAfterCreate(body)
+                        }
                     }
                 }
 
@@ -347,6 +351,50 @@ class AddEditDetectorActivity : BaseActivity() {
             entityType = "DETECTOR",
             onComplete = { finish() },
             onError = { finish() }
+        )
+    }
+
+    private fun uploadPhotosAfterCreate(requestBody: AddDetectorRequest) {
+        if (capturedUris.isEmpty()) {
+            finish()
+            return
+        }
+
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = false,
+            requestAction = { api -> api.getReportDetector(reportId, include_attachments = false) },
+            listener = object : ApiResponseListener<ApiResponse<ArrayList<DetectorItem>>> {
+                override fun onSuccess(response: ApiResponse<ArrayList<DetectorItem>>) {
+                    val createdDetectorId = response.data
+                        .asReversed()
+                        .firstOrNull { detector ->
+                            detector.name == requestBody.name &&
+                                    (detector.location ?: "") == requestBody.location &&
+                                    (detector.note ?: "") == requestBody.note
+                        }?.id.orEmpty()
+
+                    if (createdDetectorId.isEmpty()) {
+                        showToast("Detector saved, but photos could not be attached")
+                        finish()
+                        return
+                    }
+
+                    savedDetectorId = createdDetectorId
+                    uploadPhotosIfNeeded(savedDetectorId)
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    showToast("Detector saved, but photos could not be attached")
+                    finish()
+                }
+
+                override fun onError(throwable: Throwable) {
+                    showToast("Detector saved, but photos could not be attached")
+                    finish()
+                }
+            }
         )
     }
 }

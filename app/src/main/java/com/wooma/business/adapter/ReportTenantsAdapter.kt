@@ -6,6 +6,7 @@ import android.content.res.ColorStateList
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
@@ -17,6 +18,7 @@ import com.wooma.business.activities.report.EditTenantActivity
 import com.wooma.business.model.Rooms
 import com.wooma.business.model.RoomsResponse
 import com.wooma.business.model.TenantReview
+import com.wooma.business.model.enums.TenantReportStatus
 
 class ReportTenantsAdapter(
     val context: Context,
@@ -33,6 +35,7 @@ class ReportTenantsAdapter(
         val tvTenantEmail: TextView = view.findViewById(R.id.tvTenantEmail)
         val tvTenantPhone: TextView = view.findViewById(R.id.tvTenantPhone)
         val tvStatus: TextView = view.findViewById(R.id.tvStatus)
+        val ivArrow: ImageView = view.findViewById(R.id.ivArrow)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -45,6 +48,12 @@ class ReportTenantsAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = originalList.get(position)
+        if (reportStatus == TenantReportStatus.COMPLETED.value) {
+            holder.tenantLayout.setBackgroundResource(R.drawable.bg_completed_tenant_item)
+        } else {
+            holder.tenantLayout.setBackgroundResource(R.drawable.bg_edittext)
+        }
+
         holder.tvName.text = item.first_name + " " + item.last_name
         holder.tvTenantEmail.text = item.email_address
         if (!item.mobile_number.isNullOrEmpty()) {
@@ -55,18 +64,22 @@ class ReportTenantsAdapter(
         }
 
         if (item.is_submitted) {
+            holder.ivArrow.visibility = View.GONE
             holder.tvStatus.text = "Signed"
             ViewCompat.setBackgroundTintList(
                 holder.tvStatus,
                 ColorStateList.valueOf(ContextCompat.getColor(context, R.color.complete_clr))
             )
         } else if (reportStatus == "tenant_review") {
+            holder.ivArrow.visibility = View.VISIBLE
+
             holder.tvStatus.text = "Pending"
             ViewCompat.setBackgroundTintList(
                 holder.tvStatus,
                 ColorStateList.valueOf(android.graphics.Color.parseColor("#FFF3CD"))
             )
         } else {
+            holder.ivArrow.visibility = View.GONE
             holder.tvStatus.text = "Not Signed"
             ViewCompat.setBackgroundTintList(
                 holder.tvStatus,

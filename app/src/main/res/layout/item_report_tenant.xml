@@ -7,8 +7,7 @@
     android:layout_marginTop="@dimen/_8sdp"
     android:background="@drawable/bg_edittext"
     android:orientation="horizontal"
-    android:padding="@dimen/_8sdp"
-    android:paddingTop="@dimen/_12sdp">
+    android:padding="@dimen/_8sdp">
 
     <LinearLayout
         android:layout_width="0dp"
@@ -22,7 +21,7 @@
             android:layout_height="wrap_content"
             android:fontFamily="@font/sofiasans_bold"
             android:textColor="@color/black"
-            android:textSize="@dimen/_16ssp" />
+            android:textSize="@dimen/_14ssp" />
 
         <TextView
             android:id="@+id/tvTenantEmail"
@@ -31,7 +30,7 @@
             android:layout_marginTop="@dimen/_5sdp"
             android:fontFamily="@font/sofiasans_regular"
             android:textColor="@color/lbls_color"
-            android:textSize="@dimen/_13ssp" />
+            android:textSize="@dimen/_11ssp" />
 
         <TextView
             android:id="@+id/tvTenantPhone"
@@ -56,11 +55,12 @@
         android:paddingEnd="@dimen/_8sdp"
         android:paddingBottom="@dimen/_2sdp"
         android:textColor="@color/black"
-        android:textSize="@dimen/_13ssp" />
+        android:textSize="@dimen/_11ssp" />
 
     <ImageView
-        android:layout_width="@dimen/_16sdp"
-        android:layout_height="@dimen/_16sdp"
+        android:id="@+id/ivArrow"
+        android:layout_width="@dimen/_12sdp"
+        android:layout_height="@dimen/_12sdp"
         android:layout_gravity="center"
         android:layout_marginStart="@dimen/_6sdp"
         android:contentDescription="View tenant"

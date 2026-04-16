@@ -299,7 +299,11 @@ class AddEditKeysActivity : BaseActivity() {
                             if (keyItem != null) "Key Updated successfully"
                             else "Key Added successfully"
                         )
-                        uploadPhotosIfNeeded(savedKeyId)
+                        if (keyItem != null) {
+                            uploadPhotosIfNeeded(savedKeyId)
+                        } else {
+                            uploadPhotosAfterCreate(body)
+                        }
                     }
                 }
 
@@ -328,6 +332,50 @@ class AddEditKeysActivity : BaseActivity() {
             entityType = "KEY",
             onComplete = { finish() },
             onError = { finish() }
+        )
+    }
+
+    private fun uploadPhotosAfterCreate(requestBody: AddKeyRequest) {
+        if (capturedUris.isEmpty()) {
+            finish()
+            return
+        }
+
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = false,
+            requestAction = { api -> api.getReportKeys(reportId, include_attachments = false) },
+            listener = object : ApiResponseListener<ApiResponse<ArrayList<KeyItem>>> {
+                override fun onSuccess(response: ApiResponse<ArrayList<KeyItem>>) {
+                    val createdKeyId = response.data
+                        .asReversed()
+                        .firstOrNull { key ->
+                            key.name == requestBody.name &&
+                                    (key.no_of_keys ?: 1) == requestBody.no_of_keys &&
+                                    (key.note ?: "") == requestBody.note
+                        }?.id.orEmpty()
+
+                    if (createdKeyId.isEmpty()) {
+                        showToast("Key saved, but photos could not be attached")
+                        finish()
+                        return
+                    }
+
+                    savedKeyId = createdKeyId
+                    uploadPhotosIfNeeded(savedKeyId)
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    showToast("Key saved, but photos could not be attached")
+                    finish()
+                }
+
+                override fun onError(throwable: Throwable) {
+                    showToast("Key saved, but photos could not be attached")
+                    finish()
+                }
+            }
         )
     }
 }

@@ -94,7 +94,7 @@ class CameraActivity : BaseActivity() {
 
         binding.btnDone.setOnClickListener {
             pendingUris.clear()
-            pendingUris.addAll(images.filterIsInstance<ImageItem.Local>().map { it.uri })
+            pendingUris.addAll(normalizeLocalUrisToPortrait(images.filterIsInstance<ImageItem.Local>().map { it.uri }))
             setResult(RESULT_OK)
             finish()
         }
@@ -133,7 +133,7 @@ class CameraActivity : BaseActivity() {
             shutterSound.play(MediaActionSound.SHUTTER_CLICK)
         }
 
-        val file = File(externalMediaDirs.first(), "${System.currentTimeMillis()}.jpg")
+        val file = createTempImageFile()
         val output = ImageCapture.OutputFileOptions.Builder(file).build()
 
         imageCapture.takePicture(output, ContextCompat.getMainExecutor(this),
@@ -149,7 +149,7 @@ class CameraActivity : BaseActivity() {
 
                     if (isCoverImage) {
                         pendingUris.clear()
-                        pendingUris.addAll(images.filterIsInstance<ImageItem.Local>().map { it.uri })
+                        pendingUris.addAll(normalizeLocalUrisToPortrait(images.filterIsInstance<ImageItem.Local>().map { it.uri }))
                         setResult(RESULT_OK)
                         finish()
                     }
@@ -200,7 +200,7 @@ class CameraActivity : BaseActivity() {
         val textY = rectBottom - paddingV - textPaint.descent()
         canvas.drawText(dateText, textX, textY, textPaint)
 
-        val stampedFile = File(externalMediaDirs.first(), "stamped_${System.currentTimeMillis()}.jpg")
+        val stampedFile = createTempImageFile(prefix = "stamped_")
         FileOutputStream(stampedFile).use { out ->
             mutable.compress(Bitmap.CompressFormat.JPEG, 95, out)
         }
@@ -307,7 +307,7 @@ class CameraActivity : BaseActivity() {
             bitmap = rotated
         }
 
-        val outFile = File(externalMediaDirs.first(), "portrait_${System.currentTimeMillis()}.jpg")
+        val outFile = createTempImageFile(prefix = "portrait_")
         FileOutputStream(outFile).use { out -> bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out) }
         bitmap.recycle()
         file.delete()
@@ -316,9 +316,32 @@ class CameraActivity : BaseActivity() {
 
     private fun copyUriToFile(uri: Uri): File {
         val input = contentResolver.openInputStream(uri) ?: error("Cannot open URI: $uri")
-        val file = File(externalMediaDirs.first(), "gallery_${System.currentTimeMillis()}.jpg")
+        val file = createTempImageFile(prefix = "gallery_")
         file.outputStream().use { out -> input.use { it.copyTo(out) } }
         return file
+    }
+
+    private fun normalizeLocalUrisToPortrait(uris: List<Uri>): List<Uri> {
+        return uris.map { uri ->
+            val path = uri.path ?: return@map uri
+            val sourceFile = File(path)
+            if (!sourceFile.exists()) return@map uri
+            Uri.fromFile(fixOrientationToPortrait(sourceFile))
+        }
+    }
+
+    private fun createTempImageFile(prefix: String = ""): File {
+        val tempDir = File(cacheDir, "camera_images").apply {
+            if (!exists()) {
+                mkdirs()
+                try {
+                    File(this, ".nomedia").createNewFile()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+        return File(tempDir, "${prefix}${System.currentTimeMillis()}.jpg")
     }
 
     override fun onDestroy() {

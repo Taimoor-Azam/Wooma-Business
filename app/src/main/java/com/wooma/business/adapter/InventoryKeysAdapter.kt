@@ -5,6 +5,7 @@ import android.content.Intent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -23,12 +24,12 @@ class InventoryKeysAdapter(
     val reportId: String,
     val reportStatus: String = "",
 ) : RecyclerView.Adapter<InventoryKeysAdapter.ViewHolder>() {
-
     private var filteredList = originalList.toMutableList()
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvItemName: TextView = view.findViewById(R.id.tvItemName)
         val tvQuantity: TextView = view.findViewById(R.id.tvQuantity)
+        val qtyLayout: LinearLayout = view.findViewById(R.id.qtyLayout)
         val tvWhatForLabel: TextView = view.findViewById(R.id.tvWhatForLabel)
         val tvWhatFor: TextView = view.findViewById(R.id.tvWhatFor)
         val rvImages: RecyclerView = view.findViewById(R.id.rvImages)
@@ -49,7 +50,8 @@ class InventoryKeysAdapter(
 
         val qty = item.no_of_keys ?: 0
         holder.tvQuantity.visibility = if (qty > 0) View.VISIBLE else View.GONE
-        holder.tvQuantity.text = "$qty Keys"
+        holder.qtyLayout.visibility = if (qty > 0) View.VISIBLE else View.GONE
+        holder.tvQuantity.text = "$qty"
 
         val noteVisible = !item.note.isNullOrEmpty()
         holder.tvWhatForLabel.visibility = if (noteVisible) View.VISIBLE else View.GONE

@@ -7,8 +7,8 @@
 
     <com.makeramen.roundedimageview.RoundedImageView
         android:id="@+id/image"
-        android:layout_width="@dimen/_60sdp"
-        android:layout_height="@dimen/_60sdp"
+        android:layout_width="@dimen/_50sdp"
+        android:layout_height="@dimen/_50sdp"
         android:layout_marginTop="@dimen/_5sdp"
         android:layout_marginEnd="@dimen/_9sdp"
         android:scaleType="centerCrop"
@@ -17,8 +17,8 @@
 
     <ImageView
         android:id="@+id/delete"
-        android:layout_width="@dimen/_20sdp"
-        android:layout_height="@dimen/_20sdp"
+        android:layout_width="@dimen/_15sdp"
+        android:layout_height="@dimen/_15sdp"
         android:layout_gravity="end|top"
         android:src="@drawable/svg_cancel_circle" />
 

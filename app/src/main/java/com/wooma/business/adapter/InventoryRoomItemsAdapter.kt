@@ -33,6 +33,7 @@ class InventoryRoomItemsAdapter(
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvItemName: TextView = view.findViewById(R.id.tvItemName)
         val tvDescription: TextView = view.findViewById(R.id.tvDescription)
+        val tvDescLabel: TextView = view.findViewById(R.id.tvDescLabel)
         val tvCondition: TextView = view.findViewById(R.id.tvCondition)
         val tvCleanliness: TextView = view.findViewById(R.id.tvCleanliness)
         val tvNotesLabel: TextView = view.findViewById(R.id.tvNotesLabel)
@@ -57,6 +58,7 @@ class InventoryRoomItemsAdapter(
         val description = item.description.orEmpty()
         holder.tvDescription.text = description
         holder.tvDescription.visibility = if (description.isBlank()) View.GONE else View.VISIBLE
+        holder.tvDescLabel.visibility = if (description.isBlank()) View.GONE else View.VISIBLE
 
         val notes = item.note.orEmpty()
         holder.tvNotes.text = notes

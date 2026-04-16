@@ -12,8 +12,8 @@
 
     <ImageView
         android:id="@+id/ivAddImage"
-        android:layout_width="@dimen/_70sdp"
-        android:layout_height="@dimen/_70sdp"
+        android:layout_width="@dimen/_55sdp"
+        android:layout_height="@dimen/_55sdp"
         android:layout_gravity="center"
         android:background="@drawable/dotted_green_opacity_border"
         android:padding="@dimen/_20sdp"
