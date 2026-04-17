@@ -28,7 +28,6 @@ import com.wooma.business.storage.Prefs
 
 class OTPActivity : BaseActivity() {
     private lateinit var binding: ActivityOtpBinding
-    var isLogin = false
     var email: String = ""
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,7 +37,6 @@ class OTPActivity : BaseActivity() {
         setContentView(binding.root)
         applyWindowInsetsToBinding(binding.root)
 
-        isLogin = intent.getBooleanExtra("isLogin", false)
         email = intent.getStringExtra("email") ?: ""
 
         if (email.isNotEmpty()) {
@@ -157,6 +155,7 @@ class OTPActivity : BaseActivity() {
                         if (!response.data.user.isOnboarded) {
                             val intent =
                                 Intent(this@OTPActivity, ActivateAccountActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                             startActivity(intent)
                             finish()
                         } else {
@@ -174,6 +173,7 @@ class OTPActivity : BaseActivity() {
                             )
                             Prefs.saveUser(this@OTPActivity, user)
                             val intent = Intent(this@OTPActivity, MainActivity::class.java)
+                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                             startActivity(intent)
                             finish()
                         }

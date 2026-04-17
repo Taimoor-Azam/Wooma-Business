@@ -1,5 +1,6 @@
 package com.wooma.business.activities.report
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import com.wooma.business.activities.BaseActivity
@@ -36,7 +37,19 @@ class SelectReportTypeActivity : BaseActivity() {
 
         getReportTypeListApi()
 
-        binding.ivBack.setOnClickListener { finish() }
+        binding.ivBack.setOnClickListener { navigateToReportListing() }
+    }
+
+    override fun onBackPressed() {
+        navigateToReportListing()
+    }
+
+    private fun navigateToReportListing() {
+        val intent = Intent(this, ReportListingActivity::class.java)
+        intent.putExtra("propertyId", propertyId)
+        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        startActivity(intent)
+        finish()
     }
 
     override fun onResume() {

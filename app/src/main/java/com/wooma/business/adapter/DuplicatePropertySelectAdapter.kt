@@ -19,6 +19,7 @@ class DuplicatePropertySelectAdapter(
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvAddress: TextView = view.findViewById(R.id.tvAddress)
+        val tvAddressTwo: TextView = view.findViewById(R.id.tvAddressTwo)
         val cbSelect: CheckBox = view.findViewById(R.id.cbSelect)
     }
 
@@ -32,7 +33,8 @@ class DuplicatePropertySelectAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = filteredList[position]
-        holder.tvAddress.text = item.address ?: ""
+        holder.tvAddress.text = item.address + " " + if (!item.addressLine2.isNullOrEmpty()) ", "+ item.addressLine2 else ""
+        holder.tvAddressTwo.text = item.city + ", " + item.postcode
         holder.cbSelect.setOnCheckedChangeListener(null)
         holder.cbSelect.isChecked = item.id == selectedPropertyId
 

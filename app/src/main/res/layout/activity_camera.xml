@@ -179,12 +179,26 @@
         <!-- Capture Row: gallery | capture | spacer -->
 
         <!-- Thumbnail strip -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerImages"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="@dimen/_95sdp"
-            android:clipToPadding="false"
-            android:padding="@dimen/_6sdp" />
+            android:layout_height="@dimen/_95sdp">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerImages"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:padding="@dimen/_6sdp" />
+
+            <!-- Progress Loader for Gallery Uploads -->
+            <ProgressBar
+                android:id="@+id/progressBar"
+                android:layout_width="@dimen/_32sdp"
+                android:layout_height="@dimen/_32sdp"
+                android:layout_gravity="center"
+                android:visibility="gone"
+                android:indeterminateTint="@color/green" />
+        </FrameLayout>
 
         <!-- Done Button -->
         <androidx.appcompat.widget.AppCompatTextView

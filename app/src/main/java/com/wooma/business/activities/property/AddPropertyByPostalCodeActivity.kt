@@ -10,6 +10,7 @@ import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.IntentCompat
 import com.wooma.business.activities.BaseActivity
+import com.wooma.business.activities.report.ReportListingActivity
 import com.wooma.business.adapter.PostalAddressAdapter
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
@@ -126,12 +127,8 @@ class AddPropertyByPostalCodeActivity : BaseActivity() {
             val isAdded = data?.getBooleanExtra("propertyAdded", false)
             if (isAdded == true) {
                 startActivity(
-                    Intent(this, EditPropertyActivity::class.java)
-                        .putExtra("id", data.getStringExtra("propertyId") ?: "")
-                        .putExtra("address", data.getStringExtra("address") ?: "")
-                        .putExtra("address_line_2", data.getStringExtra("address_line_2") ?: "")
-                        .putExtra("city", data.getStringExtra("city") ?: "")
-                        .putExtra("postcode", data.getStringExtra("postcode") ?: "")
+                    Intent(this, ReportListingActivity::class.java)
+                        .putExtra("propertyId", data.getStringExtra("propertyId") ?: "")
                 )
                 finish()
             }

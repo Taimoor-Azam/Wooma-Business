@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.util.Log
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.activities.MainActivity
+import com.wooma.business.activities.report.ReportListingActivity
 import com.wooma.business.customs.Utils
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
@@ -44,7 +45,7 @@ class EditPropertyActivity : BaseActivity() {
             }
         }
 
-        binding.ivBack.setOnClickListener { finish() }
+        binding.ivBack.setOnClickListener { navigateToReportListing() }
         binding.ivReportArchive.setOnClickListener {
             Utils.showDialogBox(
                 this@EditPropertyActivity,
@@ -105,7 +106,7 @@ class EditPropertyActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<Property>) {
                     if (response.success) {
                         showToast("Property Updated successfully")
-                        finish()
+                        navigateToReportListing()
                     }
                 }
 
@@ -122,6 +123,18 @@ class EditPropertyActivity : BaseActivity() {
                 }
             }
         )
+    }
+
+    override fun onBackPressed() {
+        navigateToReportListing()
+    }
+
+    private fun navigateToReportListing() {
+        val intent = Intent(this, ReportListingActivity::class.java)
+        intent.putExtra("propertyId", id)
+        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        startActivity(intent)
+        finish()
     }
 
     private fun archivePropertyApi(id: String) {

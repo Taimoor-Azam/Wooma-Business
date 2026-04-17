@@ -108,10 +108,16 @@ class InventoryCheckListQuestionAdapter(
         holder.etNote.isEnabled = !isReadOnly
         holder.etNote.isFocusable = !isReadOnly
         holder.etNote.isFocusableInTouchMode = !isReadOnly
+
+        // Configure multiline input but handle Enter as Done (not newline)
+        holder.etNote.setRawInputType(android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE)
+        holder.etNote.setHorizontallyScrolling(false)
+        holder.etNote.maxLines = Int.MAX_VALUE
+
         if (!isReadOnly) {
             // Save and dismiss keyboard when user presses Done (Enter key)
             holder.etNote.setOnEditorActionListener { _, actionId, _ ->
-                if (actionId == EditorInfo.IME_ACTION_DONE) {
+                if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_NEXT) {
                     val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnEditorActionListener false
                     val current = filteredList.getOrNull(pos) ?: return@setOnEditorActionListener false
                     val note = holder.etNote.text.toString()

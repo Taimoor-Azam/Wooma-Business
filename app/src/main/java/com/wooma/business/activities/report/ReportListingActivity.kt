@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import com.wooma.business.activities.BaseActivity
+import com.wooma.business.activities.MainActivity
 import com.wooma.business.activities.property.EditPropertyActivity
 import com.wooma.business.adapter.ReportListingAdapter
 import com.wooma.business.data.network.ApiResponseListener
@@ -43,7 +44,18 @@ class ReportListingActivity : BaseActivity() {
             startActivity(intent)
         }
 
-        binding.ivBack.setOnClickListener { finish() }
+        binding.ivBack.setOnClickListener { navigateToMainActivity() }
+    }
+
+    override fun onBackPressed() {
+        navigateToMainActivity()
+    }
+
+    private fun navigateToMainActivity() {
+        val intent = Intent(this, MainActivity::class.java)
+        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        startActivity(intent)
+        finish()
     }
 
     override fun onResume() {

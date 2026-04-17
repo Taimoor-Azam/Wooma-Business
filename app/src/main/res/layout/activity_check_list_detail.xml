@@ -44,6 +44,16 @@
                 android:textSize="@dimen/_16ssp" />
 
         </LinearLayout>
+
+        <TextView
+            android:id="@+id/btnSave"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:fontFamily="@font/sofiasans_bold"
+            android:text="Save"
+            android:textColor="@color/theme_clr"
+            android:textSize="@dimen/_14ssp" />
     </LinearLayout>
 
     <androidx.core.widget.NestedScrollView

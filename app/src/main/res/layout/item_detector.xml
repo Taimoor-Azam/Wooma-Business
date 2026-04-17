@@ -64,7 +64,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/_8sdp"
         android:fontFamily="@font/sofiasans_regular"
-        android:text="Test Result"
+        android:text="@string/location"
         android:textColor="@color/lbls_color"
         android:textSize="@dimen/_10ssp" />
 

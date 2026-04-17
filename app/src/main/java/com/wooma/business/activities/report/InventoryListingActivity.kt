@@ -8,8 +8,6 @@ import android.util.Log
 import android.view.View
 import android.widget.PopupWindow
 import androidx.annotation.RequiresApi
-import android.content.res.ColorStateList
-import android.graphics.Color
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.ItemTouchHelper
@@ -26,7 +24,6 @@ import com.wooma.business.adapter.InventoryRoomsAdapter
 import com.wooma.business.adapter.ReportTenantsAdapter
 import com.wooma.business.customs.AttachmentUploadHelper
 import com.wooma.business.customs.GridSpacingItemDecoration
-import com.wooma.business.activities.FullscreenImageActivity
 import com.wooma.business.customs.Utils
 import com.wooma.business.data.network.ApiClient
 import com.wooma.business.data.network.ApiResponseListener
@@ -146,7 +143,7 @@ class InventoryListingActivity : BaseActivity() {
         adapter.itemTouchHelper = itemTouchHelper
 
         updateViewAccToStatus()
-        binding.ivBack.setOnClickListener { finish() }
+        binding.ivBack.setOnClickListener { navigateToReportListing() }
 
         binding.tvEditRooms.setOnClickListener {
             val editMode = !adapter.isEditMode
@@ -167,7 +164,7 @@ class InventoryListingActivity : BaseActivity() {
         }
 
         val spacingInDp = 16
-        val spacingInPx = spacingInDp * resources.displayMetrics.density.toInt()
+        val spacingInPx = (spacingInDp * resources.displayMetrics.density).toInt()
 
         binding.rvOtherItems.addItemDecoration(
             GridSpacingItemDecoration(
@@ -252,12 +249,27 @@ class InventoryListingActivity : BaseActivity() {
         }
     }
 
+    override fun onBackPressed() {
+        navigateToReportListing()
+    }
+
+    private fun navigateToReportListing() {
+        val intent = Intent(this, ReportListingActivity::class.java)
+        intent.putExtra("propertyId", propertyId)
+        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        startActivity(intent)
+        finish()
+    }
+
 
     private fun updateViewAccToStatus() {
         if (reportStatus == TenantReportStatus.IN_PROGRESS.value) {
             binding.ivAddRoom.visibility = View.VISIBLE
             binding.btnCompleteReport.visibility = View.VISIBLE
             binding.tvEditRooms.visibility = View.VISIBLE
+            binding.tenantReviewLayout.visibility = View.GONE
+            binding.completedReportLayout.visibility = View.GONE
+            binding.completedTenantSection.visibility = View.GONE
         } else {
             binding.ivAddRoom.visibility = View.GONE
             binding.btnCompleteReport.visibility = View.GONE
@@ -269,18 +281,6 @@ class InventoryListingActivity : BaseActivity() {
         super.onResume()
         getReportByIdApi()
     }
-
-    /* private fun loadProperties() {
-         roomsList.addAll(
-             listOf(
-                 Rooms("Meter"),
-                 Rooms("Keys"),
-                 Rooms("Detectors"),
-                 Rooms("Checklist")
-             )
-         )
-         adapter.updateList(roomsList)
-     }*/
 
     private fun updateRoomNameApi(roomId: String, newName: String) {
         makeApiRequest(
@@ -356,21 +356,12 @@ class InventoryListingActivity : BaseActivity() {
             requestAction = { apiService -> apiService.addRomToReport(reportId, request) },
             listener = object : ApiResponseListener<ApiResponse<ArrayList<ReportData>>> {
                 override fun onSuccess(response: ApiResponse<ArrayList<ReportData>>) {
-                    if (response.success) {
-                    } else {
-                    }
                 }
 
                 override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-//                    Log.e("API", errorMessage?.error?.message ?: "")
-//                    showToast(errorMessage?.error?.message ?: "")
                 }
 
                 override fun onError(throwable: Throwable) {
-                    // Handle network error
-//                    Log.e("API", "Error: ${throwable.message}")
-//                    showToast("Error: ${throwable.message}")
                 }
             }
         )
@@ -389,7 +380,6 @@ class InventoryListingActivity : BaseActivity() {
                         reportStatus = response.data.status
                         updateViewAccToStatus()
 
-                        // Sync reportType from API (fixes blank title and wrong flow on new report creation)
                         val apiReportType = response.data.reportType
                         if (reportType == null) {
                             reportType = PropertyReportType(
@@ -448,18 +438,15 @@ class InventoryListingActivity : BaseActivity() {
                             updateViewForCompletedReport()
                             getTenantReviewsApi()
                         }
-                    } else {
                     }
                 }
 
                 override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
                     Log.e("API", errorMessage?.error?.message ?: "")
                     showToast(errorMessage?.error?.message ?: "")
                 }
 
                 override fun onError(throwable: Throwable) {
-                    // Handle network error
                     Log.e("API", "Error: ${throwable.message}")
                     showToast("Error: ${throwable.message}")
                 }
@@ -482,18 +469,15 @@ class InventoryListingActivity : BaseActivity() {
                         } else {
                             updateViewForTenantReview(response.data)
                         }
-                    } else {
                     }
                 }
 
                 override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
                     Log.e("API", errorMessage?.error?.message ?: "")
                     showToast(errorMessage?.error?.message ?: "")
                 }
 
                 override fun onError(throwable: Throwable) {
-                    // Handle network error
                     Log.e("API", "Error: ${throwable.message}")
                     showToast("Error: ${throwable.message}")
                 }

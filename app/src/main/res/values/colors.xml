@@ -12,6 +12,7 @@
     <color name="border_stroke">#E4E4E4</color>
     <color name="divider_clr">#F3F3F3</color>
     <color name="green">#00C802</color>
+    <color name="theme_clr">#00C802</color>
     <color name="light_grey">#B2B2B2</color>
     <color name="report_progress_clr">#A16207</color>
     <color name="red">#E33D32</color>

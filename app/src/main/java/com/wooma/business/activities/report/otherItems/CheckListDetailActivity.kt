@@ -1,6 +1,7 @@
 package com.wooma.business.activities.report.otherItems
 
 import android.app.Activity
+import android.app.ProgressDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -67,7 +68,14 @@ class CheckListDetailActivity : BaseActivity() {
             reportId = reportId,
             isReadOnly = isReadOnly,
             onFieldAnswerChanged = { fieldId, answerText ->
-                if (fieldId != null) upsertFieldAnswerApi(fieldId, answerText)
+                if (fieldId != null) {
+                    val index = checkListInfoItems.indexOfFirst { it.checklist_field_id == fieldId }
+                    if (index != -1) {
+                        checkListInfoItems[index].answer_text = answerText
+                        hasChanges = true
+                        upsertFieldAnswerApi(fieldId, answerText, true)
+                    }
+                }
             }
         )
 
@@ -77,12 +85,20 @@ class CheckListDetailActivity : BaseActivity() {
             reportId = reportId,
             isReadOnly = isReadOnly,
             onAnswerSelected = { question, answerOption ->
-                hasChanges = true
-                upsertQuestionAnswerApi(question, answerOption, question.note)
+                val index = checkListQuestionItems.indexOfFirst { it.checklist_question_id == question.checklist_question_id }
+                if (index != -1) {
+                    checkListQuestionItems[index] = question.copy(answer_option = answerOption)
+                    hasChanges = true
+                    upsertQuestionAnswerApi(checkListQuestionItems[index], answerOption, question.note, true)
+                }
             },
             onNoteChanged = { question, note ->
-                hasChanges = true
-                upsertQuestionAnswerApi(question, question.answer_option, note)
+                val index = checkListQuestionItems.indexOfFirst { it.checklist_question_id == question.checklist_question_id }
+                if (index != -1) {
+                    checkListQuestionItems[index] = question.copy(note = note)
+                    hasChanges = true
+                    upsertQuestionAnswerApi(checkListQuestionItems[index], question.answer_option, note, true)
+                }
             },
             onCameraClick = { questionId ->
                 pendingCameraQuestionId = questionId
@@ -95,7 +111,11 @@ class CheckListDetailActivity : BaseActivity() {
         binding.rvQuestions.adapter = questionAdapter
 
         binding.ivBack.setOnClickListener {
-            if (hasChanges && !isReadOnly) showUnsavedChangesDialog { finish() } else finish()
+            onBackPressed()
+        }
+
+        binding.btnSave.setOnClickListener {
+            saveAllDataAndExit(true)
         }
 
         getChecklistDetailApi(checklistId)
@@ -114,10 +134,63 @@ class CheckListDetailActivity : BaseActivity() {
         }
     }
 
+    private fun saveAllDataAndExit(showLoading: Boolean = false) {
+        if (isReadOnly) {
+            if (!showLoading) super.onBackPressed()
+            return
+        }
+
+        var remainingRequests = checkListInfoItems.size + checkListQuestionItems.size
+        if (remainingRequests == 0) {
+            if (!showLoading) super.onBackPressed()
+            return
+        }
+
+        val progressBar = ProgressDialog(this)
+        if (showLoading) {
+            progressBar.setMessage("Saving...")
+            progressBar.setCancelable(false)
+            progressBar.show()
+        }
+
+        val onTaskComplete = {
+            remainingRequests--
+            if (remainingRequests <= 0) {
+                if (showLoading && progressBar.isShowing) progressBar.dismiss()
+                if (!showLoading) super.onBackPressed()
+                else {
+                    showToast("Saved successfully")
+                    hasChanges = false
+                }
+            }
+        }
+
+        // 1. Save Info Fields
+        for (item in checkListInfoItems) {
+            val fieldId = item.checklist_field_id
+            val text = item.answer_text ?: ""
+            if (fieldId != null) {
+                upsertFieldAnswerApi(fieldId, text, false, onTaskComplete)
+            } else {
+                onTaskComplete()
+            }
+        }
+
+        // 2. Save Questions
+        for (question in checkListQuestionItems) {
+            upsertQuestionAnswerApi(question, question.answer_option, question.note, false, onTaskComplete)
+        }
+    }
+
     @Suppress("OVERRIDE_DEPRECATION")
     override fun onBackPressed() {
-        if (hasChanges && !isReadOnly) showUnsavedChangesDialog { super.onBackPressed() }
-        else super.onBackPressed()
+        if (hasChanges && !isReadOnly) {
+            showUnsavedChangesDialog {
+                saveAllDataAndExit(false)
+            }
+        } else {
+            super.onBackPressed()
+        }
     }
 
     private fun uploadQuestionPhotos(questionId: String, uris: List<Uri>) {
@@ -156,11 +229,11 @@ class CheckListDetailActivity : BaseActivity() {
         )
     }
 
-    private fun upsertQuestionAnswerApi(question: Question, answerOption: String?, note: String?) {
+    private fun upsertQuestionAnswerApi(question: Question, answerOption: String?, note: String?, showLoading: Boolean, onComplete: (() -> Unit)? = null) {
         makeApiRequest(
             apiServiceClass = MyApi::class.java,
             context = this,
-            showLoading = false,
+            showLoading = showLoading,
             requestAction = { api ->
                 api.upsertQuestionAnswer(
                     UpsertQuestionAnswerRequest(
@@ -172,22 +245,26 @@ class CheckListDetailActivity : BaseActivity() {
                 )
             },
             listener = object : ApiResponseListener<ApiResponse<Any>> {
-                override fun onSuccess(response: ApiResponse<Any>) {}
+                override fun onSuccess(response: ApiResponse<Any>) {
+                    onComplete?.invoke()
+                }
                 override fun onFailure(errorMessage: ErrorResponse?) {
-                    showToast(errorMessage?.error?.message ?: "Failed to save answer")
+                    if (showLoading) showToast(errorMessage?.error?.message ?: "Failed to save answer")
+                    onComplete?.invoke()
                 }
                 override fun onError(throwable: Throwable) {
                     Log.e("Checklist", "upsertQuestionAnswer error: ${throwable.message}")
+                    onComplete?.invoke()
                 }
             }
         )
     }
 
-    private fun upsertFieldAnswerApi(fieldId: String, answerText: String) {
+    private fun upsertFieldAnswerApi(fieldId: String, answerText: String, showLoading: Boolean, onComplete: (() -> Unit)? = null) {
         makeApiRequest(
             apiServiceClass = MyApi::class.java,
             context = this,
-            showLoading = false,
+            showLoading = showLoading,
             requestAction = { api ->
                 api.upsertFieldAnswer(
                     UpsertFieldAnswerRequest(
@@ -198,12 +275,16 @@ class CheckListDetailActivity : BaseActivity() {
                 )
             },
             listener = object : ApiResponseListener<ApiResponse<Any>> {
-                override fun onSuccess(response: ApiResponse<Any>) {}
+                override fun onSuccess(response: ApiResponse<Any>) {
+                    onComplete?.invoke()
+                }
                 override fun onFailure(errorMessage: ErrorResponse?) {
-                    showToast(errorMessage?.error?.message ?: "Failed to save field answer")
+                    if (showLoading) showToast(errorMessage?.error?.message ?: "Failed to save field answer")
+                    onComplete?.invoke()
                 }
                 override fun onError(throwable: Throwable) {
                     Log.e("Checklist", "upsertFieldAnswer error: ${throwable.message}")
+                    onComplete?.invoke()
                 }
             }
         )

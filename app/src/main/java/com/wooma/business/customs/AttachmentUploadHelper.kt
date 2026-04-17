@@ -18,6 +18,8 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import android.app.ProgressDialog
+import com.wooma.business.activities.BaseActivity
 import java.io.IOException
 
 object AttachmentUploadHelper {
@@ -90,6 +92,15 @@ object AttachmentUploadHelper {
             return
         }
 
+        val progressBar = if (activity is BaseActivity) {
+            ProgressDialog(activity).apply {
+                setMessage("Uploading images...")
+                setCancelable(false)
+                show()
+                activity.activeProgressDialog = this
+            }
+        } else null
+
         val results = mutableListOf<AttachmentRecord>()
         var remaining = imageUris.size
 
@@ -97,7 +108,10 @@ object AttachmentUploadHelper {
             val fileInfo = getFileInfo(activity, uri)
             if (fileInfo == null) {
                 remaining--
-                if (remaining == 0) onComplete(results)
+                if (remaining == 0) {
+                    progressBar?.dismiss()
+                    onComplete(results)
+                }
                 continue
             }
             val (originalName, mimeType, fileSize) = fileInfo
@@ -120,7 +134,10 @@ object AttachmentUploadHelper {
                                 Log.e("AttachmentUpload", "S3 upload failed for $originalName")
                                 activity.runOnUiThread {
                                     remaining--
-                                    if (remaining == 0) onComplete(results)
+                                    if (remaining == 0) {
+                                        progressBar?.dismiss()
+                                        onComplete(results)
+                                    }
                                 }
                                 return@Thread
                             }
@@ -147,19 +164,28 @@ object AttachmentUploadHelper {
                                         override fun onSuccess(response: ApiResponse<AttachmentRecord>) {
                                             results.add(response.data)
                                             remaining--
-                                            if (remaining == 0) onComplete(results)
+                                            if (remaining == 0) {
+                                                progressBar?.dismiss()
+                                                onComplete(results)
+                                            }
                                         }
 
                                         override fun onFailure(errorMessage: ErrorResponse?) {
                                             Log.e("AttachmentUpload", "Create record failed: ${errorMessage?.error?.message}")
                                             remaining--
-                                            if (remaining == 0) onComplete(results)
+                                            if (remaining == 0) {
+                                                progressBar?.dismiss()
+                                                onComplete(results)
+                                            }
                                         }
 
                                         override fun onError(throwable: Throwable) {
                                             Log.e("AttachmentUpload", "Network error: ${throwable.message}")
                                             remaining--
-                                            if (remaining == 0) onComplete(results)
+                                            if (remaining == 0) {
+                                                progressBar?.dismiss()
+                                                onComplete(results)
+                                            }
                                         }
                                     }
                                 )
@@ -170,13 +196,19 @@ object AttachmentUploadHelper {
                     override fun onFailure(errorMessage: ErrorResponse?) {
                         Log.e("AttachmentUpload", "Presigned URL failed: ${errorMessage?.error?.message}")
                         remaining--
-                        if (remaining == 0) onComplete(results)
+                        if (remaining == 0) {
+                            progressBar?.dismiss()
+                            onComplete(results)
+                        }
                     }
 
                     override fun onError(throwable: Throwable) {
                         Log.e("AttachmentUpload", "Network error: ${throwable.message}")
                         remaining--
-                        if (remaining == 0) onComplete(results)
+                        if (remaining == 0) {
+                            progressBar?.dismiss()
+                            onComplete(results)
+                        }
                     }
                 }
             )

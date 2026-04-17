@@ -49,7 +49,7 @@ class PropertyAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = filteredList[position]
-        holder.tvAddress.text = item.address + " " + if (!item.addressLine2.isNullOrEmpty()) ", "+ item.addressLine2.isNullOrEmpty() else ""
+        holder.tvAddress.text = item.address + " " + if (!item.addressLine2.isNullOrEmpty()) ", "+ item.addressLine2 else ""
         holder.tvAddressTwo.text = item.city+", "+ item.postcode
         holder.tvTotalReports.text = "${item.noOfReports} reports"
 

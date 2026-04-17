@@ -16,7 +16,7 @@ data class InfoField(
     val type: String,
     val is_required: Boolean,
     val checklist_info_field_answer_id: String?,
-    val answer_text: String?
+    var answer_text: String?
 )
 
 data class Question(
@@ -26,9 +26,9 @@ data class Question(
     val displayOrder: Int,
     val is_required: Boolean,
     val checklist_question_answer_id: String?,
-    val answer_option: String?,
+    var answer_option: String?,
     val answer_text: String?,
-    val note: String?,
+    var note: String?,
     val checklist_question_answer_attachment: AnswerAttachment?
 ) : Parcelable {
 

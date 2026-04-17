@@ -33,6 +33,10 @@ import com.wooma.business.adapter.ImageAdapter
 import com.wooma.business.model.ImageItem
 import com.wooma.business.data.network.showToast
 import com.wooma.business.databinding.ActivityCameraBinding
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -94,7 +98,7 @@ class CameraActivity : BaseActivity() {
 
         binding.btnDone.setOnClickListener {
             pendingUris.clear()
-            pendingUris.addAll(normalizeLocalUrisToPortrait(images.filterIsInstance<ImageItem.Local>().map { it.uri }))
+            pendingUris.addAll(images.filterIsInstance<ImageItem.Local>().map { it.uri })
             setResult(RESULT_OK)
             finish()
         }
@@ -114,6 +118,7 @@ class CameraActivity : BaseActivity() {
             val preview = Preview.Builder().build()
             imageCapture = ImageCapture.Builder()
                 .setFlashMode(ImageCapture.FLASH_MODE_OFF)
+                .setJpegQuality(80)
                 .build()
 
             preview.surfaceProvider = binding.previewView.surfaceProvider
@@ -149,7 +154,7 @@ class CameraActivity : BaseActivity() {
 
                     if (isCoverImage) {
                         pendingUris.clear()
-                        pendingUris.addAll(normalizeLocalUrisToPortrait(images.filterIsInstance<ImageItem.Local>().map { it.uri }))
+                        pendingUris.addAll(images.filterIsInstance<ImageItem.Local>().map { it.uri })
                         setResult(RESULT_OK)
                         finish()
                     }
@@ -202,7 +207,7 @@ class CameraActivity : BaseActivity() {
 
         val stampedFile = createTempImageFile(prefix = "stamped_")
         FileOutputStream(stampedFile).use { out ->
-            mutable.compress(Bitmap.CompressFormat.JPEG, 95, out)
+            mutable.compress(Bitmap.CompressFormat.JPEG, 80, out)
         }
         original.recycle()
         mutable.recycle()
@@ -249,28 +254,61 @@ class CameraActivity : BaseActivity() {
     private val coverGalleryLauncher =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             uri?.let {
-                val file = fixOrientationToPortrait(copyUriToFile(it))
-                images.add(ImageItem.Local(Uri.fromFile(file)))
-                adapter.notifyItemInserted(images.size - 1)
-                updateCounter()
-                pendingUris.clear()
-                pendingUris.addAll(images.filterIsInstance<ImageItem.Local>().map { img -> img.uri })
-                setResult(RESULT_OK)
-                finish()
+                binding.progressBar.visibility = View.VISIBLE
+                lifecycleScope.launch(Dispatchers.IO) {
+                    try {
+                        val file = fixOrientationToPortrait(copyUriToFile(it))
+                        val localItem = ImageItem.Local(Uri.fromFile(file))
+
+                        withContext(Dispatchers.Main) {
+                            images.add(localItem)
+                            adapter.notifyItemInserted(images.size - 1)
+                            updateCounter()
+                            pendingUris.clear()
+                            pendingUris.addAll(images.filterIsInstance<ImageItem.Local>().map { img -> img.uri })
+                            binding.progressBar.visibility = View.GONE
+                            setResult(RESULT_OK)
+                            finish()
+                        }
+                    } catch (e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            binding.progressBar.visibility = View.GONE
+                            showToast("Failed to process image")
+                        }
+                    }
+                }
             }
         }
 
     private val multiGalleryLauncher =
         registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
             if (uris.isNullOrEmpty()) return@registerForActivityResult
-            for (uri in uris) {
-                if (images.size >= 50) break
-                val file = fixOrientationToPortrait(copyUriToFile(uri))
-                val stampedFile = stampDateTimeOnImage(file)
-                images.add(ImageItem.Local(Uri.fromFile(stampedFile)))
-                adapter.notifyItemInserted(images.size - 1)
+            binding.progressBar.visibility = View.VISIBLE
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    for (uri in uris) {
+                        if (images.size >= 50) break
+                        val file = fixOrientationToPortrait(copyUriToFile(uri))
+                        val stampedFile = stampDateTimeOnImage(file)
+                        val localItem = ImageItem.Local(Uri.fromFile(stampedFile))
+
+                        withContext(Dispatchers.Main) {
+                            images.add(localItem)
+                            adapter.notifyItemInserted(images.size - 1)
+                            updateCounter()
+                            binding.recyclerImages.scrollToPosition(images.size - 1)
+                        }
+                    }
+                } catch (e: Exception) {
+                    withContext(Dispatchers.Main) {
+                        showToast("Failed to process some images")
+                    }
+                } finally {
+                    withContext(Dispatchers.Main) {
+                        binding.progressBar.visibility = View.GONE
+                    }
+                }
             }
-            updateCounter()
         }
 
     private fun openGallery() {
@@ -288,7 +326,16 @@ class CameraActivity : BaseActivity() {
             else -> 0f
         }
 
-        var bitmap = BitmapFactory.decodeFile(file.absolutePath) ?: return file
+        val options = BitmapFactory.Options().apply {
+            inJustDecodeBounds = true
+        }
+        BitmapFactory.decodeFile(file.absolutePath, options)
+
+        // Calculate inSampleSize to downsample if the image is very large
+        options.inSampleSize = calculateInSampleSize(options, 1920, 1920)
+        options.inJustDecodeBounds = false
+        
+        var bitmap = BitmapFactory.decodeFile(file.absolutePath, options) ?: return file
 
         if (rotationDegrees != 0f) {
             val matrix = Matrix()
@@ -306,12 +353,36 @@ class CameraActivity : BaseActivity() {
             bitmap.recycle()
             bitmap = rotated
         }
-
+        
+        // Ensure orientation in EXIF is set to normal (portrait) for the new file
         val outFile = createTempImageFile(prefix = "portrait_")
-        FileOutputStream(outFile).use { out -> bitmap.compress(Bitmap.CompressFormat.JPEG, 95, out) }
+        FileOutputStream(outFile).use { out -> bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out) }
+        
+        try {
+            val newExif = ExifInterface(outFile.absolutePath)
+            newExif.setAttribute(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL.toString())
+            newExif.saveAttributes()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
         bitmap.recycle()
         file.delete()
         return outFile
+    }
+
+    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+        val (height: Int, width: Int) = options.outHeight to options.outWidth
+        var inSampleSize = 1
+
+        if (height > reqHeight || width > reqWidth) {
+            val halfHeight: Int = height / 2
+            val halfWidth: Int = width / 2
+            while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+        return inSampleSize
     }
 
     private fun copyUriToFile(uri: Uri): File {
@@ -319,15 +390,6 @@ class CameraActivity : BaseActivity() {
         val file = createTempImageFile(prefix = "gallery_")
         file.outputStream().use { out -> input.use { it.copyTo(out) } }
         return file
-    }
-
-    private fun normalizeLocalUrisToPortrait(uris: List<Uri>): List<Uri> {
-        return uris.map { uri ->
-            val path = uri.path ?: return@map uri
-            val sourceFile = File(path)
-            if (!sourceFile.exists()) return@map uri
-            Uri.fromFile(fixOrientationToPortrait(sourceFile))
-        }
     }
 
     private fun createTempImageFile(prefix: String = ""): File {

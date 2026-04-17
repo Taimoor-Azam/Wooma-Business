@@ -1,11 +1,15 @@
 package com.wooma.business.activities.report.inventorysettings
 
+import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.adapter.DuplicatePropertySelectAdapter
+import com.wooma.business.model.PropertyReportType
+import com.wooma.business.activities.report.InventoryListingActivity
+import com.wooma.business.activities.report.ReportListingActivity
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
 import com.wooma.business.data.network.makeApiRequest
@@ -74,6 +78,17 @@ class DuplicateReportActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<AddReportResponse>) {
                     if (response.success) {
                         showToast("Report duplicated successfully")
+                        val intent = Intent(this@DuplicateReportActivity, InventoryListingActivity::class.java)
+                        intent.putExtra("reportId", response.data.report_id)
+                        intent.putExtra("propertyId", property?.id)
+                        intent.putExtra("reportStatus", response.data.status)
+                        intent.putExtra("reportType", PropertyReportType(
+                            id = response.data.report_type.id,
+                            display_name = response.data.report_type.display_name,
+                            type_code = response.data.report_type.type_code
+                        ))
+                        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        startActivity(intent)
                         finish()
                     }
                 }

@@ -92,8 +92,6 @@ class LoginActivity : BaseActivity() {
                                 isLogin
                             ).putExtra("email", otpObj.email)
                         )
-//                        editPartObject = response.data
-//                        updateDataForEdit(editPartObject)
                     } else {
                     }
                 }

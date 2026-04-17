@@ -51,10 +51,15 @@ class CheckListInfoAdapter(
         holder.etInfoAnswer.isFocusable = !isReadOnly
         holder.etInfoAnswer.isFocusableInTouchMode = !isReadOnly
 
+        // Configure multiline input but handle Enter as Done (not newline)
+        holder.etInfoAnswer.setRawInputType(android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE)
+        holder.etInfoAnswer.setHorizontallyScrolling(false)
+        holder.etInfoAnswer.maxLines = Int.MAX_VALUE
+
         holder.etInfoAnswer.setOnEditorActionListener(null)
         if (!isReadOnly) {
             holder.etInfoAnswer.setOnEditorActionListener { _, actionId, _ ->
-                if (actionId == EditorInfo.IME_ACTION_DONE) {
+                if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_NEXT) {
                     val text = holder.etInfoAnswer.text.toString()
                     onFieldAnswerChanged(item.checklist_field_id, text)
                     holder.etInfoAnswer.clearFocus()
