@@ -15,6 +15,7 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.wooma.business.R
 import com.wooma.business.activities.auth.GetStartedActivity
+import com.wooma.business.customs.Utils
 import com.wooma.business.data.network.ApiResponseListener
 import com.wooma.business.data.network.MyApi
 import com.wooma.business.data.network.makeApiRequest
@@ -104,10 +105,16 @@ class SettingsFragment : Fragment() {
 
         // Log out
         binding.llLogout.setOnClickListener {
-            Prefs.clearUser(requireContext())
-            startActivity(Intent(requireContext(), GetStartedActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            })
+            Utils.showDialogBox(
+                requireContext(),
+                "Logout",
+                "Are you sure you want to log out?"
+            ) {
+                Prefs.clearUser(requireContext())
+                startActivity(Intent(requireContext(), GetStartedActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                })
+            }
         }
 
         // Delete my account

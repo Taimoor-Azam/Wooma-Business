@@ -21,6 +21,8 @@ import com.wooma.business.data.network.showToast
 import com.wooma.business.databinding.ActivityOtpBinding
 import com.wooma.business.model.ApiResponse
 import com.wooma.business.model.ErrorResponse
+import com.wooma.business.model.SendOtpData
+import com.wooma.business.model.SendOtpRequest
 import com.wooma.business.model.User
 import com.wooma.business.model.VerifyOTPRequest
 import com.wooma.business.model.VerifyOtpData
@@ -47,6 +49,9 @@ class OTPActivity : BaseActivity() {
 
         binding.btnResend.setOnClickListener {
             startResendOtpTimer(this)
+            val obj = SendOtpRequest(email)
+
+            sendOTPApi(obj)
         }
 
         binding.ivBack.setOnClickListener { finish() }
@@ -152,28 +157,32 @@ class OTPActivity : BaseActivity() {
             listener = object : ApiResponseListener<ApiResponse<VerifyOtpData>> {
                 override fun onSuccess(response: ApiResponse<VerifyOtpData>) {
                     if (response.success) {
+                        val user = User(
+                            response.data.user.id,
+                            response.data.user.email,
+                            response.data.user.firstName,
+                            response.data.user.lastName,
+                            response.data.user.isOnboarded,
+                            "",
+                            "",
+                            response.data.accessToken,
+                            response.data.user.role,
+                            response.data.refreshToken
+                        )
+                        Prefs.saveUser(this@OTPActivity, user)
+
                         if (!response.data.user.isOnboarded) {
                             val intent =
                                 Intent(this@OTPActivity, ActivateAccountActivity::class.java)
-                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            intent.flags =
+                                Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                             startActivity(intent)
                             finish()
                         } else {
-                            val user = User(
-                                response.data.user.id,
-                                response.data.user.email,
-                                response.data.user.firstName,
-                                response.data.user.lastName,
-                                response.data.user.isOnboarded,
-                                "",
-                                "",
-                                response.data.accessToken,
-                                response.data.user.role,
-                                response.data.refreshToken
-                            )
-                            Prefs.saveUser(this@OTPActivity, user)
+
                             val intent = Intent(this@OTPActivity, MainActivity::class.java)
-                            intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                            intent.flags =
+                                Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
                             startActivity(intent)
                             finish()
                         }
@@ -194,5 +203,37 @@ class OTPActivity : BaseActivity() {
             }
         )
     }
+
+    private fun sendOTPApi(otpObj: SendOtpRequest) {
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this@OTPActivity,
+            showLoading = true,
+            requestAction = { apiService ->
+                apiService.sendOTP(otpObj)
+            },
+            listener = object : ApiResponseListener<ApiResponse<SendOtpData>> {
+                override fun onSuccess(response: ApiResponse<SendOtpData>) {
+                    if (response.success) {
+
+                    } else {
+                    }
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    // Handle API error
+                    Log.e("API", errorMessage?.error?.message ?: "")
+                    showToast(errorMessage?.error?.message ?: "")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    // Handle network error
+                    Log.e("API", "Error: ${throwable.message}")
+                    showToast("Error: ${throwable.message}")
+                }
+            }
+        )
+    }
+
 
 }

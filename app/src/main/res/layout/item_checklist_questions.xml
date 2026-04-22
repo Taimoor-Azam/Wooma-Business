@@ -124,23 +124,42 @@
         </LinearLayout>
 
         <!-- Note input -->
-        <EditText
-            android:id="@+id/etNote"
+        <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/_10sdp"
-            android:background="@drawable/bg_edittext"
-            android:fontFamily="@font/sofiasans_regular"
-            android:hint="Optional note..."
-            android:imeOptions="actionDone"
-            android:inputType="textCapSentences"
-            android:maxLines="5"
-            android:minLines="1"
-            android:scrollHorizontally="false"
-            android:padding="@dimen/_10sdp"
-            android:textColor="@color/black"
-            android:textColorHint="@color/light_grey"
-            android:textSize="@dimen/_12ssp" />
+            android:background="@drawable/bg_edittext">
+
+            <EditText
+                android:id="@+id/etNote"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_toStartOf="@+id/ivNoteSaveTick"
+                android:background="@android:color/transparent"
+                android:fontFamily="@font/sofiasans_regular"
+                android:hint="Optional note..."
+                android:inputType="textMultiLine|textCapSentences"
+                android:maxLines="5"
+                android:minLines="1"
+                android:padding="@dimen/_10sdp"
+                android:scrollHorizontally="false"
+                android:textColor="@color/black"
+                android:textColorHint="@color/light_grey"
+                android:textSize="@dimen/_12ssp" />
+
+            <ImageView
+                android:id="@+id/ivNoteSaveTick"
+                android:layout_width="@dimen/_24sdp"
+                android:layout_height="@dimen/_24sdp"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true"
+                android:layout_marginEnd="@dimen/_8sdp"
+                android:padding="@dimen/_4sdp"
+                android:src="@drawable/svg_tick"
+                android:visibility="gone"
+                app:tint="@color/theme_clr" />
+
+        </RelativeLayout>
 
     </LinearLayout>
 

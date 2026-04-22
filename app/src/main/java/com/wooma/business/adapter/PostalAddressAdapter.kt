@@ -37,7 +37,7 @@ class PostalAddressAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = filteredList[position]
         holder.tvAddress.text =
-            item.line_1 + ", " + item.line_2 + ", " + item.district + ", " + item.postcode
+            item.line_1 + ", " + if (item.line_2 != null) item.line_2 + ", " else "" + item.post_town + ", " + item.postcode
 
         holder.tvAddress.setOnClickListener {
             itemClick.onItemClick(item)

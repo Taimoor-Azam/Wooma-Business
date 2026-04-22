@@ -19,10 +19,14 @@ class SplashActivity : BaseActivity() {
         setContentView(binding.root)
         applyWindowInsetsToBinding(binding.root)
 
-        handler.postDelayed(kotlinx.coroutines.Runnable {
+        handler.postDelayed({
 
             if (Prefs.getUser(this) != null && !Prefs.getUser(this)?.access_token.isNullOrEmpty()) {
-                startActivity(Intent(this, MainActivity::class.java))
+                if (Prefs.getUser(this)?.is_onboarded == true)
+                    startActivity(Intent(this, MainActivity::class.java))
+                else {
+                    startActivity(Intent(this, ActivateAccountActivity::class.java))
+                }
             } else {
                 startActivity(Intent(this, GetStartedActivity::class.java))
             }

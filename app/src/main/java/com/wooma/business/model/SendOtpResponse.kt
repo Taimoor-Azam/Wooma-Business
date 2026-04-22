@@ -57,9 +57,9 @@ data class VerifyUser(
     val id: String,
     val email: String,
     @SerializedName("first_name")
-    val firstName: String,
+    val firstName: String?,
     @SerializedName("last_name")
-    val lastName: String,
+    val lastName: String?,
     @SerializedName("is_new_user")
     val isNewUser: Boolean,
     @SerializedName("is_onboarded")
@@ -74,4 +74,28 @@ data class UserOnBoardRequest(
     val last_name: String,
     val company_name: String,
     val phone_number: String
+)
+
+data class RefreshTokenRequest(
+    @SerializedName("refresh_token")
+    val refreshToken: String,
+    @SerializedName("access_token")
+    val accessToken: String
+)
+
+data class RefreshTokenResponse(
+    val success: Boolean,
+    val data: RefreshTokenData,
+    val metadata: Metadata
+)
+
+data class RefreshTokenData(
+    @SerializedName("access_token")
+    val accessToken: String,
+    @SerializedName("refresh_token")
+    val refreshToken: String,
+    @SerializedName("token_type")
+    val tokenType: String,
+    @SerializedName("expires_in")
+    val expiresIn: Long
 )

@@ -52,14 +52,23 @@ class PropertiesFragment : Fragment() {
         }
 
         binding.btnCreateReport.setOnClickListener {
-            startActivity(Intent(requireActivity(), SelectPropertyForReportActivity::class.java).putExtra("isFromProperty",true))
+            startActivity(
+                Intent(
+                    requireActivity(),
+                    SelectPropertyForReportActivity::class.java
+                ).putExtra("isFromProperty", true)
+            )
         }
 
         binding.ivAddProperty.setOnClickListener {
             startActivity(Intent(requireActivity(), AddPropertyByPostalCodeActivity::class.java))
         }
+        
+        binding.btnAddProperty.setOnClickListener {
+            startActivity(Intent(requireActivity(), AddPropertyByPostalCodeActivity::class.java))
+        }
 
-        binding.searchView.addTextChangedListener(object : TextWatcher{
+        binding.searchView.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {
             }
 
@@ -93,10 +102,18 @@ class PropertiesFragment : Fragment() {
             requestAction = { apiService -> apiService.getPropertiesList(queryMap) },
             listener = object : ApiResponseListener<ApiResponse<TenantPropertiesWrapper>> {
                 override fun onSuccess(response: ApiResponse<TenantPropertiesWrapper>) {
+                    properties.clear()
                     if (response.data.data.isNotEmpty()) {
-                        properties.clear()
                         properties.addAll(response.data.data)
                         adapter.updateList(properties)
+                        binding.mainLayout.visibility = View.VISIBLE
+                        binding.bottomLayout.visibility = View.VISIBLE
+                        binding.emptyPropertyLayout.visibility = View.GONE
+                    } else {
+                        adapter.updateList(properties)
+                        binding.mainLayout.visibility = View.GONE
+                        binding.bottomLayout.visibility = View.GONE
+                        binding.emptyPropertyLayout.visibility = View.VISIBLE
                     }
                 }
 

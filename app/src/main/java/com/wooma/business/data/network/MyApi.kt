@@ -445,4 +445,9 @@ interface MyApi {
 
     @POST("/api/v1/tenant/restore")
     fun restoreTenantDeletion(): Call<ApiResponse<TenantResponse>>
+
+    @POST("/api/v1/auth/wb/refresh")
+    fun refreshToken(
+        @Body request: com.wooma.business.model.RefreshTokenRequest
+    ): Call<com.wooma.business.model.RefreshTokenResponse>
 }

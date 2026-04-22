@@ -9,6 +9,7 @@ import android.view.View
 import android.widget.PopupWindow
 import androidx.annotation.RequiresApi
 import android.widget.TextView
+import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
@@ -247,10 +248,17 @@ class InventoryListingActivity : BaseActivity() {
             addNewRoomApi(request)
             adapter.updateList(roomsList)
         }
-    }
 
-    override fun onBackPressed() {
-        navigateToReportListing()
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                navigateToReportListing()
+                // If you want default behavior after your logic:
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+            }
+        }
+
+        onBackPressedDispatcher.addCallback(this, callback)
     }
 
     private fun navigateToReportListing() {

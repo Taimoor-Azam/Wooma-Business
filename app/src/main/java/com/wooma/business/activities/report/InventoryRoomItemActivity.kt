@@ -167,6 +167,7 @@ class InventoryRoomItemActivity : BaseActivity() {
         applyWindowInsetsToBinding(binding.root)
 
         cameraBinding.ivAddImage.setOnClickListener {
+            CameraActivity.existingImages = allImages.toList()
             CameraActivity.pendingUris.clear()
             startActivityForResult(Intent(this, CameraActivity::class.java), CAMERA_REQUEST)
         }
@@ -216,13 +217,13 @@ class InventoryRoomItemActivity : BaseActivity() {
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
 
             binding.rvCondition.adapter =
-                ItemConditionAdapter(this, conditionItems, selectedCondition) {
-                    selectedCondition = it?.name ?: ""
+                ItemConditionAdapter(this, conditionItems, selectedCondition) { dao ->
+                    selectedCondition = dao?.name ?: ""
                     hasChanges = true
                 }
             binding.tvCleanliness.adapter =
-                ItemConditionAdapter(this, conditionItems, selectedCleanliness) {
-                    selectedCleanliness = it?.name ?: ""
+                ItemConditionAdapter(this, conditionItems, selectedCleanliness) { dao ->
+                    selectedCleanliness = dao?.name ?: ""
                     hasChanges = true
                 }
 
@@ -438,8 +439,16 @@ class InventoryRoomItemActivity : BaseActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
             val newUris = CameraActivity.pendingUris.toList()
-            allImages.addAll(newUris.map { ImageItem.Local(it) })
+            
+            // Sync allImages based on what remains in CameraActivity.resultImages
+            allImages.clear()
+            allImages.addAll(CameraActivity.resultImages)
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
+
+            // Refresh capturedUris (local only)
+            capturedUris.clear()
+            capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
+
             val entityId = roomItems?.id ?: ""
             if (entityId.isNotEmpty() && newUris.isNotEmpty()) {
                 val progress = ProgressDialog(this).apply {
@@ -455,8 +464,6 @@ class InventoryRoomItemActivity : BaseActivity() {
                     onComplete = { progress.dismiss() },
                     onError = { progress.dismiss() }
                 )
-            } else {
-                capturedUris.addAll(newUris)
             }
         }
     }

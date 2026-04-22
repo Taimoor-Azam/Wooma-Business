@@ -10,6 +10,8 @@ import com.google.gson.Gson
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.model.ErrorResponse
 import com.wooma.business.storage.Prefs
+import com.wooma.business.model.RefreshTokenRequest
+import com.wooma.business.model.RefreshTokenResponse
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -18,33 +20,78 @@ import retrofit2.Callback
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 
 object RetrofitClient {
     private var retrofit: Retrofit? = null
 
     fun getClient(baseUrl: String, context: Context): Retrofit {
         if (retrofit == null) {
-
-            val authInterceptor = Interceptor { chain ->
-                val token = Prefs.getUser(context)?.access_token
-//                val request = chain.request()
-                val request = if (!token.isNullOrEmpty()) {
-                    chain.request().newBuilder()
-                        .addHeader("Authorization", "Bearer $token")
-                        .build()
-                } else {
-                    chain.request()
-                }
-
-                chain.proceed(request)
-            }
-
             val interceptor = HttpLoggingInterceptor()
             interceptor.level = HttpLoggingInterceptor.Level.BODY
 
             val client = OkHttpClient.Builder()
-                .addInterceptor(authInterceptor)
+                .addInterceptor { chain ->
+                    val token = Prefs.getUser(context)?.access_token
+                    val originalRequest = chain.request()
+                    
+                    val request = if (!token.isNullOrEmpty()) {
+                        originalRequest.newBuilder()
+                            .addHeader("Authorization", "Bearer $token")
+                            .build()
+                    } else {
+                        originalRequest
+                    }
+
+                    val response = chain.proceed(request)
+
+                    if (response.code == 401) {
+                        val user = Prefs.getUser(context)
+                        if (user != null && !user.refresh_token.isNullOrEmpty()) {
+                            synchronized(this) {
+                                val currentToken = Prefs.getUser(context)?.access_token
+                                if (currentToken != token) {
+                                    // Token already refreshed by another thread
+                                    val newRequest = originalRequest.newBuilder()
+                                        .header("Authorization", "Bearer $currentToken")
+                                        .build()
+                                    response.close()
+                                    return@addInterceptor chain.proceed(newRequest)
+                                }
+
+                                // Perform synchronous refresh call
+                                val refreshRequest = RefreshTokenRequest(user.refresh_token, user.access_token)
+                                val api = Retrofit.Builder()
+                                    .baseUrl(baseUrl)
+                                    .addConverterFactory(GsonConverterFactory.create())
+                                    .build()
+                                    .create(MyApi::class.java)
+
+                                try {
+                                    val refreshResponse = api.refreshToken(refreshRequest).execute()
+                                    if (refreshResponse.isSuccessful && refreshResponse.body() != null) {
+                                        val newData = refreshResponse.body()!!.data
+                                        user.access_token = newData.accessToken
+                                        user.refresh_token = newData.refreshToken
+                                        Prefs.saveUser(context, user)
+
+                                        val newRequest = originalRequest.newBuilder()
+                                            .header("Authorization", "Bearer ${newData.accessToken}")
+                                            .build()
+                                        response.close()
+                                        return@addInterceptor chain.proceed(newRequest)
+                                    }
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+                        }
+                    }
+                    response
+                }
                 .addInterceptor(interceptor)
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(30, TimeUnit.SECONDS)
                 .build()
 
             retrofit = Retrofit.Builder()
@@ -91,6 +138,7 @@ fun <T, R> Activity.makeApiRequest(
             if (showLoading && progressBar.isShowing) progressBar.dismiss()
 
             if (response.code() == 401) {
+                // If it's still 401 after the interceptor's refresh attempt, logout
                 Prefs.clearUser(context)
                 context.startActivity(
                     Intent(context, GetStartedActivity::class.java)

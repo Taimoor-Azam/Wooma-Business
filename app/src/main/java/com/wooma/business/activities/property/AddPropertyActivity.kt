@@ -49,7 +49,7 @@ class AddPropertyActivity : BaseActivity() {
 
     private fun initView() {
         binding.etAddressOne.setText(postalAddress?.line_1)
-        binding.etAddressTwo.setText(postalAddress?.line_2)
+        binding.etAddressTwo.setText(postalAddress?.line_2 ?: "")
         binding.etCity.setText(postalAddress?.post_town)
         binding.etPostalCode.setText(postalAddress?.postcode)
     }

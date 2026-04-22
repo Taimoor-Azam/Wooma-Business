@@ -53,7 +53,8 @@
             android:fontFamily="@font/sofiasans_bold"
             android:text="Save"
             android:textColor="@color/theme_clr"
-            android:textSize="@dimen/_14ssp" />
+            android:textSize="@dimen/_14ssp"
+            android:visibility="gone" />
     </LinearLayout>
 
     <androidx.core.widget.NestedScrollView

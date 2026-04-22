@@ -10,6 +10,7 @@ import android.text.TextWatcher
 import android.util.Log
 import android.view.View
 import android.widget.ListPopupWindow
+import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.business.R
@@ -256,11 +257,13 @@ class InspectionRoomActivity : BaseActivity() {
         setContentView(binding.root)
         applyWindowInsetsToBinding(binding.root)
         cameraBinding = binding.cameraLayout
-        cameraBinding.rvRoomItems.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages, title = room?.name ?: "", onDelete = {
-            capturedUris.clear()
-            capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
-        })
+        cameraBinding.rvRoomItems.layoutManager =
+            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        cameraBinding.rvRoomItems.adapter =
+            ImageAdapter(allImages, title = room?.name ?: "", onDelete = {
+                capturedUris.clear()
+                capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
+            })
 
         room = intent.getParcelableExtra("room")
         reportId = intent.getStringExtra("reportId") ?: ""
@@ -286,7 +289,8 @@ class InspectionRoomActivity : BaseActivity() {
                 override fun onItemClick(item: String) {
                     val fullText = binding.etIssueNote.text.toString()
                     val lastSemicolon = fullText.lastIndexOf(';')
-                    val prefix = if (lastSemicolon >= 0) fullText.substring(0, lastSemicolon + 1).trimEnd() + " " else ""
+                    val prefix = if (lastSemicolon >= 0) fullText.substring(0, lastSemicolon + 1)
+                        .trimEnd() + " " else ""
                     val newText = "$prefix$item; "
                     binding.etIssueNote.setText(newText)
                     binding.etIssueNote.setSelection(newText.length)
@@ -317,7 +321,8 @@ class InspectionRoomActivity : BaseActivity() {
                     return
                 }
                 val lastSemicolon = fullText.lastIndexOf(';')
-                val currentWord = if (lastSemicolon >= 0) fullText.substring(lastSemicolon + 1).trim() else fullText.trim()
+                val currentWord = if (lastSemicolon >= 0) fullText.substring(lastSemicolon + 1)
+                    .trim() else fullText.trim()
                 issueSuggestionsAdapter.filter(currentWord)
             }
         })
@@ -343,11 +348,21 @@ class InspectionRoomActivity : BaseActivity() {
                 reportStatus == TenantReportStatus.HISTORICAL.value ||
                 reportStatus == TenantReportStatus.TENANT_REVIEW.value
         if (isReadOnly) applyReadOnlyMode()
-    }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (hasChanges) showUnsavedChangesDialog { super.onBackPressed() } else super.onBackPressed()
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (hasChanges) showUnsavedChangesDialog {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                } else {
+                    // If you want default behavior after your logic:
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        }
+
+        onBackPressedDispatcher.addCallback(this, callback)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -419,12 +434,18 @@ class InspectionRoomActivity : BaseActivity() {
                     val roomData = response.data?.find { it.id == room?.id } ?: return
                     allImages.clear()
                     roomData.attachments?.forEach { attachment ->
-                        allImages.add(ImageItem.Remote(attachment.id, "${ApiClient.IMAGE_BASE_URL}${attachment.storageKey}"))
+                        allImages.add(
+                            ImageItem.Remote(
+                                attachment.id,
+                                "${ApiClient.IMAGE_BASE_URL}${attachment.storageKey}"
+                            )
+                        )
                     }
                     cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
                     roomData.inspection?.firstOrNull()?.let { populateInspection(it) }
                     binding.root.post { hasChanges = false }
                 }
+
                 override fun onFailure(errorMessage: ErrorResponse?) {}
                 override fun onError(throwable: Throwable) {}
             }
@@ -438,7 +459,8 @@ class InspectionRoomActivity : BaseActivity() {
         if (issue) {
             inspection.note?.let { binding.etIssueNote.setText(it) }
 
-            val matched = priorityValues.firstOrNull { it.equals(inspection.priority, ignoreCase = true) }
+            val matched =
+                priorityValues.firstOrNull { it.equals(inspection.priority, ignoreCase = true) }
             if (matched != null) {
                 selectedPriority = matched
                 val label = priorityLabels[priorityValues.indexOf(matched)]
@@ -469,26 +491,57 @@ class InspectionRoomActivity : BaseActivity() {
     }
 
     private fun showPriorityDropdown() {
-        data class PriorityItem(val label: String, val value: String, val subtitle: String, val iconRes: Int)
+        data class PriorityItem(
+            val label: String,
+            val value: String,
+            val subtitle: String,
+            val iconRes: Int
+        )
 
         val items = listOf(
-            PriorityItem("Observation", "observation", "Minor issue for information only", R.drawable.svg_observation),
-            PriorityItem("Action required", "action required", "Issue that needs to be addressed", R.drawable.svg_action_required),
-            PriorityItem("Urgent", "urgent", "Critical issue requiring immediate attention", R.drawable.svg_urgent)
+            PriorityItem(
+                "Observation",
+                "observation",
+                "Minor issue for information only",
+                R.drawable.svg_observation
+            ),
+            PriorityItem(
+                "Action required",
+                "action required",
+                "Issue that needs to be addressed",
+                R.drawable.svg_action_required
+            ),
+            PriorityItem(
+                "Urgent",
+                "urgent",
+                "Critical issue requiring immediate attention",
+                R.drawable.svg_urgent
+            )
         )
 
         val adapter = object : android.widget.BaseAdapter() {
             override fun getCount() = items.size
             override fun getItem(position: Int) = items[position]
             override fun getItemId(position: Int) = position.toLong()
-            override fun getView(position: Int, convertView: android.view.View?, parent: android.view.ViewGroup): android.view.View {
-                val view = convertView ?: layoutInflater.inflate(R.layout.item_priority_option, parent, false)
+            override fun getView(
+                position: Int,
+                convertView: android.view.View?,
+                parent: android.view.ViewGroup
+            ): android.view.View {
+                val view = convertView ?: layoutInflater.inflate(
+                    R.layout.item_priority_option,
+                    parent,
+                    false
+                )
                 val item = items[position]
-                view.findViewById<android.widget.ImageView>(R.id.ivPriorityIcon).setImageResource(item.iconRes)
+                view.findViewById<android.widget.ImageView>(R.id.ivPriorityIcon)
+                    .setImageResource(item.iconRes)
                 view.findViewById<android.widget.TextView>(R.id.tvPriorityTitle).text = item.label
-                view.findViewById<android.widget.TextView>(R.id.tvPrioritySubtitle).text = item.subtitle
+                view.findViewById<android.widget.TextView>(R.id.tvPrioritySubtitle).text =
+                    item.subtitle
                 val ivCheck = view.findViewById<android.widget.ImageView>(R.id.ivCheck)
-                ivCheck.visibility = if (item.value == selectedPriority) android.view.View.VISIBLE else android.view.View.GONE
+                ivCheck.visibility =
+                    if (item.value == selectedPriority) android.view.View.VISIBLE else android.view.View.GONE
                 return view
             }
         }
@@ -553,7 +606,9 @@ class InspectionRoomActivity : BaseActivity() {
     }
 
     private fun uploadPhotosIfNeeded(entityId: String) {
-        if (capturedUris.isEmpty()) { finish(); return }
+        if (capturedUris.isEmpty()) {
+            finish(); return
+        }
         AttachmentUploadHelper.uploadImages(
             activity = this,
             imageUris = capturedUris,

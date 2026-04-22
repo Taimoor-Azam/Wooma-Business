@@ -78,15 +78,11 @@ class DuplicateReportActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<AddReportResponse>) {
                     if (response.success) {
                         showToast("Report duplicated successfully")
-                        val intent = Intent(this@DuplicateReportActivity, InventoryListingActivity::class.java)
-                        intent.putExtra("reportId", response.data.report_id)
-                        intent.putExtra("propertyId", property?.id)
-                        intent.putExtra("reportStatus", response.data.status)
-                        intent.putExtra("reportType", PropertyReportType(
-                            id = response.data.report_type.id,
-                            display_name = response.data.report_type.display_name,
-                            type_code = response.data.report_type.type_code
-                        ))
+                        
+                        val intent = Intent(this@DuplicateReportActivity, ReportListingActivity::class.java)
+                        intent.putExtra("duplicatedReport", response.data)
+                        intent.putExtra("propertyId", response.data.property.id ?: property?.id ?: "")
+                        
                         intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
                         startActivity(intent)
                         finish()
@@ -94,13 +90,11 @@ class DuplicateReportActivity : BaseActivity() {
                 }
 
                 override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
                     Log.e("API", errorMessage?.error?.message ?: "")
                     showToast(errorMessage?.error?.message ?: "")
                 }
 
                 override fun onError(throwable: Throwable) {
-                    // Handle network error
                     Log.e("API", "Error: ${throwable.message}")
                     showToast("Error: ${throwable.message}")
                 }

@@ -15,8 +15,10 @@ data class InfoField(
     val label: String,
     val type: String,
     val is_required: Boolean,
+    val is_changed: Boolean? = false,
     val checklist_info_field_answer_id: String?,
-    var answer_text: String?
+    var answer_text: String?,
+    var original_answer_text: String? = null // For tracking changes
 )
 
 data class Question(
@@ -25,10 +27,12 @@ data class Question(
     val type: String,
     val displayOrder: Int,
     val is_required: Boolean,
+    var is_changed: Boolean? = false,
     val checklist_question_answer_id: String?,
     var answer_option: String?,
     val answer_text: String?,
     var note: String?,
+    var original_note: String? = null, // For tracking changes
     val checklist_question_answer_attachment: AnswerAttachment?
 ) : Parcelable {
 
@@ -42,6 +46,7 @@ data class Question(
         answer_option = parcel.readString(),
         answer_text = parcel.readString(),
         note = parcel.readString(),
+        original_note = parcel.readString(),
         checklist_question_answer_attachment = parcel.readParcelable(AnswerAttachment::class.java.classLoader)
     )
 
@@ -57,6 +62,7 @@ data class Question(
         parcel.writeString(answer_option)
         parcel.writeString(answer_text)
         parcel.writeString(note)
+        parcel.writeString(original_note)
         parcel.writeParcelable(checklist_question_answer_attachment, flags)
     }
 

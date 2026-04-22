@@ -17,7 +17,12 @@ import androidx.exifinterface.media.ExifInterface
 import android.media.MediaActionSound
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
+import android.view.OrientationEventListener
+import android.view.Surface
 import android.view.View
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
@@ -46,20 +51,24 @@ import java.util.Locale
 class CameraActivity : BaseActivity() {
     private lateinit var binding: ActivityCameraBinding
 
-    private lateinit var imageCapture: ImageCapture
+    private var imageCapture: ImageCapture? = null
     private lateinit var camera: Camera
 
     private val images = mutableListOf<ImageItem>()
+    private val sessionLocalUris = mutableListOf<Uri>() // Only newly added images this session
     private lateinit var adapter: ImageAdapter
 
     private var flashEnabled = false
     private var isCoverImage = false
     private var isZoom2x = false
 
+    val imageLimit = 50
     private val shutterSound = MediaActionSound()
 
     companion object {
         val pendingUris = mutableListOf<Uri>()
+        var existingImages = listOf<ImageItem>()
+        val resultImages = mutableListOf<ImageItem>()
     }
 
     private val cameraPermissionLauncher =
@@ -80,6 +89,8 @@ class CameraActivity : BaseActivity() {
             binding.btnDone.visibility = View.GONE
             binding.recyclerImages.visibility = View.GONE
             binding.txtCounter.visibility = View.GONE
+        } else {
+            images.addAll(existingImages)
         }
 
         setupRecycler()
@@ -92,20 +103,42 @@ class CameraActivity : BaseActivity() {
         binding.btn2x.setOnClickListener { setZoom(true) }
 
         binding.btnBack.setOnClickListener {
-            setResult(RESULT_CANCELED)
-            finish()
+            saveAndExit()
         }
 
         binding.btnDone.setOnClickListener {
-            pendingUris.clear()
-            pendingUris.addAll(images.filterIsInstance<ImageItem.Local>().map { it.uri })
-            setResult(RESULT_OK)
-            finish()
+            saveAndExit()
         }
+
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                saveAndExit()
+                // If you want default behavior after your logic:
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+            }
+        }
+
+        onBackPressedDispatcher.addCallback(this, callback)
+    }
+
+    private fun saveAndExit() {
+        pendingUris.clear()
+        pendingUris.addAll(sessionLocalUris)
+
+        resultImages.clear()
+        resultImages.addAll(images)
+
+        setResult(RESULT_OK)
+        finish()
     }
 
     private fun checkCameraPermission() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED)
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.CAMERA
+            ) == PackageManager.PERMISSION_GRANTED
+        )
             startCamera()
         else
             cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
@@ -116,22 +149,59 @@ class CameraActivity : BaseActivity() {
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
             val preview = Preview.Builder().build()
-            imageCapture = ImageCapture.Builder()
+
+            val rotation = binding.previewView.display?.rotation ?: Surface.ROTATION_0
+
+            val capture = ImageCapture.Builder()
                 .setFlashMode(ImageCapture.FLASH_MODE_OFF)
                 .setJpegQuality(80)
+                .setTargetRotation(rotation)
                 .build()
+
+            imageCapture = capture
 
             preview.surfaceProvider = binding.previewView.surfaceProvider
             cameraProvider.unbindAll()
-            camera = cameraProvider.bindToLifecycle(this, CameraSelector.DEFAULT_BACK_CAMERA, preview, imageCapture)
-
-            // Apply current zoom after camera is ready
+            camera = cameraProvider.bindToLifecycle(
+                this,
+                CameraSelector.DEFAULT_BACK_CAMERA,
+                preview,
+                capture
+            )
             camera.cameraControl.setZoomRatio(if (isZoom2x) 2f else 1f)
         }, ContextCompat.getMainExecutor(this))
     }
 
+    private val orientationEventListener by lazy {
+        object : OrientationEventListener(this) {
+            override fun onOrientationChanged(orientation: Int) {
+                if (orientation == ORIENTATION_UNKNOWN) return
+
+                val rotation = when (orientation) {
+                    in 45..134 -> Surface.ROTATION_270
+                    in 135..224 -> Surface.ROTATION_180
+                    in 225..314 -> Surface.ROTATION_90
+                    else -> Surface.ROTATION_0
+                }
+
+                imageCapture?.targetRotation = rotation
+            }
+        }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        orientationEventListener.enable()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        orientationEventListener.disable()
+    }
+
     private fun takePhoto() {
-        if (images.size >= 50) return
+        if (images.size >= imageLimit) return
+        val capture = imageCapture ?: return
 
         val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         if (audioManager.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
@@ -141,20 +211,23 @@ class CameraActivity : BaseActivity() {
         val file = createTempImageFile()
         val output = ImageCapture.OutputFileOptions.Builder(file).build()
 
-        imageCapture.takePicture(output, ContextCompat.getMainExecutor(this),
+        capture.takePicture(
+            output, ContextCompat.getMainExecutor(this),
             object : ImageCapture.OnImageSavedCallback {
                 override fun onImageSaved(result: ImageCapture.OutputFileResults) {
                     val fixedFile = fixOrientationToPortrait(file)
-                    val stampedFile = if (isCoverImage) fixedFile else stampDateTimeOnImage(fixedFile)
+                    val stampedFile =
+                        if (isCoverImage) fixedFile else stampDateTimeOnImage(fixedFile)
                     val uri = Uri.fromFile(stampedFile)
 
                     images.add(ImageItem.Local(uri))
+                    sessionLocalUris.add(uri)
                     adapter.notifyItemInserted(images.size - 1)
                     updateCounter()
 
                     if (isCoverImage) {
                         pendingUris.clear()
-                        pendingUris.addAll(images.filterIsInstance<ImageItem.Local>().map { it.uri })
+                        pendingUris.add(uri)
                         setResult(RESULT_OK)
                         finish()
                     }
@@ -172,7 +245,8 @@ class CameraActivity : BaseActivity() {
         val mutable = original.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = Canvas(mutable)
 
-        val dateText = SimpleDateFormat("dd  MMM  yyyy,  HH:mm:ss", Locale.getDefault()).format(Date())
+        val dateText =
+            SimpleDateFormat("dd  MMM  yyyy,  HH:mm:ss", Locale.getDefault()).format(Date())
 
         val scale = mutable.width / 1080f
         val textSizePx = 40f * scale
@@ -199,7 +273,12 @@ class CameraActivity : BaseActivity() {
         val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.parseColor("#80000000")
         }
-        canvas.drawRoundRect(RectF(rectLeft, rectTop, rectRight, rectBottom), cornerRadius, cornerRadius, bgPaint)
+        canvas.drawRoundRect(
+            RectF(rectLeft, rectTop, rectRight, rectBottom),
+            cornerRadius,
+            cornerRadius,
+            bgPaint
+        )
 
         val textX = rectLeft + paddingH
         val textY = rectBottom - paddingV - textPaint.descent()
@@ -216,8 +295,10 @@ class CameraActivity : BaseActivity() {
     }
 
     private fun toggleFlash() {
+        val capture = imageCapture ?: return
         flashEnabled = !flashEnabled
-        imageCapture.flashMode = if (flashEnabled) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
+        capture.flashMode =
+            if (flashEnabled) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
         binding.btnFlash.setImageResource(if (flashEnabled) R.drawable.svg_flash else R.drawable.svg_flash_active)
     }
 
@@ -242,13 +323,27 @@ class CameraActivity : BaseActivity() {
     }
 
     private fun setupRecycler() {
-        adapter = ImageAdapter(images, onDelete = { updateCounter() })
-        binding.recyclerImages.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        adapter = ImageAdapter(images, showDelete = true, onDelete = {
+            sessionLocalUris.clear()
+            val sessionImages = images.filterIsInstance<ImageItem.Local>().map { it.uri }.filter { uri ->
+                existingImages.filterIsInstance<ImageItem.Local>().none { it.uri == uri }
+            }
+            sessionLocalUris.addAll(sessionImages)
+            updateCounter()
+        })
+        binding.recyclerImages.layoutManager =
+            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         binding.recyclerImages.adapter = adapter
+        updateCounter()
     }
 
     private fun updateCounter() {
-        binding.txtCounter.text = "${images.size}/50"
+        val size = images.size
+        binding.txtCounter.text = "$size/$imageLimit"
+
+        if (!isCoverImage) {
+            binding.previewCard.visibility = if (size >= imageLimit) View.GONE else View.VISIBLE
+        }
     }
 
     private val coverGalleryLauncher =
@@ -262,10 +357,11 @@ class CameraActivity : BaseActivity() {
 
                         withContext(Dispatchers.Main) {
                             images.add(localItem)
+                            sessionLocalUris.add(localItem.uri)
                             adapter.notifyItemInserted(images.size - 1)
                             updateCounter()
                             pendingUris.clear()
-                            pendingUris.addAll(images.filterIsInstance<ImageItem.Local>().map { img -> img.uri })
+                            pendingUris.add(localItem.uri)
                             binding.progressBar.visibility = View.GONE
                             setResult(RESULT_OK)
                             finish()
@@ -281,22 +377,37 @@ class CameraActivity : BaseActivity() {
         }
 
     private val multiGalleryLauncher =
-        registerForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(imageLimit)) { uris ->
             if (uris.isNullOrEmpty()) return@registerForActivityResult
+            
+            val remainingSlots = imageLimit - images.size
+            if (remainingSlots <= 0) {
+                showToast("Limit reached")
+                return@registerForActivityResult
+            }
+            
+            val limitedUris = uris.take(remainingSlots)
+            
             binding.progressBar.visibility = View.VISIBLE
             lifecycleScope.launch(Dispatchers.IO) {
                 try {
-                    for (uri in uris) {
-                        if (images.size >= 50) break
+                    for (uri in limitedUris) {
                         val file = fixOrientationToPortrait(copyUriToFile(uri))
                         val stampedFile = stampDateTimeOnImage(file)
                         val localItem = ImageItem.Local(Uri.fromFile(stampedFile))
 
                         withContext(Dispatchers.Main) {
                             images.add(localItem)
+                            sessionLocalUris.add(localItem.uri)
                             adapter.notifyItemInserted(images.size - 1)
                             updateCounter()
                             binding.recyclerImages.scrollToPosition(images.size - 1)
+                        }
+                    }
+                    
+                    if (uris.size > remainingSlots) {
+                        withContext(Dispatchers.Main) {
+                            showToast("Only $remainingSlots images were added (Limit: $imageLimit)")
                         }
                     }
                 } catch (e: Exception) {
@@ -313,101 +424,76 @@ class CameraActivity : BaseActivity() {
 
     private fun openGallery() {
         if (isCoverImage) coverGalleryLauncher.launch("image/*")
-        else multiGalleryLauncher.launch("image/*")
-    }
-
-    private fun fixOrientationToPortrait(file: File): File {
-        val exif = ExifInterface(file.absolutePath)
-        val orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL)
-        val rotationDegrees = when (orientation) {
-            ExifInterface.ORIENTATION_ROTATE_90 -> 90f
-            ExifInterface.ORIENTATION_ROTATE_180 -> 180f
-            ExifInterface.ORIENTATION_ROTATE_270 -> 270f
-            else -> 0f
-        }
-
-        val options = BitmapFactory.Options().apply {
-            inJustDecodeBounds = true
-        }
-        BitmapFactory.decodeFile(file.absolutePath, options)
-
-        // Calculate inSampleSize to downsample if the image is very large
-        options.inSampleSize = calculateInSampleSize(options, 1920, 1920)
-        options.inJustDecodeBounds = false
-        
-        var bitmap = BitmapFactory.decodeFile(file.absolutePath, options) ?: return file
-
-        if (rotationDegrees != 0f) {
-            val matrix = Matrix()
-            matrix.postRotate(rotationDegrees)
-            val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-            bitmap.recycle()
-            bitmap = rotated
-        }
-
-        // If still landscape after EXIF correction, rotate 90° clockwise to portrait
-        if (bitmap.width > bitmap.height) {
-            val matrix = Matrix()
-            matrix.postRotate(90f)
-            val rotated = Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
-            bitmap.recycle()
-            bitmap = rotated
-        }
-        
-        // Ensure orientation in EXIF is set to normal (portrait) for the new file
-        val outFile = createTempImageFile(prefix = "portrait_")
-        FileOutputStream(outFile).use { out -> bitmap.compress(Bitmap.CompressFormat.JPEG, 80, out) }
-        
-        try {
-            val newExif = ExifInterface(outFile.absolutePath)
-            newExif.setAttribute(ExifInterface.TAG_ORIENTATION, ExifInterface.ORIENTATION_NORMAL.toString())
-            newExif.saveAttributes()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
-
-        bitmap.recycle()
-        file.delete()
-        return outFile
-    }
-
-    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
-        val (height: Int, width: Int) = options.outHeight to options.outWidth
-        var inSampleSize = 1
-
-        if (height > reqHeight || width > reqWidth) {
-            val halfHeight: Int = height / 2
-            val halfWidth: Int = width / 2
-            while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
-                inSampleSize *= 2
+        else {
+            val remaining = imageLimit - images.size
+            if (remaining <= 0) {
+                showToast("Limit reached")
+                return
             }
+            multiGalleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
-        return inSampleSize
+    }
+
+    private fun createTempImageFile(prefix: String = "temp_"): File {
+        val storageDir = getExternalFilesDir(null)
+        return File.createTempFile(prefix, ".jpg", storageDir)
     }
 
     private fun copyUriToFile(uri: Uri): File {
-        val input = contentResolver.openInputStream(uri) ?: error("Cannot open URI: $uri")
-        val file = createTempImageFile(prefix = "gallery_")
-        file.outputStream().use { out -> input.use { it.copyTo(out) } }
+        val file = createTempImageFile("gallery_")
+        contentResolver.openInputStream(uri)?.use { input ->
+            FileOutputStream(file).use { output ->
+                input.copyTo(output)
+            }
+        }
         return file
     }
 
-    private fun createTempImageFile(prefix: String = ""): File {
-        val tempDir = File(cacheDir, "camera_images").apply {
-            if (!exists()) {
-                mkdirs()
-                try {
-                    File(this, ".nomedia").createNewFile()
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
-        }
-        return File(tempDir, "${prefix}${System.currentTimeMillis()}.jpg")
-    }
+    private fun fixOrientationToPortrait(file: File): File {
+        val exifInterface = ExifInterface(file.absolutePath)
+        val orientation = exifInterface.getAttributeInt(
+            ExifInterface.TAG_ORIENTATION,
+            ExifInterface.ORIENTATION_UNDEFINED
+        )
 
-    override fun onDestroy() {
-        super.onDestroy()
-        shutterSound.release()
+        val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+        val matrix = Matrix()
+        when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> matrix.postRotate(90f)
+            ExifInterface.ORIENTATION_ROTATE_180 -> matrix.postRotate(180f)
+            ExifInterface.ORIENTATION_ROTATE_270 -> matrix.postRotate(270f)
+        }
+
+        val rotatedBitmap =
+            Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+
+        // Ensure it's portrait
+        val finalBitmap = if (rotatedBitmap.width > rotatedBitmap.height) {
+            val portraitMatrix = Matrix()
+            portraitMatrix.postRotate(90f)
+            Bitmap.createBitmap(
+                rotatedBitmap,
+                0,
+                0,
+                rotatedBitmap.width,
+                rotatedBitmap.height,
+                portraitMatrix,
+                true
+            )
+        } else {
+            rotatedBitmap
+        }
+
+        val portraitFile = createTempImageFile("portrait_")
+        FileOutputStream(portraitFile).use { out ->
+            finalBitmap.compress(Bitmap.CompressFormat.JPEG, 80, out)
+        }
+
+        bitmap.recycle()
+        if (rotatedBitmap != finalBitmap) rotatedBitmap.recycle()
+        finalBitmap.recycle()
+        file.delete()
+
+        return portraitFile
     }
 }

@@ -2,6 +2,9 @@ package com.wooma.business.adapter
 
 import android.content.Context
 import android.net.Uri
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -25,9 +28,10 @@ class InventoryCheckListQuestionAdapter(
     val reportId: String,
     private val isReadOnly: Boolean = false,
     private val onAnswerSelected: (question: Question, answerOption: String) -> Unit,
-    private val onNoteChanged: (question: Question, note: String) -> Unit,
+    private val onNoteChanged: (question: Question, note: String, showLoading: Boolean) -> Unit,
     private val onCameraClick: (questionId: String) -> Unit
 ) : RecyclerView.Adapter<InventoryCheckListQuestionAdapter.ViewHolder>() {
+    private var isHandlingEnter = false
 
     private var filteredList = originalList.toMutableList()
     private val expandedStates = mutableMapOf<String, Boolean>()
@@ -43,6 +47,7 @@ class InventoryCheckListQuestionAdapter(
         val ivAddImage: ImageView = view.findViewById(R.id.ivAddImage)
         val rvImages: RecyclerView = view.findViewById(R.id.rvImages)
         val etNote: EditText = view.findViewById(R.id.etNote)
+        val ivNoteSaveTick: ImageView = view.findViewById(R.id.ivNoteSaveTick)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -58,106 +63,154 @@ class InventoryCheckListQuestionAdapter(
         val questionId = item.checklist_question_id
 
         holder.tvQuestion.text = item.text
-
-        // Restore answer button state
         updateAnswerButtons(holder, item.answer_option)
 
-        // Restore expand/collapse state
         val isExpanded = expandedStates[questionId] ?: false
         holder.expandedLayout.visibility = if (isExpanded) View.VISIBLE else View.GONE
         holder.ivChevron.rotation = if (isExpanded) 270f else 90f
 
         holder.ivChevron.setOnClickListener {
-            val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnClickListener
-            val qId = filteredList.getOrNull(pos)?.checklist_question_id ?: return@setOnClickListener
+            val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() }
+                ?: return@setOnClickListener
+            val qId =
+                filteredList.getOrNull(pos)?.checklist_question_id ?: return@setOnClickListener
             val expanded = !(expandedStates[qId] ?: false)
             expandedStates[qId] = expanded
             notifyItemChanged(pos)
         }
 
-        // Yes / No / N/A click listeners
         if (!isReadOnly) {
             holder.btnYes.setOnClickListener {
-                val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnClickListener
+                val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() }
+                    ?: return@setOnClickListener
                 updateAnswerButtons(holder, "yes")
                 filteredList[pos] = filteredList[pos].copy(answer_option = "yes")
                 onAnswerSelected(filteredList[pos], "yes")
             }
             holder.btnNo.setOnClickListener {
-                val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnClickListener
+                val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() }
+                    ?: return@setOnClickListener
                 updateAnswerButtons(holder, "no")
                 filteredList[pos] = filteredList[pos].copy(answer_option = "no")
                 onAnswerSelected(filteredList[pos], "no")
             }
             holder.btnNA.setOnClickListener {
-                val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnClickListener
+                val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() }
+                    ?: return@setOnClickListener
                 updateAnswerButtons(holder, "na")
                 filteredList[pos] = filteredList[pos].copy(answer_option = "na")
                 onAnswerSelected(filteredList[pos], "na")
             }
-        } else {
-            holder.btnYes.setOnClickListener(null)
-            holder.btnNo.setOnClickListener(null)
-            holder.btnNA.setOnClickListener(null)
         }
 
-        // Note field — reset listeners before setting text to avoid recycled-view interference
-        holder.etNote.setOnFocusChangeListener(null)
-        holder.etNote.setOnEditorActionListener(null)
+        holder.etNote.onFocusChangeListener = null
+        val existingWatcher = holder.etNote.tag as? TextWatcher
+        if (existingWatcher != null) {
+            holder.etNote.removeTextChangedListener(existingWatcher)
+        }
+
         holder.etNote.setText(item.note ?: "")
         holder.etNote.isEnabled = !isReadOnly
-        holder.etNote.isFocusable = !isReadOnly
-        holder.etNote.isFocusableInTouchMode = !isReadOnly
-
-        // Configure multiline input but handle Enter as Done (not newline)
-        holder.etNote.setRawInputType(android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_FLAG_MULTI_LINE)
-        holder.etNote.setHorizontallyScrolling(false)
-        holder.etNote.maxLines = Int.MAX_VALUE
+        holder.ivNoteSaveTick.visibility = View.GONE
 
         if (!isReadOnly) {
-            // Save and dismiss keyboard when user presses Done (Enter key)
-            holder.etNote.setOnEditorActionListener { _, actionId, _ ->
-                if (actionId == EditorInfo.IME_ACTION_DONE || actionId == EditorInfo.IME_ACTION_NEXT) {
-                    val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnEditorActionListener false
-                    val current = filteredList.getOrNull(pos) ?: return@setOnEditorActionListener false
-                    val note = holder.etNote.text.toString()
-                    filteredList[pos] = current.copy(note = note)
-                    onNoteChanged(filteredList[pos], note)
-                    holder.etNote.clearFocus()
-                    val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
-                    imm.hideSoftInputFromWindow(holder.etNote.windowToken, 0)
-                    true
-                } else false
+            val textWatcher = object : TextWatcher {
+                override fun beforeTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    count: Int,
+                    after: Int
+                ) {
+                }
+
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+
+                    val fullText = s?.toString() ?: ""
+                    if (isHandlingEnter) return
+
+                    var newText = s?.toString() ?: ""
+                    if (fullText.contains('\n')) {
+                        isHandlingEnter = true
+                        newText = fullText.replace("\n", " ")
+                        holder.etNote.setText(newText)
+                        holder.etNote.setSelection(newText.length)
+                        isHandlingEnter = false
+                        return
+                    }
+                    item.is_changed = true
+                    item.note = newText
+                }
+
+                override fun afterTextChanged(s: Editable?) {}
             }
-            // Fallback: save on focus loss if note changed
+            holder.etNote.addTextChangedListener(textWatcher)
+            holder.etNote.tag = textWatcher
+
             holder.etNote.setOnFocusChangeListener { _, hasFocus ->
                 if (!hasFocus) {
-                    val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnFocusChangeListener
-                    val current = filteredList.getOrNull(pos) ?: return@setOnFocusChangeListener
-                    val note = holder.etNote.text.toString()
-                    if (note != (current.note ?: "")) {
-                        filteredList[pos] = current.copy(note = note)
-                        onNoteChanged(filteredList[pos], note)
+                    val text = holder.etNote.text.toString()
+                    if (text != (item.original_note ?: "")) {
+                        onNoteChanged(item, text, false)
                     }
                 }
             }
+
+            holder.etNote.setOnEditorActionListener { v, actionId, event ->
+                if (actionId == EditorInfo.IME_ACTION_DONE ||
+                    (event != null && event.keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN)
+                ) {
+
+                    val start = holder.etNote.selectionStart
+                    val end = holder.etNote.selectionEnd
+                    holder.etNote.text.replace(start, end, " ")
+
+                    val text = holder.etNote.text.toString()
+                    item.note = text
+                    onNoteChanged(item, text, false)
+
+                    holder.etNote.clearFocus()
+                    val imm =
+                        context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(v.windowToken, 0)
+                    true
+                } else false
+            }
+
+            holder.etNote.setOnKeyListener { v, keyCode, event ->
+                if (keyCode == KeyEvent.KEYCODE_ENTER && event.action == KeyEvent.ACTION_DOWN) {
+                    val start = holder.etNote.selectionStart
+                    val end = holder.etNote.selectionEnd
+                    holder.etNote.text.replace(start, end, " ")
+
+                    val text = holder.etNote.text.toString()
+                    item.note = text
+                    onNoteChanged(item, text, false)
+
+                    holder.etNote.clearFocus()
+                    val imm =
+                        context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.hideSoftInputFromWindow(v.windowToken, 0)
+                    true
+                } else false
+            }
         }
 
-        // Camera button
         holder.ivAddImage.visibility = if (isReadOnly) View.GONE else View.VISIBLE
         if (!isReadOnly) {
             holder.ivAddImage.setOnClickListener {
-                val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() } ?: return@setOnClickListener
-                val qId = filteredList.getOrNull(pos)?.checklist_question_id ?: return@setOnClickListener
+                val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() }
+                    ?: return@setOnClickListener
+                val qId =
+                    filteredList.getOrNull(pos)?.checklist_question_id ?: return@setOnClickListener
                 onCameraClick(qId)
             }
         }
 
-        // Photos — merge remote attachments with locally captured URIs
         val remoteImages = item.checklist_question_answer_attachment?.attachments
             ?.mapNotNull { att ->
                 val id = att.id ?: return@mapNotNull null
-                val url = att.url ?: att.storageKey?.let { "${ApiClient.IMAGE_BASE_URL}$it" } ?: return@mapNotNull null
+                val url = att.url ?: att.storageKey?.let { "${ApiClient.IMAGE_BASE_URL}$it" }
+                ?: return@mapNotNull null
                 ImageItem.Remote(id, url)
             } ?: emptyList()
         val localUris = localPhotos[questionId] ?: emptyList<Uri>()
@@ -168,10 +221,10 @@ class InventoryCheckListQuestionAdapter(
 
         holder.rvImages.layoutManager =
             LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-        holder.rvImages.adapter = ImageAdapter(photoList, showDelete = !isReadOnly, title = item.text)
+        holder.rvImages.adapter =
+            ImageAdapter(photoList, showDelete = !isReadOnly, title = item.text)
     }
 
-    /** Called by the Activity after CameraActivity returns photos for a specific question. */
     fun deliverPhotos(questionId: String, uris: List<Uri>) {
         localPhotos.getOrPut(questionId) { mutableListOf() }.addAll(uris)
         val position = filteredList.indexOfFirst { it.checklist_question_id == questionId }
@@ -204,4 +257,7 @@ class InventoryCheckListQuestionAdapter(
         notifyDataSetChanged()
     }
 
+    public fun getChangedQuestionItems(): ArrayList<Question> {
+        return filteredList.filter { it.is_changed == true } as ArrayList<Question>
+    }
 }

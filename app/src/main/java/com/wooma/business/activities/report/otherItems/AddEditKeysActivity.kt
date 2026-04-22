@@ -11,6 +11,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
 import android.view.View
+import androidx.activity.OnBackPressedCallback
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.activities.report.CameraActivity
@@ -89,6 +90,7 @@ class AddEditKeysActivity : BaseActivity() {
         isEdit = intent.getBooleanExtra("isEdit", false)
 
         cameraBinding.ivAddImage.setOnClickListener {
+            CameraActivity.existingImages = allImages.toList()
             CameraActivity.pendingUris.clear()
             startActivityForResult(Intent(this, CameraActivity::class.java), CAMERA_REQUEST)
         }
@@ -171,11 +173,21 @@ class AddEditKeysActivity : BaseActivity() {
         }
         setMeterData()
         attachChangeWatchers()
-    }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (hasChanges) showUnsavedChangesDialog { super.onBackPressed() } else super.onBackPressed()
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (hasChanges) showUnsavedChangesDialog {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                } else {
+                    // If you want default behavior after your logic:
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        }
+
+        onBackPressedDispatcher.addCallback(this, callback)
     }
 
     private fun attachChangeWatchers() {
@@ -202,8 +214,11 @@ class AddEditKeysActivity : BaseActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
             val newUris = CameraActivity.pendingUris.toList()
+            
+            allImages.removeAll { it is ImageItem.Local }
             allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
+            
             if (newUris.isNotEmpty()) hasChanges = true
             if (savedKeyId.isNotEmpty() && newUris.isNotEmpty()) {
                 val progress = ProgressDialog(this).apply {
@@ -220,6 +235,7 @@ class AddEditKeysActivity : BaseActivity() {
                     onError = { progress.dismiss() }
                 )
             } else {
+                capturedUris.clear()
                 capturedUris.addAll(newUris)
             }
         }

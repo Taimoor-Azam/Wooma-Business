@@ -1,7 +1,6 @@
 package com.wooma.business.activities.report.otherItems
 
 import android.app.Activity
-import android.app.ProgressDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -39,7 +38,6 @@ class CheckListDetailActivity : BaseActivity() {
     private var checklistId = ""
     private var checklistName = ""
     private var isReadOnly = false
-    private var hasChanges = false
 
     private val CAMERA_REQUEST = 1001
     private var pendingCameraQuestionId = ""
@@ -67,13 +65,12 @@ class CheckListDetailActivity : BaseActivity() {
             originalList = checkListInfoItems,
             reportId = reportId,
             isReadOnly = isReadOnly,
-            onFieldAnswerChanged = { fieldId, answerText ->
+            onFieldAnswerChanged = { fieldId, answerText, showLoading ->
                 if (fieldId != null) {
                     val index = checkListInfoItems.indexOfFirst { it.checklist_field_id == fieldId }
                     if (index != -1) {
                         checkListInfoItems[index].answer_text = answerText
-                        hasChanges = true
-                        upsertFieldAnswerApi(fieldId, answerText, true)
+                        upsertFieldAnswerApi(fieldId, answerText, showLoading)
                     }
                 }
             }
@@ -87,17 +84,15 @@ class CheckListDetailActivity : BaseActivity() {
             onAnswerSelected = { question, answerOption ->
                 val index = checkListQuestionItems.indexOfFirst { it.checklist_question_id == question.checklist_question_id }
                 if (index != -1) {
-                    checkListQuestionItems[index] = question.copy(answer_option = answerOption)
-                    hasChanges = true
-                    upsertQuestionAnswerApi(checkListQuestionItems[index], answerOption, question.note, true)
+                    checkListQuestionItems[index].answer_option = answerOption
+                    upsertQuestionAnswerApi(checkListQuestionItems[index], answerOption, question.note, false)
                 }
             },
-            onNoteChanged = { question, note ->
+            onNoteChanged = { question, note, showLoading ->
                 val index = checkListQuestionItems.indexOfFirst { it.checklist_question_id == question.checklist_question_id }
                 if (index != -1) {
-                    checkListQuestionItems[index] = question.copy(note = note)
-                    hasChanges = true
-                    upsertQuestionAnswerApi(checkListQuestionItems[index], question.answer_option, note, true)
+                    checkListQuestionItems[index].note = note
+                    upsertQuestionAnswerApi(checkListQuestionItems[index], question.answer_option, note, showLoading)
                 }
             },
             onCameraClick = { questionId ->
@@ -115,7 +110,7 @@ class CheckListDetailActivity : BaseActivity() {
         }
 
         binding.btnSave.setOnClickListener {
-            saveAllDataAndExit(true)
+            saveUnsavedDataAndExit()
         }
 
         getChecklistDetailApi(checklistId)
@@ -127,69 +122,51 @@ class CheckListDetailActivity : BaseActivity() {
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
             val uris = CameraActivity.pendingUris.toList()
             if (uris.isNotEmpty() && pendingCameraQuestionId.isNotEmpty()) {
-                hasChanges = true
                 questionAdapter.deliverPhotos(pendingCameraQuestionId, uris)
                 uploadQuestionPhotos(pendingCameraQuestionId, uris)
             }
         }
     }
 
-    private fun saveAllDataAndExit(showLoading: Boolean = false) {
-        if (isReadOnly) {
-            if (!showLoading) super.onBackPressed()
+    @Suppress("OVERRIDE_DEPRECATION")
+    override fun onBackPressed() {
+        if (!isReadOnly) {
+            saveUnsavedDataAndExit()
+        } else {
+            super.onBackPressed()
+        }
+    }
+
+    private fun saveUnsavedDataAndExit() {
+        val unsavedInfoFields = checkListInfoItems.filter { it.checklist_field_id != null && it.answer_text != it.original_answer_text }
+        val unsavedQuestions = checkListQuestionItems.filter { it.note != it.original_note }
+
+        if (unsavedInfoFields.isEmpty() && unsavedQuestions.isEmpty()) {
+            super.onBackPressed()
             return
         }
 
-        var remainingRequests = checkListInfoItems.size + checkListQuestionItems.size
-        if (remainingRequests == 0) {
-            if (!showLoading) super.onBackPressed()
-            return
-        }
-
-        val progressBar = ProgressDialog(this)
-        if (showLoading) {
-            progressBar.setMessage("Saving...")
-            progressBar.setCancelable(false)
-            progressBar.show()
-        }
-
+        var totalRequests = unsavedInfoFields.size + unsavedQuestions.size
+        
         val onTaskComplete = {
-            remainingRequests--
-            if (remainingRequests <= 0) {
-                if (showLoading && progressBar.isShowing) progressBar.dismiss()
-                if (!showLoading) super.onBackPressed()
-                else {
-                    showToast("Saved successfully")
-                    hasChanges = false
-                }
+            totalRequests--
+            if (totalRequests <= 0) {
+                super.onBackPressed()
             }
         }
 
-        // 1. Save Info Fields
-        for (item in checkListInfoItems) {
-            val fieldId = item.checklist_field_id
-            val text = item.answer_text ?: ""
-            if (fieldId != null) {
-                upsertFieldAnswerApi(fieldId, text, false, onTaskComplete)
-            } else {
+        for (field in unsavedInfoFields) {
+            upsertFieldAnswerApi(field.checklist_field_id!!, field.answer_text ?: "", false) {
+                field.original_answer_text = field.answer_text
                 onTaskComplete()
             }
         }
 
-        // 2. Save Questions
-        for (question in checkListQuestionItems) {
-            upsertQuestionAnswerApi(question, question.answer_option, question.note, false, onTaskComplete)
-        }
-    }
-
-    @Suppress("OVERRIDE_DEPRECATION")
-    override fun onBackPressed() {
-        if (hasChanges && !isReadOnly) {
-            showUnsavedChangesDialog {
-                saveAllDataAndExit(false)
+        for (question in unsavedQuestions) {
+            upsertQuestionAnswerApi(question, question.answer_option, question.note, false) {
+                question.original_note = question.note
+                onTaskComplete()
             }
-        } else {
-            super.onBackPressed()
         }
     }
 
@@ -246,6 +223,7 @@ class CheckListDetailActivity : BaseActivity() {
             },
             listener = object : ApiResponseListener<ApiResponse<Any>> {
                 override fun onSuccess(response: ApiResponse<Any>) {
+                    question.original_note = note // Sync local original value
                     onComplete?.invoke()
                 }
                 override fun onFailure(errorMessage: ErrorResponse?) {
@@ -276,6 +254,9 @@ class CheckListDetailActivity : BaseActivity() {
             },
             listener = object : ApiResponseListener<ApiResponse<Any>> {
                 override fun onSuccess(response: ApiResponse<Any>) {
+                    // Sync original_answer_text for this field
+                    val field = checkListInfoItems.find { it.checklist_field_id == fieldId }
+                    field?.original_answer_text = answerText
                     onComplete?.invoke()
                 }
                 override fun onFailure(errorMessage: ErrorResponse?) {
@@ -301,8 +282,13 @@ class CheckListDetailActivity : BaseActivity() {
                     if (response.success) {
                         checkListInfoItems.clear()
                         checkListQuestionItems.clear()
+                        
+                        response.data.info_fields.forEach { it.original_answer_text = it.answer_text }
+                        response.data.questions.forEach { it.original_note = it.note }
+                        
                         checkListInfoItems.addAll(response.data.info_fields)
                         checkListQuestionItems.addAll(response.data.questions)
+
                         infoAdapter.updateList(checkListInfoItems)
                         questionAdapter.updateList(checkListQuestionItems)
 

@@ -196,8 +196,8 @@
                 android:layout_width="@dimen/_32sdp"
                 android:layout_height="@dimen/_32sdp"
                 android:layout_gravity="center"
-                android:visibility="gone"
-                android:indeterminateTint="@color/green" />
+                android:indeterminateTint="@color/green"
+                android:visibility="gone" />
         </FrameLayout>
 
         <!-- Done Button -->

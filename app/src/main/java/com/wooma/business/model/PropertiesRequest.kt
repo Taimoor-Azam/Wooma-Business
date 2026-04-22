@@ -31,7 +31,7 @@ data class PostalAddress(
     val su_organisation_indicator: String,
     val delivery_point_suffix: String,
     val line_1: String,
-    val line_2: String,
+    val line_2: String? = null,
     val line_3: String,
     val premise: String,
     val longitude: Double,

@@ -12,6 +12,7 @@
         android:text="67 Union Street, Aberdeen, AB11 6BA - 2 reports"
         android:textColor="@android:color/black"
         android:textSize="@dimen/_14ssp"
+        android:maxLines="2"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

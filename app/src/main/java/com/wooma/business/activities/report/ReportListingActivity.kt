@@ -13,9 +13,11 @@ import com.wooma.business.data.network.MyApi
 import com.wooma.business.data.network.makeApiRequest
 import com.wooma.business.data.network.showToast
 import com.wooma.business.databinding.ActivityReportListingBinding
+import com.wooma.business.model.AddReportResponse
 import com.wooma.business.model.ApiResponse
 import com.wooma.business.model.ErrorResponse
 import com.wooma.business.model.PropertyDetailResponse
+import com.wooma.business.model.PropertyReportType
 import com.wooma.business.model.Report
 
 class ReportListingActivity : BaseActivity() {
@@ -31,10 +33,12 @@ class ReportListingActivity : BaseActivity() {
         binding = ActivityReportListingBinding.inflate(layoutInflater)
         setContentView(binding.root)
         applyWindowInsetsToBinding(binding.root)
-        propertyId = intent.getStringExtra("propertyId") ?: ""
 
-        adapter = ReportListingAdapter(this, reports, propertyId)
-        binding.rvReports.adapter = adapter
+        // Initialize propertyId from intent
+        propertyId = intent.getStringExtra("propertyId") ?: ""
+        
+        setupAdapter()
+        handleIntent(intent)
 
         binding.btnContinue.setOnClickListener {
             val intent = Intent(this, SelectReportTypeActivity::class.java).putExtra(
@@ -45,6 +49,51 @@ class ReportListingActivity : BaseActivity() {
         }
 
         binding.ivBack.setOnClickListener { navigateToMainActivity() }
+    }
+
+    private fun setupAdapter() {
+        adapter = ReportListingAdapter(this, reports, propertyId)
+        binding.rvReports.adapter = adapter
+    }
+
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        intent?.let {
+            setIntent(it)
+            handleIntent(it)
+        }
+    }
+
+    private fun handleIntent(intent: Intent) {
+        val newPropertyId = intent.getStringExtra("propertyId") ?: ""
+        if (newPropertyId.isNotEmpty() && newPropertyId != propertyId) {
+            propertyId = newPropertyId
+            setupAdapter() // Re-setup adapter with new propertyId
+            getPropertyByIdApi()
+        }
+
+        val duplicatedReport = intent.getParcelableExtra<AddReportResponse>("duplicatedReport")
+        if (duplicatedReport != null) {
+            Log.d("ReportListingActivity", "Handling duplicated report: ${duplicatedReport.report_id}")
+            
+            val intentToInventory = Intent(this, InventoryListingActivity::class.java)
+                .putExtra("reportStatus", duplicatedReport.status)
+                .putExtra("reportId", duplicatedReport.report_id)
+                .putExtra(
+                    "reportType", PropertyReportType(
+                        id = duplicatedReport.report_type.id,
+                        display_name = duplicatedReport.report_type.display_name,
+                        type_code = duplicatedReport.report_type.type_code
+                    )
+                )
+                .putExtra("assessor", duplicatedReport.assessor)
+                .putExtra("propertyId", propertyId)
+            
+            startActivity(intentToInventory)
+            
+            // Remove the extra so it's not re-handled on subsequent onResume/onNewIntent
+            intent.removeExtra("duplicatedReport")
+        }
     }
 
     override fun onBackPressed() {
@@ -88,23 +137,23 @@ class ReportListingActivity : BaseActivity() {
                     }
 
                     if (response.success && response.data.reports.isNotEmpty()) {
-                        adapter.updateList(response.data.reports)
+                        reports.clear()
+                        reports.addAll(response.data.reports)
+                        adapter.updateList(reports)
                         binding.tvNoReportFound.visibility = View.GONE
                     } else {
+                        reports.clear()
+                        adapter.updateList(reports)
                         binding.tvNoReportFound.visibility = View.VISIBLE
                     }
                 }
 
                 override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
+                    Log.e("API", errorMessage?.error?.message ?: "Unknown error")
                 }
 
                 override fun onError(throwable: Throwable) {
-                    // Handle network error
                     Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
                 }
             }
         )

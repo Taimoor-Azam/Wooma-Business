@@ -13,7 +13,9 @@ import com.wooma.business.databinding.ActivityActivateAccountBinding
 import com.wooma.business.model.ApiResponse
 import com.wooma.business.model.ErrorResponse
 import com.wooma.business.model.OnboardingResponse
+import com.wooma.business.model.User
 import com.wooma.business.model.UserOnBoardRequest
+import com.wooma.business.storage.Prefs
 
 class ActivateAccountActivity : BaseActivity() {
     private lateinit var binding: ActivityActivateAccountBinding
@@ -66,6 +68,20 @@ class ActivateAccountActivity : BaseActivity() {
             listener = object : ApiResponseListener<ApiResponse<OnboardingResponse>> {
                 override fun onSuccess(response: ApiResponse<OnboardingResponse>) {
                     if (response.success) {
+                        val user = User(
+                            response.data.user.id,
+                            response.data.user.email,
+                            response.data.user.first_name,
+                            response.data.user.last_name,
+                            response.data.user.is_onboarded,
+                            "",
+                            "",
+                            response.data.access_token,
+                            response.data.user.role,
+                            response.data.refresh_token
+                        )
+                        Prefs.saveUser(this@ActivateAccountActivity, user)
+
                         val intent = Intent(this@ActivateAccountActivity, MainActivity::class.java)
                         startActivity(intent)
                         finish()

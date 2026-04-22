@@ -13,8 +13,8 @@ data class OnboardingResponse(
 data class User(
     val id: String,
     val email: String,
-    val first_name: String,
-    val last_name: String,
+    val first_name: String?,
+    val last_name: String?,
     val is_onboarded: Boolean,
     val tenant_id: String,
     val company_name: String,

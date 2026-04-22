@@ -79,6 +79,7 @@ class AddEditMeterActivity : BaseActivity() {
         isEdit = intent.getBooleanExtra("isEdit", false)
 
         cameraBinding.ivAddImage.setOnClickListener {
+            CameraActivity.existingImages = allImages.toList()
             CameraActivity.pendingUris.clear()
             startActivityForResult(Intent(this, CameraActivity::class.java), CAMERA_REQUEST)
         }
@@ -188,8 +189,11 @@ class AddEditMeterActivity : BaseActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
             val newUris = CameraActivity.pendingUris.toList()
+            
+            allImages.removeAll { it is ImageItem.Local }
             allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
+            
             if (newUris.isNotEmpty()) hasChanges = true
             if (savedMeterId.isNotEmpty() && newUris.isNotEmpty()) {
                 val progress = ProgressDialog(this).apply {
@@ -206,6 +210,7 @@ class AddEditMeterActivity : BaseActivity() {
                     onError = { progress.dismiss() }
                 )
             } else {
+                capturedUris.clear()
                 capturedUris.addAll(newUris)
             }
         }
