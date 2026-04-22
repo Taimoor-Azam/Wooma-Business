@@ -12,7 +12,7 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
 
     <application
-        android:name=".WoomaApplication"
+        android:name="com.wooma.WoomaApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -24,7 +24,7 @@
         tools:targetApi="31">
 
         <activity
-            android:name=".activities.auth.SplashActivity"
+            android:name="com.wooma.activities.auth.SplashActivity"
             android:exported="true"
             android:screenOrientation="portrait">
             <intent-filter>
@@ -35,153 +35,153 @@
         </activity>
 
         <activity
-            android:name=".activities.auth.OTPActivity"
+            android:name="com.wooma.activities.auth.OTPActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.report.CameraActivity"
+            android:name="com.wooma.activities.report.CameraActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.report.otherItems.MeterListingActivity"
+            android:name="com.wooma.activities.report.otherItems.MeterListingActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.report.otherItems.AddEditMeterActivity"
+            android:name="com.wooma.activities.report.otherItems.AddEditMeterActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.report.otherItems.DetectorListingActivity"
+            android:name="com.wooma.activities.report.otherItems.DetectorListingActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.report.otherItems.AddEditDetectorActivity"
+            android:name="com.wooma.activities.report.otherItems.AddEditDetectorActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.report.otherItems.CheckListListingActivity"
+            android:name="com.wooma.activities.report.otherItems.CheckListListingActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.report.otherItems.CheckListDetailActivity"
+            android:name="com.wooma.activities.report.otherItems.CheckListDetailActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.report.otherItems.AddEditKeysActivity"
+            android:name="com.wooma.activities.report.otherItems.AddEditKeysActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.report.otherItems.KeysListingActivity"
+            android:name="com.wooma.activities.report.otherItems.KeysListingActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.report.InventoryRoomItemsListActivity"
+            android:name="com.wooma.activities.report.InventoryRoomItemsListActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.SelectRoomItemActivity"
+            android:name="com.wooma.activities.report.SelectRoomItemActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.SelectRoomActivity"
+            android:name="com.wooma.activities.report.SelectRoomActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.InspectionRoomActivity"
+            android:name="com.wooma.activities.report.InspectionRoomActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.auth.LoginActivity"
+            android:name="com.wooma.activities.auth.LoginActivity"
             android:exported="false"
             android:screenOrientation="portrait"
             android:windowSoftInputMode="stateHidden|adjustResize" />
         <activity
-            android:name=".activities.auth.GetStartedActivity"
+            android:name="com.wooma.activities.auth.GetStartedActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.MainActivity"
+            android:name="com.wooma.activities.MainActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.auth.ActivateAccountActivity"
+            android:name="com.wooma.activities.auth.ActivateAccountActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.report.ReportListingActivity"
+            android:name="com.wooma.activities.report.ReportListingActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.report.EditRoomNamesActivity"
+            android:name="com.wooma.activities.report.EditRoomNamesActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.complete.CompleteReportActivity"
+            android:name="com.wooma.activities.report.complete.CompleteReportActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.complete.ExtendTimerActivity"
+            android:name="com.wooma.activities.report.complete.ExtendTimerActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.EditTenantActivity"
+            android:name="com.wooma.activities.report.EditTenantActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.inventorysettings.ChangeReportTypeActivity"
+            android:name="com.wooma.activities.report.inventorysettings.ChangeReportTypeActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.inventorysettings.ChangeAssessorActivity"
+            android:name="com.wooma.activities.report.inventorysettings.ChangeAssessorActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.inventorysettings.ChangeReportDateActivity"
+            android:name="com.wooma.activities.report.inventorysettings.ChangeReportDateActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.AddRoomsActivity"
+            android:name="com.wooma.activities.report.AddRoomsActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.InventoryRoomItemActivity"
+            android:name="com.wooma.activities.report.InventoryRoomItemActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.inventorysettings.InventoryReportSettingActivity"
+            android:name="com.wooma.activities.report.inventorysettings.InventoryReportSettingActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.inventorysettings.DuplicateReportActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
-
-        <activity
-            android:name=".activities.report.InventoryListingActivity"
+            android:name="com.wooma.activities.report.inventorysettings.DuplicateReportActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.report.PdfDownloadActivity"
+            android:name="com.wooma.activities.report.InventoryListingActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.FullscreenImageActivity"
+            android:name="com.wooma.activities.report.PdfDownloadActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name="com.wooma.activities.FullscreenImageActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
@@ -198,43 +198,43 @@
         </provider>
 
         <activity
-            android:name=".activities.property.EditPropertyActivity"
+            android:name="com.wooma.activities.property.EditPropertyActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.property.ArchivePropertiesActivity"
+            android:name="com.wooma.activities.property.ArchivePropertiesActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.property.AddPropertyActivity"
+            android:name="com.wooma.activities.property.AddPropertyActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.property.AddPropertyByPostalCodeActivity"
-            android:exported="false"
-            android:screenOrientation="portrait" />
-
-        <activity
-            android:name=".activities.report.SelectPropertyForReportActivity"
+            android:name="com.wooma.activities.property.AddPropertyByPostalCodeActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
 
         <activity
-            android:name=".activities.report.SelectReportTypeActivity"
+            android:name="com.wooma.activities.report.SelectPropertyForReportActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name="com.wooma.activities.report.SelectReportTypeActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.CheckoutCopyOptionActivity"
+            android:name="com.wooma.activities.report.CheckoutCopyOptionActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.CheckoutSelectReportActivity"
+            android:name="com.wooma.activities.report.CheckoutSelectReportActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
         <activity
-            android:name=".activities.report.ConfigureReportActivity"
+            android:name="com.wooma.activities.report.ConfigureReportActivity"
             android:exported="false"
             android:screenOrientation="portrait" />
     </application>

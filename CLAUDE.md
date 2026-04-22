@@ -17,7 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Wooma Business** is a native Android app for business property inventory management. Built with Kotlin, targeting Android 7.0+ (minSdk 24, targetSdk 35), using View Binding throughout.
 
-- **Application ID**: `com.wooma.business`
+- **Application ID**: `com.wooma`
 - **Build system**: Gradle 8.10.2 with AGP 8.8.2, Java 11 compatibility
 
 ## Architecture

@@ -4,7 +4,7 @@ plugins {
 }
 
 android {
-    namespace 'com.wooma.business'
+    namespace 'com.wooma'
     compileSdk 36
 
     buildFeatures {
@@ -12,11 +12,11 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.wooma.business"
+        applicationId "com.wooma"
         minSdk 24
         targetSdk 36
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.0.1"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         multiDexEnabled true

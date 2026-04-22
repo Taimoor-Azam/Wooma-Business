@@ -1,0 +1,138 @@
+package com.wooma.activities.report.inventorysettings
+
+import android.content.Intent
+import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
+import android.util.Log
+import com.wooma.activities.BaseActivity
+import com.wooma.adapter.DuplicatePropertySelectAdapter
+import com.wooma.activities.report.ReportListingActivity
+import com.wooma.data.network.ApiResponseListener
+import com.wooma.data.network.MyApi
+import com.wooma.data.network.makeApiRequest
+import com.wooma.data.network.showToast
+import com.wooma.databinding.ActivityDuplicateReportBinding
+import com.wooma.model.AddReportResponse
+import com.wooma.model.ApiResponse
+import com.wooma.model.CreateDuplicateReport
+import com.wooma.model.ErrorResponse
+import com.wooma.model.Property
+import com.wooma.model.TenantPropertiesWrapper
+
+class DuplicateReportActivity : BaseActivity() {
+    private lateinit var binding: ActivityDuplicateReportBinding
+    private lateinit var adapter: DuplicatePropertySelectAdapter
+    private val properties = mutableListOf<Property>()
+
+    var property: Property? = null
+    var reportId = ""
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        binding = ActivityDuplicateReportBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        applyWindowInsetsToBinding(binding.root)
+
+        reportId = intent.getStringExtra("reportId") ?: ""
+
+        adapter = DuplicatePropertySelectAdapter(properties) { selected ->
+            property = selected
+        }
+        binding.rvSelectProperty.adapter = adapter
+
+        getPropertiesList()
+
+        binding.ivBack.setOnClickListener { finish() }
+        binding.btnAddReport.setOnClickListener {
+            if (property != null)
+                duplicateReportApi() else showToast("Please select property first.")
+        }
+
+        binding.searchView.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                adapter.filter(s?.toString().orEmpty())
+            }
+        })
+    }
+
+    private fun duplicateReportApi() {
+        val item = CreateDuplicateReport(
+            property_id = property?.id ?: "",
+            include_images = if (binding.cbCopyPhoto.isChecked) true else null,
+            include_descriptions = true,
+            report_id = reportId
+        )
+
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = true,
+            requestAction = { apiService -> apiService.createDuplicateReport(item) },
+            listener = object : ApiResponseListener<ApiResponse<AddReportResponse>> {
+                override fun onSuccess(response: ApiResponse<AddReportResponse>) {
+                    if (response.success) {
+                        showToast("Report duplicated successfully")
+                        
+                        val intent = Intent(this@DuplicateReportActivity, ReportListingActivity::class.java)
+                        intent.putExtra("duplicatedReport", response.data)
+                        intent.putExtra("propertyId", response.data.property.id ?: property?.id ?: "")
+                        
+                        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                        startActivity(intent)
+                        finish()
+                    }
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    Log.e("API", errorMessage?.error?.message ?: "")
+                    showToast(errorMessage?.error?.message ?: "")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    Log.e("API", "Error: ${throwable.message}")
+                    showToast("Error: ${throwable.message}")
+                }
+            }
+        )
+    }
+
+    private fun getPropertiesList() {
+        val queryMap = mutableMapOf<String, Any>().apply {
+            put("page", 1)
+            put("limit", 100)
+            put("search", "")
+            put("is_active", true)
+        }
+
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = true,
+            requestAction = { apiService -> apiService.getPropertiesList(queryMap) },
+            listener = object : ApiResponseListener<ApiResponse<TenantPropertiesWrapper>> {
+                override fun onSuccess(response: ApiResponse<TenantPropertiesWrapper>) {
+                    if (response.success) {
+                        properties.clear()
+                        properties.addAll(response.data.data)
+                        adapter.updateList(properties)
+                        adapter.setSelectedProperty(property)
+                    }
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    Log.e("API", errorMessage?.error?.message ?: "")
+                    showToast(errorMessage?.error?.message ?: "")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    Log.e("API", "Error: ${throwable.message}")
+                    showToast("Error: ${throwable.message}")
+                }
+            }
+        )
+    }
+}
