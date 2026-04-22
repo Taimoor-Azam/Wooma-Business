@@ -3,6 +3,7 @@ package com.wooma.business.activities.property
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import androidx.activity.OnBackPressedCallback
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.activities.MainActivity
 import com.wooma.business.activities.report.ReportListingActivity
@@ -56,6 +57,16 @@ class EditPropertyActivity : BaseActivity() {
             }
         }
         initView()
+
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                navigateToReportListing()
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+            }
+        }
+
+        onBackPressedDispatcher.addCallback(this, callback)
     }
 
     private fun initView() {
@@ -123,10 +134,6 @@ class EditPropertyActivity : BaseActivity() {
                 }
             }
         )
-    }
-
-    override fun onBackPressed() {
-        navigateToReportListing()
     }
 
     private fun navigateToReportListing() {

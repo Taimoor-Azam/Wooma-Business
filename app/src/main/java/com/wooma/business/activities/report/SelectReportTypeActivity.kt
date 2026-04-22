@@ -3,6 +3,7 @@ package com.wooma.business.activities.report
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import androidx.activity.OnBackPressedCallback
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.adapter.ReportTypeAdapter
 import com.wooma.business.data.network.ApiResponseListener
@@ -20,7 +21,6 @@ import com.wooma.business.model.enums.ReportTypes
 class SelectReportTypeActivity : BaseActivity() {
     private lateinit var adapter: ReportTypeAdapter
     private var reportTypeList = mutableListOf<ReportType>()
-
     var propertyId = ""
     private lateinit var binding: ActivityReportTypeBinding
 
@@ -30,7 +30,7 @@ class SelectReportTypeActivity : BaseActivity() {
         binding = ActivityReportTypeBinding.inflate(layoutInflater)
         setContentView(binding.root)
         applyWindowInsetsToBinding(binding.root)
-        propertyId = intent.getStringExtra("propertyId")?: ""
+        propertyId = intent.getStringExtra("propertyId") ?: ""
 
         adapter = ReportTypeAdapter(this, reportTypeList, propertyId)
         binding.rvSelectProperty.adapter = adapter
@@ -38,10 +38,16 @@ class SelectReportTypeActivity : BaseActivity() {
         getReportTypeListApi()
 
         binding.ivBack.setOnClickListener { navigateToReportListing() }
-    }
 
-    override fun onBackPressed() {
-        navigateToReportListing()
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                navigateToReportListing()
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+            }
+        }
+
+        onBackPressedDispatcher.addCallback(this, callback)
     }
 
     private fun navigateToReportListing() {

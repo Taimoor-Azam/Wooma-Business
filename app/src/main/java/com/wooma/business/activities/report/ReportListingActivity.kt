@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import androidx.activity.OnBackPressedCallback
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.activities.MainActivity
 import com.wooma.business.activities.property.EditPropertyActivity
@@ -36,7 +37,7 @@ class ReportListingActivity : BaseActivity() {
 
         // Initialize propertyId from intent
         propertyId = intent.getStringExtra("propertyId") ?: ""
-        
+
         setupAdapter()
         handleIntent(intent)
 
@@ -49,6 +50,17 @@ class ReportListingActivity : BaseActivity() {
         }
 
         binding.ivBack.setOnClickListener { navigateToMainActivity() }
+
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                navigateToMainActivity()
+                // If you want default behavior after your logic:
+                isEnabled = false
+                onBackPressedDispatcher.onBackPressed()
+            }
+        }
+
+        onBackPressedDispatcher.addCallback(this, callback)
     }
 
     private fun setupAdapter() {
@@ -74,8 +86,11 @@ class ReportListingActivity : BaseActivity() {
 
         val duplicatedReport = intent.getParcelableExtra<AddReportResponse>("duplicatedReport")
         if (duplicatedReport != null) {
-            Log.d("ReportListingActivity", "Handling duplicated report: ${duplicatedReport.report_id}")
-            
+            Log.d(
+                "ReportListingActivity",
+                "Handling duplicated report: ${duplicatedReport.report_id}"
+            )
+
             val intentToInventory = Intent(this, InventoryListingActivity::class.java)
                 .putExtra("reportStatus", duplicatedReport.status)
                 .putExtra("reportId", duplicatedReport.report_id)
@@ -88,16 +103,12 @@ class ReportListingActivity : BaseActivity() {
                 )
                 .putExtra("assessor", duplicatedReport.assessor)
                 .putExtra("propertyId", propertyId)
-            
+
             startActivity(intentToInventory)
-            
+
             // Remove the extra so it's not re-handled on subsequent onResume/onNewIntent
             intent.removeExtra("duplicatedReport")
         }
-    }
-
-    override fun onBackPressed() {
-        navigateToMainActivity()
     }
 
     private fun navigateToMainActivity() {

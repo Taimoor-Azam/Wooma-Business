@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import androidx.activity.OnBackPressedCallback
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.activities.report.CameraActivity
 import com.wooma.business.adapter.CheckListInfoAdapter
@@ -106,7 +107,7 @@ class CheckListDetailActivity : BaseActivity() {
         binding.rvQuestions.adapter = questionAdapter
 
         binding.ivBack.setOnClickListener {
-            onBackPressed()
+            backPressed()
         }
 
         binding.btnSave.setOnClickListener {
@@ -114,6 +115,19 @@ class CheckListDetailActivity : BaseActivity() {
         }
 
         getChecklistDetailApi(checklistId)
+
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (!isReadOnly) {
+                    saveUnsavedDataAndExit()
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        }
+
+        onBackPressedDispatcher.addCallback(this, callback)
     }
 
     @Suppress("OVERRIDE_DEPRECATION")
@@ -128,12 +142,11 @@ class CheckListDetailActivity : BaseActivity() {
         }
     }
 
-    @Suppress("OVERRIDE_DEPRECATION")
-    override fun onBackPressed() {
+    fun backPressed() {
         if (!isReadOnly) {
             saveUnsavedDataAndExit()
         } else {
-            super.onBackPressed()
+            onBackPressedDispatcher.onBackPressed()
         }
     }
 
@@ -142,7 +155,7 @@ class CheckListDetailActivity : BaseActivity() {
         val unsavedQuestions = checkListQuestionItems.filter { it.note != it.original_note }
 
         if (unsavedInfoFields.isEmpty() && unsavedQuestions.isEmpty()) {
-            super.onBackPressed()
+            onBackPressedDispatcher.onBackPressed()
             return
         }
 
@@ -151,7 +164,7 @@ class CheckListDetailActivity : BaseActivity() {
         val onTaskComplete = {
             totalRequests--
             if (totalRequests <= 0) {
-                super.onBackPressed()
+                onBackPressedDispatcher.onBackPressed()
             }
         }
 

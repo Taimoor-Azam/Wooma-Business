@@ -11,6 +11,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
 import android.view.View
+import androidx.activity.OnBackPressedCallback
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.business.activities.BaseActivity
 import com.wooma.business.activities.report.CameraActivity
@@ -188,20 +189,33 @@ class AddEditDetectorActivity : BaseActivity() {
             if (hasChanges) showUnsavedChangesDialog { finish() } else finish()
         }
 
+
         setMeterData()
         attachChangeWatchers()
-    }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (hasChanges) showUnsavedChangesDialog { super.onBackPressed() } else super.onBackPressed()
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (hasChanges)
+                    showUnsavedChangesDialog {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                    } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        }
+
+        onBackPressedDispatcher.addCallback(this, callback)
     }
 
     private fun attachChangeWatchers() {
         val w = object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) { hasChanges = true }
+            override fun afterTextChanged(s: Editable?) {
+                hasChanges = true
+            }
         }
         binding.etType.addTextChangedListener(w)
         binding.etLocation.addTextChangedListener(w)
@@ -211,11 +225,12 @@ class AddEditDetectorActivity : BaseActivity() {
     private fun setupCapturedImagesRecycler() {
         cameraBinding.rvRoomItems.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages, title = detectorItem?.name ?: "", onDelete = {
-            capturedUris.clear()
-            capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
-            hasChanges = true
-        })
+        cameraBinding.rvRoomItems.adapter =
+            ImageAdapter(allImages, title = detectorItem?.name ?: "", onDelete = {
+                capturedUris.clear()
+                capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
+                hasChanges = true
+            })
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -252,7 +267,12 @@ class AddEditDetectorActivity : BaseActivity() {
             binding.etTestResult.setText(detectorItem?.note ?: "")
 
             detectorItem?.attachments?.forEach { attachment ->
-                allImages.add(ImageItem.Remote(attachment.id, "${ApiClient.IMAGE_BASE_URL}${attachment.storageKey}"))
+                allImages.add(
+                    ImageItem.Remote(
+                        attachment.id,
+                        "${ApiClient.IMAGE_BASE_URL}${attachment.storageKey}"
+                    )
+                )
             }
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
         }

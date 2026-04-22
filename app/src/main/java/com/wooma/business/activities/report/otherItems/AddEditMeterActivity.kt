@@ -11,6 +11,7 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
 import android.view.View
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.addCallback
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.business.activities.BaseActivity
@@ -156,18 +157,23 @@ class AddEditMeterActivity : BaseActivity() {
         onBackPressedDispatcher.addCallback(this) {
             handleBackPress()
         }
-    }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        handleBackPress()
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                handleBackPress()
+            }
+        }
+
+        onBackPressedDispatcher.addCallback(this, callback)
     }
 
     private fun attachChangeWatchers() {
         val w = object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-            override fun afterTextChanged(s: Editable?) { hasChanges = true }
+            override fun afterTextChanged(s: Editable?) {
+                hasChanges = true
+            }
         }
         binding.etType.addTextChangedListener(w)
         binding.etReading.addTextChangedListener(w)
@@ -178,22 +184,23 @@ class AddEditMeterActivity : BaseActivity() {
     private fun setupCapturedImagesRecycler() {
         cameraBinding.rvRoomItems.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        cameraBinding.rvRoomItems.adapter = ImageAdapter(allImages, title = meterItem?.name ?: "", onDelete = {
-            capturedUris.clear()
-            capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
-            hasChanges = true
-        })
+        cameraBinding.rvRoomItems.adapter =
+            ImageAdapter(allImages, title = meterItem?.name ?: "", onDelete = {
+                capturedUris.clear()
+                capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
+                hasChanges = true
+            })
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == Activity.RESULT_OK) {
             val newUris = CameraActivity.pendingUris.toList()
-            
+
             allImages.removeAll { it is ImageItem.Local }
             allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
-            
+
             if (newUris.isNotEmpty()) hasChanges = true
             if (savedMeterId.isNotEmpty() && newUris.isNotEmpty()) {
                 val progress = ProgressDialog(this).apply {
@@ -256,7 +263,12 @@ class AddEditMeterActivity : BaseActivity() {
 
             // Load existing images from API
             meterItem?.attachments?.forEach { attachment ->
-                allImages.add(ImageItem.Remote(attachment.id, "$S3_BASE_URL${attachment.storageKey}"))
+                allImages.add(
+                    ImageItem.Remote(
+                        attachment.id,
+                        "$S3_BASE_URL${attachment.storageKey}"
+                    )
+                )
             }
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
         }

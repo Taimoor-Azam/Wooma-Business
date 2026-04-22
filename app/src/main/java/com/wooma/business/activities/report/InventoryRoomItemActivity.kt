@@ -10,6 +10,7 @@ import android.content.Intent
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.business.R
@@ -316,11 +317,21 @@ class InventoryRoomItemActivity : BaseActivity() {
         attachChangeWatchers()
         setupNoteSuggestions()
         setupDescriptionSuggestions()
-    }
 
-    @Deprecated("Deprecated in Java")
-    override fun onBackPressed() {
-        if (hasChanges) showUnsavedChangesDialog { super.onBackPressed() } else super.onBackPressed()
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (hasChanges)
+                    showUnsavedChangesDialog {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                    } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        }
+
+        onBackPressedDispatcher.addCallback(this, callback)
     }
 
     private fun setupNoteSuggestions() {
