@@ -9,6 +9,7 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.wooma.R
 import com.wooma.model.Room
+import java.util.Collections
 
 class ReportRoomsAdapter(
     val context: Context,
@@ -42,13 +43,9 @@ class ReportRoomsAdapter(
             item.isSelected = !holder.cbReport.isSelected
             notifyItemChanged(position)
         }
-
-        /*   holder.propertyMainLayout.setOnClickListener {
-               context.startActivity(Intent(context, ReportListingActivity::class.java))
-           }*/
     }
 
-    fun updateList(list: List<Room>) {
+    fun updateList(list: MutableList<Room>) {
         filteredList = list.toMutableList()
         notifyDataSetChanged()
     }
@@ -66,5 +63,10 @@ class ReportRoomsAdapter(
 
     fun getSelectedRooms(): List<Room> {
         return filteredList.filter { it.isSelected }
+    }
+
+    fun onItemMove(fromPosition: Int, toPosition: Int) {
+        Collections.swap(filteredList, fromPosition, toPosition)
+        notifyItemMoved(fromPosition, toPosition)
     }
 }

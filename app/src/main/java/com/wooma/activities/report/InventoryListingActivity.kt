@@ -355,7 +355,9 @@ class InventoryListingActivity : BaseActivity() {
                 )
             },
             listener = object : ApiResponseListener<ApiResponse<Any>> {
-                override fun onSuccess(response: ApiResponse<Any>) {}
+                override fun onSuccess(response: ApiResponse<Any>) {
+                    getReportByIdApi(false)
+                }
                 override fun onFailure(errorMessage: ErrorResponse?) {
                     showToast(errorMessage?.error?.message ?: "Failed to reorder room")
                 }
@@ -385,11 +387,11 @@ class InventoryListingActivity : BaseActivity() {
         )
     }
 
-    private fun getReportByIdApi() {
+    private fun getReportByIdApi(showLoading: Boolean = true) {
         makeApiRequest(
             apiServiceClass = MyApi::class.java,
             context = this,
-            showLoading = true,
+            showLoading = showLoading,
             requestAction = { apiService -> apiService.getReportById(reportId, true, true) },
             listener = object : ApiResponseListener<ApiResponse<ReportData>> {
                 override fun onSuccess(response: ApiResponse<ReportData>) {

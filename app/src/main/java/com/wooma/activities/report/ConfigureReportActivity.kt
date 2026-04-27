@@ -75,17 +75,6 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
         getPropertyByIdApi()
         binding.ivBack.setOnClickListener { finish() }
 
-        /*binding.addRoomLayout.setOnClickListener {
-            startActivity(
-                Intent(this, AddRoomsActivity::class.java)
-                    .putParcelableArrayListExtra("roomNamesList", ArrayList(roomsList))
-            )
-        }*/
-
-        /*  binding.btnCreateReport.setOnClickListener {
-
-          }*/
-
         binding.ivEdit.setOnClickListener {
             startActivityForResult(
                 Intent(this, SelectRoomActivity::class.java),
@@ -350,8 +339,7 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
             // Track start position only on first move
             if (dragStartPosition == -1) dragStartPosition = from
 
-            Collections.swap(data, from, to)
-            adapter.notifyItemMoved(from, to)
+            (adapter as? ReportRoomsAdapter)?.onItemMove(from, to)
             return true
         }
 
