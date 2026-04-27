@@ -93,9 +93,13 @@ object RetrofitClient {
                 .readTimeout(30, TimeUnit.SECONDS)
                 .build()
 
+            val gson = com.google.gson.GsonBuilder()
+                .serializeNulls()
+                .create()
+
             retrofit = Retrofit.Builder()
                 .baseUrl(baseUrl)
-                .addConverterFactory(GsonConverterFactory.create())
+                .addConverterFactory(GsonConverterFactory.create(gson))
                 .client(client)
                 .build()
         }

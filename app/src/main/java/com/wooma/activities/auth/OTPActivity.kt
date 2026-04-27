@@ -71,6 +71,12 @@ class OTPActivity : BaseActivity() {
             val obj = VerifyOTPRequest(email, otp)
             verifyOTPApi(obj)
         }
+
+        binding.etOTPOne.postDelayed({
+            binding.etOTPOne.requestFocus()
+            val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imm.showSoftInput(binding.etOTPOne, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+        }, 200)
     }
 
     /*check the input of the OTP*/

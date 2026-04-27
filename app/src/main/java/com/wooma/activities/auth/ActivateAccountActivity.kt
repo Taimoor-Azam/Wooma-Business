@@ -27,17 +27,51 @@ class ActivateAccountActivity : BaseActivity() {
         setContentView(binding.root)
         applyWindowInsetsToBinding(binding.root)
 
+        binding.ccp.registerCarrierNumberEditText(binding.etPhone)
+
+        val nameWatcher = object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+            override fun afterTextChanged(s: android.text.Editable?) {
+                if (binding.checkbox.isChecked) {
+                    updateCompanyNameFromNames()
+                }
+            }
+        }
+
+        binding.etFirstName.addTextChangedListener(nameWatcher)
+        binding.etLastName.addTextChangedListener(nameWatcher)
+
+        binding.checkbox.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) {
+                binding.etCompany.isEnabled = false
+                binding.etCompany.alpha = 0.5f
+                updateCompanyNameFromNames()
+            } else {
+                binding.etCompany.isEnabled = true
+                binding.etCompany.alpha = 1.0f
+                binding.etCompany.setText("")
+            }
+        }
+
         binding.btnContinue.setOnClickListener {
             if (isValid()) {
+                val fullPhoneNumber = binding.ccp.fullNumberWithPlus
                 val userBoard = UserOnBoardRequest(
                     binding.etFirstName.text.toString(),
                     binding.etLastName.text.toString(),
                     binding.etCompany.text.toString(),
-                    binding.etPhone.text.toString()
+                    fullPhoneNumber
                 )
                 onboardUserApi(userBoard)
             }
         }
+    }
+
+    private fun updateCompanyNameFromNames() {
+        val firstName = binding.etFirstName.text.toString().trim()
+        val lastName = binding.etLastName.text.toString().trim()
+        binding.etCompany.setText("$firstName $lastName".trim())
     }
 
     private fun isValid(): Boolean {
