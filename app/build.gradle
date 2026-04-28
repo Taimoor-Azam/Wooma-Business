@@ -1,6 +1,8 @@
 plugins {
     alias(libs.plugins.android.application)
-    id("org.jetbrains.kotlin.plugin.parcelize")
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.parcelize)
+    alias(libs.plugins.ksp)
 }
 
 android {
@@ -32,16 +34,21 @@ android {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
     }
+    kotlinOptions {
+        jvmTarget = "17"
+    }
 }
 
 dependencies {
     implementation libs.androidx.core.ktx
     implementation libs.androidx.appcompat
-    implementation libs.kotlin.parcelize.runtime
     implementation libs.material
     testImplementation libs.junit
     androidTestImplementation libs.androidx.junit
     androidTestImplementation libs.androidx.espresso.core
+
+    // Guava (explicitly required by some versions of CameraX)
+    implementation libs.guava
 
     //sdp and ssp dimens
     implementation(libs.sdp.android)
@@ -74,5 +81,20 @@ dependencies {
 
     // EXIF orientation fix
     implementation libs.androidx.exifinterface
+
+    // Room — local database (offline-first)
+    implementation libs.room.runtime
+    implementation libs.room.ktx
+    ksp           libs.room.compiler
+
+    // WorkManager — background sync
+    implementation libs.work.runtime.ktx
+
+    // Coroutines
+    implementation libs.coroutines.core
+    implementation libs.coroutines.android
+
+    // Lifecycle runtime (repeatOnLifecycle, etc.)
+    implementation libs.lifecycle.runtime.ktx
 
 }

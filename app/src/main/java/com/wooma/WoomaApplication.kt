@@ -1,9 +1,9 @@
 package com.wooma
 
-import android.app.Application
+import androidx.multidex.MultiDexApplication
 import im.crisp.client.external.Crisp
 
-class WoomaApplication : Application() {
+class WoomaApplication : MultiDexApplication() {
 
     override fun onCreate() {
         super.onCreate()

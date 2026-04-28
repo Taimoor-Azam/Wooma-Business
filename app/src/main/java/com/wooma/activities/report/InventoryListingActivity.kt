@@ -415,6 +415,7 @@ class InventoryListingActivity : BaseActivity() {
                         updateCoverImageView()
                         roomsList.clear()
                         roomsList.addAll(response.data.rooms ?: ArrayList())
+                        roomsList.sortWith(compareBy(nullsLast(naturalOrder())) { it.displayOrder })
                         adapter.updateList(roomsList)
 
                         val allItems = response.data.counts.toCountItemList()
