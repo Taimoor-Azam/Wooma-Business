@@ -14,6 +14,9 @@ interface ReportDao {
     @Query("SELECT * FROM reports WHERE propertyId = :propertyId AND isDeleted = 0 ORDER BY createdAt DESC")
     fun observeByProperty(propertyId: String): Flow<List<ReportEntity>>
 
+    @Query("SELECT COUNT(*) FROM reports WHERE propertyId = :propertyId AND isDeleted = 0")
+    suspend fun countByProperty(propertyId: String): Int
+
     @Query("SELECT * FROM reports WHERE id = :id")
     fun observeById(id: String): Flow<ReportEntity?>
 

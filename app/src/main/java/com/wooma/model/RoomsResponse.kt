@@ -19,7 +19,8 @@ data class ReportData(
     val attachments: List<AttachmentRecord>? = null,
     @SerializedName("cover_image_storage_key") val coverImageStorageKey: String? = null,
     @SerializedName("pdf_url") val pdfUrl: String? = null,
-    @SerializedName("blank_spaces_count") val blankSpacesCount: Int = 0
+    @SerializedName("blank_spaces_count") val blankSpacesCount: Int = 0,
+    @SerializedName("show_timestamp") val showTimestamp: Boolean = true
 )
 
 data class UpdateReportRequest(

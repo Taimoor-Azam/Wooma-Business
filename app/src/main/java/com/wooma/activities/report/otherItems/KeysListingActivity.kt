@@ -22,6 +22,7 @@ class KeysListingActivity : BaseActivity() {
     private lateinit var binding: ActivityInventoryKeysListBinding
     var reportId = ""
     var reportStatus = ""
+    var showTimestamp = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,8 +33,9 @@ class KeysListingActivity : BaseActivity() {
 
         reportId = intent.getStringExtra("reportId") ?: ""
         reportStatus = intent.getStringExtra("reportStatus") ?: ""
+        showTimestamp = intent.getBooleanExtra("showTimestamp", true)
 
-        adapter = InventoryKeysAdapter(this, keysList, reportId, reportStatus)
+        adapter = InventoryKeysAdapter(this, keysList, reportId, reportStatus, showTimestamp)
 
         binding.rvMeters.adapter = adapter
         binding.ivBack.setOnClickListener { finish() }
@@ -45,7 +47,7 @@ class KeysListingActivity : BaseActivity() {
                 Intent(this, AddEditKeysActivity::class.java).putExtra(
                     "reportId",
                     reportId
-                )
+                ).putExtra("showTimestamp", showTimestamp)
             )
         }
     }

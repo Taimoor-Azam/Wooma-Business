@@ -42,6 +42,7 @@ class AddEditKeysActivity : BaseActivity() {
     private val CAMERA_REQUEST = 1001
 
     var reportId = ""
+    var showTimestamp = true
     val suggestionList =
         mutableListOf(
             "Yale",
@@ -86,12 +87,18 @@ class AddEditKeysActivity : BaseActivity() {
         savedKeyId = keyItem?.id ?: ""
 
         reportId = intent.getStringExtra("reportId") ?: ""
+        showTimestamp = intent.getBooleanExtra("showTimestamp", true)
         isEdit = intent.getBooleanExtra("isEdit", false)
 
         cameraBinding.ivAddImage.setOnClickListener {
             CameraActivity.Companion.existingImages = allImages.toList()
             CameraActivity.Companion.pendingUris.clear()
-            startActivityForResult(Intent(this, CameraActivity::class.java), CAMERA_REQUEST)
+            startActivityForResult(
+                Intent(this, CameraActivity::class.java).putExtra(
+                    "showTimestamp",
+                    showTimestamp
+                ), CAMERA_REQUEST
+            )
         }
 
         binding.btnSave.setOnClickListener {
@@ -221,18 +228,14 @@ class AddEditKeysActivity : BaseActivity() {
             
             if (newUris.isNotEmpty()) hasChanges = true
             if (savedKeyId.isNotEmpty() && newUris.isNotEmpty()) {
-                val progress = ProgressDialog(this).apply {
-                    setMessage("Uploading images...")
-                    setCancelable(false)
-                    show()
-                }
+                showLoading("Uploading images...")
                 AttachmentUploadHelper.uploadImages(
                     activity = this,
                     imageUris = newUris,
                     entityId = savedKeyId,
                     entityType = "KEY",
-                    onComplete = { progress.dismiss() },
-                    onError = { progress.dismiss() }
+                    onComplete = { hideLoading() },
+                    onError = { hideLoading() }
                 )
             } else {
                 capturedUris.clear()

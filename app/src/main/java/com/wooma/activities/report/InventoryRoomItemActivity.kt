@@ -45,6 +45,7 @@ class InventoryRoomItemActivity : BaseActivity() {
     var roomItems: RoomItem? = null
     var reportId = ""
     var roomId = ""
+    var showTimestamp = true
 
     var reportType: PropertyReportType? = null
     var isInspection = false
@@ -169,12 +170,17 @@ class InventoryRoomItemActivity : BaseActivity() {
         cameraBinding.ivAddImage.setOnClickListener {
             CameraActivity.existingImages = allImages.toList()
             CameraActivity.pendingUris.clear()
-            startActivityForResult(Intent(this, CameraActivity::class.java), CAMERA_REQUEST)
+            startActivityForResult(
+                Intent(this, CameraActivity::class.java)
+                    .putExtra("showTimestamp", showTimestamp),
+                CAMERA_REQUEST
+            )
         }
 
         roomItems = intent.getParcelableExtra("roomItem")
         reportId = intent.getStringExtra("reportId") ?: ""
         roomId = intent.getStringExtra("roomId") ?: ""
+        showTimestamp = intent.getBooleanExtra("showTimestamp", true)
 
         setupCapturedImagesRecycler()
 
@@ -463,18 +469,14 @@ class InventoryRoomItemActivity : BaseActivity() {
 
             val entityId = roomItems?.id ?: ""
             if (entityId.isNotEmpty() && newUris.isNotEmpty()) {
-                val progress = ProgressDialog(this).apply {
-                    setMessage("Uploading images...")
-                    setCancelable(false)
-                    show()
-                }
+                showLoading("Uploading images...")
                 AttachmentUploadHelper.uploadImages(
                     activity = this,
                     imageUris = newUris,
                     entityId = entityId,
                     entityType = "ROOM_ITEM",
-                    onComplete = { progress.dismiss() },
-                    onError = { progress.dismiss() }
+                    onComplete = { hideLoading() },
+                    onError = { hideLoading() }
                 )
             }
         }

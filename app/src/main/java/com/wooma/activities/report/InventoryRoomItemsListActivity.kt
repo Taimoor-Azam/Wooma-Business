@@ -28,6 +28,7 @@ class InventoryRoomItemsListActivity : BaseActivity() {
     var roomId = ""
     var reportStatus = ""
     var reportType: PropertyReportType? = null
+    var showTimestamp = true
     val roomItems = mutableListOf<RoomItem>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,6 +44,7 @@ class InventoryRoomItemsListActivity : BaseActivity() {
         reportId = intent.getStringExtra("reportId") ?: ""
         roomId = intent.getStringExtra("roomId") ?: ""
         reportType = intent.getParcelableExtra("reportType")
+        showTimestamp = intent.getBooleanExtra("showTimestamp", true)
 
         if (!roomName.isNullOrEmpty()) {
             binding.tvTitle.text = roomName
@@ -53,7 +55,7 @@ class InventoryRoomItemsListActivity : BaseActivity() {
         }
 
         adapter =
-            InventoryRoomItemsAdapter(this, roomItems, reportId, roomId, reportStatus, reportType)
+            InventoryRoomItemsAdapter(this, roomItems, reportId, roomId, reportStatus, reportType, showTimestamp)
         binding.rvRoomItems.adapter = adapter
 
         binding.ivBack.setOnClickListener { finish() }

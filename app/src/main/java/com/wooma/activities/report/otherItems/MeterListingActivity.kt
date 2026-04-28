@@ -22,6 +22,7 @@ class MeterListingActivity : BaseActivity() {
     private lateinit var binding: ActivityInventoryMeterListBinding
     var reportId = ""
     var reportStatus = ""
+    var showTimestamp = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,8 +33,9 @@ class MeterListingActivity : BaseActivity() {
 
         reportId = intent.getStringExtra("reportId") ?: ""
         reportStatus = intent.getStringExtra("reportStatus") ?: ""
+        showTimestamp = intent.getBooleanExtra("showTimestamp", true)
 
-        adapter = InventoryMetersAdapter(this, metersList, reportId, reportStatus)
+        adapter = InventoryMetersAdapter(this, metersList, reportId, reportStatus, showTimestamp)
 
         binding.rvMeters.adapter = adapter
         binding.ivBack.setOnClickListener { finish() }
@@ -45,7 +47,7 @@ class MeterListingActivity : BaseActivity() {
                 Intent(this, AddEditMeterActivity::class.java).putExtra(
                     "reportId",
                     reportId
-                )
+                ).putExtra("showTimestamp", showTimestamp)
             )
         }
     }

@@ -18,6 +18,9 @@ interface PropertyDao {
     fun observeArchivedProperties(): Flow<List<PropertyEntity>>
 
     @Query("SELECT * FROM properties WHERE id = :id")
+    fun observeById(id: String): Flow<PropertyEntity?>
+
+    @Query("SELECT * FROM properties WHERE id = :id")
     suspend fun getById(id: String): PropertyEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)

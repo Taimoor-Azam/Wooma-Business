@@ -43,6 +43,7 @@ class AddEditMeterActivity : BaseActivity() {
     private val S3_BASE_URL = ApiClient.IMAGE_BASE_URL
 
     var reportId = ""
+    var showTimestamp = true
     val suggestionList =
         mutableListOf("Gas", "Electric", "Water", "Heating Oil", "Liquid Petroleum Gas (LPG)")
 
@@ -77,11 +78,16 @@ class AddEditMeterActivity : BaseActivity() {
 
         reportId = intent.getStringExtra("reportId") ?: ""
         isEdit = intent.getBooleanExtra("isEdit", false)
+        showTimestamp = intent.getBooleanExtra("showTimestamp", true)
 
         cameraBinding.ivAddImage.setOnClickListener {
             CameraActivity.Companion.existingImages = allImages.toList()
             CameraActivity.Companion.pendingUris.clear()
-            startActivityForResult(Intent(this, CameraActivity::class.java), CAMERA_REQUEST)
+            startActivityForResult(
+                Intent(this, CameraActivity::class.java)
+                    .putExtra("showTimestamp", showTimestamp),
+                CAMERA_REQUEST
+            )
         }
 
         binding.btnSave.setOnClickListener {
@@ -202,18 +208,14 @@ class AddEditMeterActivity : BaseActivity() {
 
             if (newUris.isNotEmpty()) hasChanges = true
             if (savedMeterId.isNotEmpty() && newUris.isNotEmpty()) {
-                val progress = ProgressDialog(this).apply {
-                    setMessage("Uploading images...")
-                    setCancelable(false)
-                    show()
-                }
+                showLoading("Uploading images...")
                 AttachmentUploadHelper.uploadImages(
                     activity = this,
                     imageUris = newUris,
                     entityId = savedMeterId,
                     entityType = "METER",
-                    onComplete = { progress.dismiss() },
-                    onError = { progress.dismiss() }
+                    onComplete = { hideLoading() },
+                    onError = { hideLoading() }
                 )
             } else {
                 capturedUris.clear()

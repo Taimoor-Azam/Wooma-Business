@@ -26,6 +26,7 @@ class InventoryRoomItemsAdapter(
     val roomId: String,
     val reportStatus: String,
     val reportType: PropertyReportType? = null,
+    val showTimestamp: Boolean = true
 ) : RecyclerView.Adapter<InventoryRoomItemsAdapter.ViewHolder>() {
 
     private var filteredList = originalList.toMutableList()
@@ -154,6 +155,7 @@ class InventoryRoomItemsAdapter(
                     ).putExtra("roomId", roomId)
                         .putExtra("reportId", reportId)
                         .putExtra("reportType", reportType)
+                        .putExtra("showTimestamp", showTimestamp)
                 )
             }
         }

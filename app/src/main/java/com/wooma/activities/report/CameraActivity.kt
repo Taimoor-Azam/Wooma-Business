@@ -58,6 +58,7 @@ class CameraActivity : BaseActivity() {
     private var flashEnabled = false
     private var isCoverImage = false
     private var isZoom2x = false
+    private var showTimestamp = true
 
     val imageLimit = 50
     private val shutterSound = MediaActionSound()
@@ -81,6 +82,7 @@ class CameraActivity : BaseActivity() {
         applyWindowInsetsToBinding(binding.root)
 
         isCoverImage = intent.getBooleanExtra("isCoverImage", false)
+        showTimestamp = intent.getBooleanExtra("showTimestamp", true)
 
         if (isCoverImage) {
             binding.btnDone.visibility = View.GONE
@@ -214,7 +216,7 @@ class CameraActivity : BaseActivity() {
                 override fun onImageSaved(result: ImageCapture.OutputFileResults) {
                     val fixedFile = fixOrientationToPortrait(file)
                     val stampedFile =
-                        if (isCoverImage) fixedFile else stampDateTimeOnImage(fixedFile)
+                        if (isCoverImage || !showTimestamp) fixedFile else stampDateTimeOnImage(fixedFile)
                     val uri = Uri.fromFile(stampedFile)
 
                     images.add(ImageItem.Local(uri))
@@ -391,7 +393,7 @@ class CameraActivity : BaseActivity() {
                 try {
                     for (uri in limitedUris) {
                         val file = fixOrientationToPortrait(copyUriToFile(uri))
-                        val stampedFile = stampDateTimeOnImage(file)
+                        val stampedFile = if (showTimestamp) stampDateTimeOnImage(file) else file
                         val localItem = ImageItem.Local(Uri.fromFile(stampedFile))
 
                         withContext(Dispatchers.Main) {

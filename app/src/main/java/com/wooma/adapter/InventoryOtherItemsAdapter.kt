@@ -20,7 +20,8 @@ class InventoryOtherItemsAdapter(
     val context: Context,
     private val originalList: MutableList<CountItem>,
     private val reportId: String,
-    private val reportStatus: String = ""
+    private val reportStatus: String = "",
+    private val showTimestamp: Boolean = true
 ) : RecyclerView.Adapter<InventoryOtherItemsAdapter.ViewHolder>() {
     private var filteredList = originalList.toMutableList()
 
@@ -49,7 +50,11 @@ class InventoryOtherItemsAdapter(
                 "Detectors" -> Intent(context, DetectorListingActivity::class.java)
                 else -> Intent(context, CheckListListingActivity::class.java)
             }
-            context.startActivity(intent.putExtra("reportId", reportId).putExtra("reportStatus", reportStatus))
+            context.startActivity(
+                intent.putExtra("reportId", reportId)
+                    .putExtra("reportStatus", reportStatus)
+                    .putExtra("showTimestamp", showTimestamp)
+            )
         }
 
         holder.ivIcon.setImageDrawable(

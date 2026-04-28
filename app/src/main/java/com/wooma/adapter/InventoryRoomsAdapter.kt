@@ -28,6 +28,7 @@ class InventoryRoomsAdapter(
     val reportId: String,
     val reportStatus: String,
     var reportType: PropertyReportType? = null,
+    var showTimestamp: Boolean = true,
     private val onDeleteRoom: ((roomId: String?) -> Unit)? = null,
     private val onReorder: ((roomId: String, prevRank: String?, nextRank: String?) -> Unit)? = null,
     private val onUpdateRoom: ((roomId: String, newName: String) -> Unit)? = null,
@@ -96,6 +97,7 @@ class InventoryRoomsAdapter(
                         .putExtra("room", room)
                         .putExtra("reportId", reportId)
                         .putExtra("reportStatus", reportStatus)
+                        .putExtra("showTimestamp", showTimestamp)
                 )
             } else {
                 context.startActivity(
@@ -106,6 +108,7 @@ class InventoryRoomsAdapter(
                         .putExtra("reportId", reportId)
                         .putExtra("reportStatus", reportStatus)
                         .putExtra("reportType", reportType)
+                        .putExtra("showTimestamp", showTimestamp)
                 )
             }
         }

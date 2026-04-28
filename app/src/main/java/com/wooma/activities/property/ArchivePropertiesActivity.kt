@@ -3,24 +3,28 @@ package com.wooma.activities.property
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.wooma.activities.BaseActivity
 import com.wooma.adapter.ArchivePropertyAdapter
 import com.wooma.customs.Utils
+import com.wooma.data.local.mapper.toProperty
 import com.wooma.data.network.ApiResponseListener
 import com.wooma.data.network.MyApi
 import com.wooma.data.network.makeApiRequest
 import com.wooma.data.network.showToast
+import com.wooma.data.repository.PropertyRepository
 import com.wooma.databinding.ActivityArchivePropertiesListingBinding
 import com.wooma.model.ApiResponse
 import com.wooma.model.ErrorResponse
 import com.wooma.model.Property
-import com.wooma.model.TenantPropertiesWrapper
+import kotlinx.coroutines.launch
 
 class ArchivePropertiesActivity : BaseActivity() {
     private lateinit var binding: ActivityArchivePropertiesListingBinding
 
-    private var page: Int = 1
-
+    private lateinit var propertyRepo: PropertyRepository
     private lateinit var adapter: ArchivePropertyAdapter
     private val properties = mutableListOf<Property>()
 
@@ -31,9 +35,12 @@ class ArchivePropertiesActivity : BaseActivity() {
         setContentView(binding.root)
         applyWindowInsetsToBinding(binding.root)
 
+        propertyRepo = PropertyRepository(this)
+
         adapter = ArchivePropertyAdapter(
             this,
-            properties, object : ArchivePropertyAdapter.OnItemClickInterface {
+            properties,
+            object : ArchivePropertyAdapter.OnItemClickInterface {
                 override fun onItemClick(item: Property) {
                     Utils.showDialogBox(
                         this@ArchivePropertiesActivity,
@@ -47,29 +54,14 @@ class ArchivePropertiesActivity : BaseActivity() {
         )
         binding.rvArchiveProperties.adapter = adapter
 
-//        binding.rvArchiveProperties.adapter = ArchivePropertyAdapter(this, mutableListOf())
-
         binding.ivBack.setOnClickListener { finish() }
-        getPropertiesList()
-    }
 
-    private fun getPropertiesList() {
-        val queryMap = mutableMapOf<String, Any>().apply {
-            put("page", page)
-            put("limit", 50)
-            put("search", "")
-            put("is_active", false)
-        }
-
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.getPropertiesList(queryMap) },
-            listener = object : ApiResponseListener<ApiResponse<TenantPropertiesWrapper>> {
-                override fun onSuccess(response: ApiResponse<TenantPropertiesWrapper>) {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                propertyRepo.observeArchivedProperties().collect { entities ->
+                    val mapped = entities.map { it.toProperty() }
                     properties.clear()
-                    properties.addAll(response.data.data)
+                    properties.addAll(mapped)
                     adapter.updateList(properties)
                     if (properties.isEmpty()) {
                         binding.tvNoArchive.visibility = View.VISIBLE
@@ -79,20 +71,17 @@ class ArchivePropertiesActivity : BaseActivity() {
                         binding.rvArchiveProperties.visibility = View.VISIBLE
                     }
                 }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    // Handle network error
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
             }
-        )
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        lifecycleScope.launch {
+            try {
+                propertyRepo.refreshArchivedProperties()
+            } catch (_: Exception) {}
+        }
     }
 
     private fun unarchivePropertyApi(id: String) {
@@ -104,18 +93,23 @@ class ArchivePropertiesActivity : BaseActivity() {
             listener = object : ApiResponseListener<ApiResponse<Property>> {
                 override fun onSuccess(response: ApiResponse<Property>) {
                     if (response.success) {
-                        getPropertiesList()
+                        lifecycleScope.launch {
+                            try {
+                                propertyRepo.upsertFromServer(response.data)
+                            } catch (_: Exception) {}
+                            try {
+                                propertyRepo.refreshArchivedProperties()
+                            } catch (_: Exception) {}
+                        }
                     }
                 }
 
                 override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
                     Log.e("API", errorMessage?.error?.message ?: "")
                     showToast(errorMessage?.error?.message ?: "")
                 }
 
                 override fun onError(throwable: Throwable) {
-                    // Handle network error
                     Log.e("API", "Error: ${throwable.message}")
                     showToast("Error: ${throwable.message}")
                 }

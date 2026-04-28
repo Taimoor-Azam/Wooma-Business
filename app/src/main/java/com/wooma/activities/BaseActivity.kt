@@ -19,6 +19,29 @@ open class BaseActivity : AppCompatActivity() {
 
     var activeProgressDialog: ProgressDialog? = null
 
+    fun showLoading(message: String = "Loading...") {
+        try {
+            if (activeProgressDialog?.isShowing == true) activeProgressDialog?.dismiss()
+            activeProgressDialog = ProgressDialog(this).apply {
+                setMessage(message)
+                setCancelable(false)
+                show()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun hideLoading() {
+        try {
+            if (activeProgressDialog?.isShowing == true) activeProgressDialog?.dismiss()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            activeProgressDialog = null
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setupWindowInsets()

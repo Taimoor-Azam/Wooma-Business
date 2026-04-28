@@ -44,6 +44,7 @@ class InspectionRoomActivity : BaseActivity() {
     private var room: RoomsResponse? = null
     private var reportId = ""
     private var reportStatus = ""
+    private var showTimestamp = true
     private var isIssue = false
     private var selectedPriority: String? = "observation"
     private val capturedUris = mutableListOf<Uri>()
@@ -271,13 +272,18 @@ class InspectionRoomActivity : BaseActivity() {
         room = intent.getParcelableExtra("room")
         reportId = intent.getStringExtra("reportId") ?: ""
         reportStatus = intent.getStringExtra("reportStatus") ?: ""
+        showTimestamp = intent.getBooleanExtra("showTimestamp", true)
 
         binding.tvTitle.text = room?.name ?: ""
 
         // Camera
         cameraBinding.ivAddImage.setOnClickListener {
             CameraActivity.pendingUris.clear()
-            startActivityForResult(Intent(this, CameraActivity::class.java), CAMERA_REQUEST)
+            startActivityForResult(
+                Intent(this, CameraActivity::class.java)
+                    .putExtra("showTimestamp", showTimestamp),
+                CAMERA_REQUEST
+            )
         }
 
         // All ok / Issues found toggles
@@ -377,18 +383,14 @@ class InspectionRoomActivity : BaseActivity() {
             if (newUris.isNotEmpty()) hasChanges = true
             val entityId = room?.id ?: ""
             if (entityId.isNotEmpty() && newUris.isNotEmpty()) {
-                val progress = ProgressDialog(this).apply {
-                    setMessage("Uploading images...")
-                    setCancelable(false)
-                    show()
-                }
+                showLoading("Uploading images...")
                 AttachmentUploadHelper.uploadImages(
                     activity = this,
                     imageUris = newUris,
                     entityId = entityId,
                     entityType = "ROOM",
-                    onComplete = { progress.dismiss() },
-                    onError = { progress.dismiss() }
+                    onComplete = { hideLoading() },
+                    onError = { hideLoading() }
                 )
             } else {
                 capturedUris.addAll(newUris)

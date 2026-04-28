@@ -22,6 +22,7 @@ class DetectorListingActivity : BaseActivity() {
     private lateinit var binding: ActivityInventoryDetectorListBinding
     var reportId = ""
     var reportStatus = ""
+    var showTimestamp = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,8 +33,10 @@ class DetectorListingActivity : BaseActivity() {
 
         reportId = intent.getStringExtra("reportId") ?: ""
         reportStatus = intent.getStringExtra("reportStatus") ?: ""
+        showTimestamp = intent.getBooleanExtra("showTimestamp", true)
 
-        adapter = InventoryDetectorAdapter(this, detectorList, reportId, reportStatus)
+        adapter =
+            InventoryDetectorAdapter(this, detectorList, reportId, reportStatus, showTimestamp)
 
         binding.rvMeters.adapter = adapter
         binding.ivBack.setOnClickListener { finish() }
@@ -45,7 +48,7 @@ class DetectorListingActivity : BaseActivity() {
                 Intent(this, AddEditDetectorActivity::class.java).putExtra(
                     "reportId",
                     reportId
-                )
+                ).putExtra("showTimestamp", showTimestamp)
             )
         }
     }

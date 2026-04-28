@@ -109,6 +109,7 @@ class InventoryListingActivity : BaseActivity() {
             reportId = reportId,
             reportStatus = reportStatus,
             reportType = reportType,
+            showTimestamp = reportData?.showTimestamp ?: true,
             onDeleteRoom = { roomId ->
                 Utils.showDialogBox(
                     this,
@@ -205,7 +206,9 @@ class InventoryListingActivity : BaseActivity() {
             if (coverImageStorageKey.isNullOrEmpty()) {
                 CameraActivity.pendingUris.clear()
                 startActivityForResult(
-                    Intent(this, CameraActivity::class.java).putExtra("isCoverImage", true),
+                    Intent(this, CameraActivity::class.java)
+                        .putExtra("isCoverImage", true)
+                        .putExtra("showTimestamp", reportData?.showTimestamp ?: true),
                     CAMERA_REQUEST
                 )
             } else {
@@ -416,6 +419,7 @@ class InventoryListingActivity : BaseActivity() {
                         roomsList.clear()
                         roomsList.addAll(response.data.rooms ?: ArrayList())
                         roomsList.sortWith(compareBy(nullsLast(naturalOrder())) { it.displayOrder })
+                        adapter.showTimestamp = response.data.showTimestamp ?: true
                         adapter.updateList(roomsList)
 
                         val allItems = response.data.counts.toCountItemList()
@@ -431,7 +435,8 @@ class InventoryListingActivity : BaseActivity() {
                                 this@InventoryListingActivity,
                                 otherItems,
                                 reportId,
-                                response.data.status
+                                response.data.status,
+                                response.data.showTimestamp ?: true
                             )
 
                         val rawDate = response.data.completionDate
@@ -727,7 +732,9 @@ class InventoryListingActivity : BaseActivity() {
             popup.dismiss()
             CameraActivity.pendingUris.clear()
             startActivityForResult(
-                Intent(this, CameraActivity::class.java).putExtra("isCoverImage", true),
+                Intent(this, CameraActivity::class.java)
+                    .putExtra("isCoverImage", true)
+                    .putExtra("showTimestamp", reportData?.showTimestamp ?: true),
                 CAMERA_REQUEST
             )
         }

@@ -21,6 +21,7 @@ class InventoryKeysAdapter(
     private val originalList: MutableList<KeyItem>,
     val reportId: String,
     val reportStatus: String = "",
+    val showTimestamp: Boolean = true
 ) : RecyclerView.Adapter<InventoryKeysAdapter.ViewHolder>() {
     private var filteredList = originalList.toMutableList()
 
@@ -67,6 +68,7 @@ class InventoryKeysAdapter(
                     "keyItem",
                     filteredList[position]
                 ).putExtra("reportId", reportId)
+                    .putExtra("showTimestamp", showTimestamp)
             )
         }
     }

@@ -20,6 +20,7 @@ class InventoryMetersAdapter(
     private val originalList: MutableList<Meter>,
     val reportId: String,
     val reportStatus: String = "",
+    val showTimestamp: Boolean = true
 ) : RecyclerView.Adapter<InventoryMetersAdapter.ViewHolder>() {
 
     private var filteredList = originalList.toMutableList()
@@ -74,6 +75,7 @@ class InventoryMetersAdapter(
                     "meterItem",
                     filteredList[position]
                 ).putExtra("reportId", reportId)
+                    .putExtra("showTimestamp", showTimestamp)
             )
         }
     }
