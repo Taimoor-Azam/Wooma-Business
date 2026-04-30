@@ -77,6 +77,7 @@ class OtherItemsRepository(private val ctx: Context) {
             syncStatus = SyncStatus.PENDING_CREATE
         )
         db.meterDao().upsert(entity)
+        db.reportDao().incrementMeterCount(reportId, 1)
         db.syncQueueDao().enqueue(
             SyncQueueEntity(
                 entityType = "METER", operationType = "CREATE",
@@ -112,6 +113,7 @@ class OtherItemsRepository(private val ctx: Context) {
     suspend fun deleteMeter(localId: String) {
         val existing = db.meterDao().getById(localId) ?: return
         db.meterDao().softDelete(localId)
+        db.reportDao().incrementMeterCount(existing.reportId, -1)
         if (existing.syncStatus != SyncStatus.PENDING_CREATE) {
             db.syncQueueDao().enqueue(
                 SyncQueueEntity(
@@ -176,6 +178,7 @@ class OtherItemsRepository(private val ctx: Context) {
             syncStatus = SyncStatus.PENDING_CREATE
         )
         db.keyDao().upsert(entity)
+        db.reportDao().incrementKeyCount(reportId, 1)
         db.syncQueueDao().enqueue(
             SyncQueueEntity(
                 entityType = "KEY", operationType = "CREATE",
@@ -209,6 +212,7 @@ class OtherItemsRepository(private val ctx: Context) {
     suspend fun deleteKey(localId: String) {
         val existing = db.keyDao().getById(localId) ?: return
         db.keyDao().softDelete(localId)
+        db.reportDao().incrementKeyCount(existing.reportId, -1)
         if (existing.syncStatus != SyncStatus.PENDING_CREATE) {
             db.syncQueueDao().enqueue(
                 SyncQueueEntity(
@@ -273,6 +277,7 @@ class OtherItemsRepository(private val ctx: Context) {
             syncStatus = SyncStatus.PENDING_CREATE
         )
         db.detectorDao().upsert(entity)
+        db.reportDao().incrementDetectorCount(reportId, 1)
         db.syncQueueDao().enqueue(
             SyncQueueEntity(
                 entityType = "DETECTOR", operationType = "CREATE",
@@ -306,6 +311,7 @@ class OtherItemsRepository(private val ctx: Context) {
     suspend fun deleteDetector(localId: String) {
         val existing = db.detectorDao().getById(localId) ?: return
         db.detectorDao().softDelete(localId)
+        db.reportDao().incrementDetectorCount(existing.reportId, -1)
         if (existing.syncStatus != SyncStatus.PENDING_CREATE) {
             db.syncQueueDao().enqueue(
                 SyncQueueEntity(

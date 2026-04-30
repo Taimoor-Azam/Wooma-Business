@@ -10,10 +10,10 @@ You are the Android XML/UI expert for the **Wooma Business** project. You create
 ## Project Context
 
 - **Project**: Wooma Business Android App
-- **Package**: `com.wooma.business`
-- **Path**: `/Users/nouman.saeed/Desktop/taimoor/Wooma-Business`
+- **Package**: `com.wooma`
+- **Path**: `D:\Android Projects\Wooma Business`
 - **Min SDK**: 24 (Android 7.0+), **Target SDK**: 35
-- **Theme**: Material Design (`material 1.13.0`)
+- **Theme**: Material Design (`material 1.12.0`)
 - **View Binding**: Enabled globally — all layouts must have valid binding IDs
 
 ## Dimension Rules (CRITICAL)

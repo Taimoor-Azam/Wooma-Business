@@ -12,7 +12,6 @@ import com.wooma.adapter.InventoryRoomItemsAdapter
 import com.wooma.data.network.ApiResponseListener
 import com.wooma.data.network.MyApi
 import com.wooma.data.network.makeApiRequest
-import com.wooma.data.network.showToast
 import com.wooma.data.repository.RoomItemRepository
 import com.wooma.databinding.ActivityInventoryRoomsListBinding
 import com.wooma.model.AddNewRoomItemsRequest
@@ -21,7 +20,6 @@ import com.wooma.model.ErrorResponse
 import com.wooma.model.PropertyReportType
 import com.wooma.model.ReportData
 import com.wooma.model.RoomItem
-import com.wooma.model.RoomsResponse
 import com.wooma.model.enums.TenantReportStatus
 import kotlinx.coroutines.launch
 
@@ -62,7 +60,15 @@ class InventoryRoomItemsListActivity : BaseActivity() {
         }
 
         adapter =
-            InventoryRoomItemsAdapter(this, roomItems, reportId, roomId, reportStatus, reportType, showTimestamp)
+            InventoryRoomItemsAdapter(
+                this,
+                roomItems,
+                reportId,
+                roomId,
+                reportStatus,
+                reportType,
+                showTimestamp
+            )
         binding.rvRoomItems.adapter = adapter
 
         binding.ivBack.setOnClickListener { finish() }
@@ -94,7 +100,10 @@ class InventoryRoomItemsListActivity : BaseActivity() {
     override fun onResume() {
         super.onResume()
         lifecycleScope.launch {
-            try { roomItemRepo.refreshItems(reportId, roomId) } catch (_: Exception) {}
+            try {
+                roomItemRepo.refreshItems(reportId, roomId)
+            } catch (_: Exception) {
+            }
         }
     }
 
@@ -103,17 +112,28 @@ class InventoryRoomItemsListActivity : BaseActivity() {
             apiServiceClass = MyApi::class.java,
             context = this,
             showLoading = true,
-            requestAction = { apiService -> apiService.addRoomItemsToReport(reportId, roomId, request) },
+            requestAction = { apiService ->
+                apiService.addRoomItemsToReport(
+                    reportId,
+                    roomId,
+                    request
+                )
+            },
             listener = object : ApiResponseListener<ApiResponse<ArrayList<ReportData>>> {
                 override fun onSuccess(response: ApiResponse<ArrayList<ReportData>>) {
                     // Refresh from local cache so new items appear via the Flow
                     lifecycleScope.launch {
-                        try { roomItemRepo.refreshItems(reportId, roomId) } catch (_: Exception) {}
+                        try {
+                            roomItemRepo.refreshItems(reportId, roomId)
+                        } catch (_: Exception) {
+                        }
                     }
                 }
+
                 override fun onFailure(errorMessage: ErrorResponse?) {
                     Log.e("API", errorMessage?.error?.message ?: "")
                 }
+
                 override fun onError(throwable: Throwable) {
                     Log.e("API", "Error: ${throwable.message}")
                 }

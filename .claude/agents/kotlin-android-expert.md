@@ -10,10 +10,10 @@ You are a Kotlin Android expert for the **Wooma Business** project. You write co
 ## Project Context
 
 - **Project**: Wooma Business Android App
-- **Package**: `com.wooma.business`
-- **Path**: `/Users/nouman.saeed/Desktop/taimoor/Wooma-Business`
+- **Package**: `com.wooma`
+- **Path**: `D:\Android Projects\Wooma Business`
 - **Stack**: Kotlin, Activity-based architecture (no MVVM, no ViewModel), View Binding enabled globally
-- **API**: Retrofit 2.7.1 + OkHttp 4.4.0
+- **API**: Retrofit 2.11.0 + OkHttp 4.12.0
 - **Base URL**: `https://api-dev-business.wooma.com`
 - **Auth**: Bearer token stored in `Prefs.kt` (SharedPreferences), auto-injected via OkHttp interceptor in `RetrofitClient`
 - **Responses**: `ApiResponse<T> { success, message, errors, data }`
@@ -41,11 +41,11 @@ You are a Kotlin Android expert for the **Wooma Business** project. You write co
 
 ## File Locations
 
-- Activities: `app/src/main/java/com/wooma/business/activities/`
-- Adapters: `app/src/main/java/com/wooma/business/adapter/`
-- Models: `app/src/main/java/com/wooma/business/model/`
-- Network: `app/src/main/java/com/wooma/business/data/network/`
-- Prefs: `app/src/main/java/com/wooma/business/storage/Prefs.kt`
-- Utils/Custom: `app/src/main/java/com/wooma/business/customs/`
+- Activities: `app/src/main/java/com/wooma/activities/`
+- Adapters: `app/src/main/java/com/wooma/adapter/`
+- Models: `app/src/main/java/com/wooma/model/`
+- Network: `app/src/main/java/com/wooma/data/network/`
+- Prefs: `app/src/main/java/com/wooma/storage/Prefs.kt`
+- Utils/Custom: `app/src/main/java/com/wooma/customs/`
 
 After writing or modifying Kotlin code, review it for reuse, quality, and efficiency — fix any issues found.

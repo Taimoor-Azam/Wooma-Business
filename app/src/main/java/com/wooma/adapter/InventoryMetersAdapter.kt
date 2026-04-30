@@ -64,8 +64,12 @@ class InventoryMetersAdapter(
         holder.tvLocation.visibility = if (locationVisible) View.VISIBLE else View.GONE
         holder.tvLocation.text = item.location ?: ""
 
-        val imageItems = item.attachments.map { ImageItem.Remote(it.id, "${ApiClient.IMAGE_BASE_URL}${it.storageKey}") }.toMutableList<ImageItem>()
-        holder.rvImages.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+        val imageItems = item.attachments.map {
+            ImageItem.Remote(
+                it.id,
+                "${ApiClient.IMAGE_BASE_URL}${it.storageKey}"
+            )
+        }.toMutableList<ImageItem>()
         holder.rvImages.adapter = ImageAdapter(imageItems, showDelete = false, title = item.name)
 
         holder.itemView.setOnClickListener {

@@ -288,18 +288,29 @@ class InventoryRoomItemActivity : BaseActivity() {
             binding.etDescription.setText(roomItems?.description ?: "")
             binding.etNote.setText(roomItems?.note ?: "")
 
-            // Load existing images from local DB
+            // Load existing images from local DB (reactive — updates when DB changes after refresh)
+            val entityId = roomItems?.id ?: return
             lifecycleScope.launch {
-                val entityId = roomItems?.id ?: return@launch
-                val dbAttachments = db.attachmentDao().getByEntity(entityId, "ROOM_ITEM")
-                dbAttachments.forEach { a ->
-                    if (a.isUploaded && a.storageKey != null) {
-                        allImages.add(ImageItem.Remote(a.serverId ?: a.id, "$S3_BASE_URL${a.storageKey}"))
-                    } else if (!a.isUploaded && a.localUri != null) {
-                        allImages.add(ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!))))
+                db.attachmentDao().observeByEntity(entityId, "ROOM_ITEM").collect { dbAttachments ->
+                    dbAttachments.forEach { a ->
+                        val img: ImageItem? = when {
+                            a.isUploaded && a.storageKey != null ->
+                                ImageItem.Remote(a.serverId ?: a.id, "$S3_BASE_URL${a.storageKey}")
+                            !a.isUploaded && a.localUri != null ->
+                                ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!)))
+                            else -> null
+                        }
+                        img ?: return@forEach
+                        val exists = allImages.any {
+                            (img is ImageItem.Remote && it is ImageItem.Remote && it.id == img.id) ||
+                            (img is ImageItem.Local && it is ImageItem.Local && it.uri == img.uri)
+                        }
+                        if (!exists) {
+                            allImages.add(img)
+                            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
+                        }
                     }
                 }
-                cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
             }
 
             binding.rvCondition.adapter =

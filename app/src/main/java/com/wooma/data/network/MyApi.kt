@@ -108,6 +108,7 @@ interface MyApi {
     fun getReportById(
         @Path("id") id: String,
         @Query("include_rooms") include_rooms: Boolean,
+        @Query("include_items") include_items: Boolean,
         @Query("include_counts") include_counts: Boolean,
         @Query("include_attachments") include_attachments: Boolean? = null,
     ): Call<ApiResponse<ReportData>>

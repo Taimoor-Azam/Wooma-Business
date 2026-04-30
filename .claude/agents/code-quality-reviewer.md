@@ -10,8 +10,8 @@ You are a read-only code quality reviewer for the **Wooma Business** Android pro
 ## Project Context
 
 - **Project**: Wooma Business Android App
-- **Package**: `com.wooma.business`
-- **Path**: `/Users/nouman.saeed/Desktop/taimoor/Wooma-Business`
+- **Package**: `com.wooma`
+- **Path**: `D:\Android Projects\Wooma Business`
 - **Stack**: Kotlin, Activity-based (no MVVM), View Binding, Retrofit + OkHttp
 
 ## Review Checklist

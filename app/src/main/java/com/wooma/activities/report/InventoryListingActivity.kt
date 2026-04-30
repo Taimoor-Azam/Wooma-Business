@@ -53,7 +53,6 @@ import com.wooma.model.RoomsResponse
 import com.wooma.model.TenantReview
 import com.wooma.model.enums.ReportTypes
 import com.wooma.model.enums.TenantReportStatus
-import com.wooma.model.toCountItemList
 import com.wooma.model.ImageItem
 import com.wooma.sync.SyncScheduler
 import kotlinx.coroutines.flow.collectLatest
@@ -119,7 +118,11 @@ class InventoryListingActivity : BaseActivity() {
             reportType = reportType,
             showTimestamp = reportData?.showTimestamp ?: true,
             onDeleteRoom = { roomId ->
-                Utils.showDialogBox(this, "Delete Room", "Are you sure you want to remove this room?") {
+                Utils.showDialogBox(
+                    this,
+                    "Delete Room",
+                    "Are you sure you want to remove this room?"
+                ) {
                     lifecycleScope.launch { roomRepo.deleteRoom(roomId ?: "") }
                 }
             },
@@ -137,10 +140,17 @@ class InventoryListingActivity : BaseActivity() {
 
         val touchCallback = object : ItemTouchHelper.Callback() {
             override fun getMovementFlags(rv: RecyclerView, vh: RecyclerView.ViewHolder) =
-                if (adapter.isEditMode) makeMovementFlags(ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0)
+                if (adapter.isEditMode) makeMovementFlags(
+                    ItemTouchHelper.UP or ItemTouchHelper.DOWN,
+                    0
+                )
                 else makeMovementFlags(0, 0)
 
-            override fun onMove(rv: RecyclerView, vh: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder): Boolean {
+            override fun onMove(
+                rv: RecyclerView,
+                vh: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
                 adapter.onItemMove(vh.adapterPosition, target.adapterPosition)
                 return true
             }
@@ -168,11 +178,20 @@ class InventoryListingActivity : BaseActivity() {
         binding.tvExtendTime.setOnClickListener {
             startActivity(Intent(this, ExtendTimerActivity::class.java).apply {
                 putExtra("reportId", reportId)
-                putExtra("expiryDate", reportData?.extendReviewExpiry ?: reportData?.tenantReviewExpiry)
+                putExtra(
+                    "expiryDate",
+                    reportData?.extendReviewExpiry ?: reportData?.tenantReviewExpiry
+                )
             })
         }
 
-        binding.rvOtherItems.addItemDecoration(GridSpacingItemDecoration(2, (16 * resources.displayMetrics.density).toInt(), true))
+        binding.rvOtherItems.addItemDecoration(
+            GridSpacingItemDecoration(
+                2,
+                (16 * resources.displayMetrics.density).toInt(),
+                true
+            )
+        )
 
         binding.ivSettings.setOnClickListener {
             startActivity(Intent(this, InventoryReportSettingActivity::class.java).apply {
@@ -205,7 +224,12 @@ class InventoryListingActivity : BaseActivity() {
         binding.btnCompleteReport.setOnClickListener {
             when (reportType?.type_code) {
                 ReportTypes.INSPECTION.value, ReportTypes.CHECK_OUT.value -> showCompleteInspectionBottomSheet()
-                else -> startActivity(Intent(this, CompleteReportActivity::class.java).putExtra("reportId", reportId))
+                else -> startActivity(
+                    Intent(
+                        this,
+                        CompleteReportActivity::class.java
+                    ).putExtra("reportId", reportId)
+                )
             }
         }
 
@@ -217,7 +241,12 @@ class InventoryListingActivity : BaseActivity() {
         }
 
         binding.ivAddRoom.setOnClickListener {
-            startActivity(Intent(this, SelectRoomActivity::class.java).putExtra("reportId", reportId))
+            startActivity(
+                Intent(this, SelectRoomActivity::class.java).putExtra(
+                    "reportId",
+                    reportId
+                )
+            )
         }
 
         supportFragmentManager.setFragmentResultListener("sheet_key", this) { _, bundle ->
@@ -226,7 +255,9 @@ class InventoryListingActivity : BaseActivity() {
         }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() { navigateToReportListing() }
+            override fun handleOnBackPressed() {
+                navigateToReportListing()
+            }
         })
     }
 
@@ -244,10 +275,27 @@ class InventoryListingActivity : BaseActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 db.reportDao().observeById(reportId).collectLatest { entity ->
-                    entity?.let {
-                        coverImageStorageKey = it.coverImageStorageKey
-                        updateCoverImageView()
-                    }
+                    entity ?: return@collectLatest
+                    coverImageStorageKey = entity.coverImageStorageKey
+                    updateCoverImageView()
+                    val allItems = arrayListOf(
+                        CountItem("Meters", entity.countMeters),
+                        CountItem("Keys", entity.countKeys),
+                        CountItem("Detectors", entity.countDetectors),
+                        CountItem("Checklist", entity.countChecklists)
+                    )
+                    val isInspection = entity.reportTypeCode == ReportTypes.INSPECTION.value
+                    val otherItems =
+                        if (isInspection) allItems.filter { it.label == "Checklist" } else allItems
+                    (binding.rvOtherItems.layoutManager as? GridLayoutManager)?.spanCount =
+                        if (otherItems.size == 1) 1 else 2
+                    binding.rvOtherItems.adapter = InventoryOtherItemsAdapter(
+                        this@InventoryListingActivity,
+                        ArrayList(otherItems),
+                        reportId,
+                        entity.status,
+                        true
+                    )
                 }
             }
         }
@@ -258,7 +306,8 @@ class InventoryListingActivity : BaseActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 combine(
                     db.syncQueueDao().countPending(),
-                    com.wooma.sync.ConnectivityObserver(this@InventoryListingActivity).observeConnectivity()
+                    com.wooma.sync.ConnectivityObserver(this@InventoryListingActivity)
+                        .observeConnectivity()
                 ) { pendingCount, isConnected ->
                     pendingCount == 0 && isConnected
                 }.collectLatest { canComplete ->
@@ -315,47 +364,62 @@ class InventoryListingActivity : BaseActivity() {
     override fun onResume() {
         super.onResume()
         getReportByIdApi()
-        lifecycleScope.launch { try { roomRepo.refreshRooms(reportId) } catch (_: Exception) {} }
+        lifecycleScope.launch {
+            try {
+                roomRepo.refreshRooms(reportId)
+            } catch (_: Exception) {
+            }
+        }
     }
 
-    private fun getReportByIdApi(showLoading: Boolean = true) {
+    private fun getReportByIdApi(showLoading: Boolean = false) {
         makeApiRequest(
             apiServiceClass = MyApi::class.java,
             context = this,
             showLoading = showLoading,
-            requestAction = { apiService -> apiService.getReportById(reportId, true, true) },
+            requestAction = { apiService -> apiService.getReportById(reportId, true, true, true) },
             listener = object : ApiResponseListener<ApiResponse<ReportData>> {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
                         reportData = response.data
+                        lifecycleScope.launch {
+                            db.reportDao().updateCounts(
+                                reportId,
+                                response.data.counts.meters,
+                                response.data.counts.keys,
+                                response.data.counts.detectors,
+                                response.data.counts.activeChecklists
+                            )
+                        }
                         reportStatus = response.data.status
                         updateViewAccToStatus()
 
                         val apiReportType = response.data.reportType
                         if (reportType == null) {
-                            reportType = PropertyReportType(apiReportType.id, apiReportType.display_name, apiReportType.type_code)
+                            reportType = PropertyReportType(
+                                apiReportType.id,
+                                apiReportType.display_name,
+                                apiReportType.type_code
+                            )
                             adapter.reportType = reportType
                             binding.tvReportType.text = apiReportType.display_name
                         }
 
                         coverImageStorageKey = response.data.coverImageStorageKey
                         updateCoverImageView()
-                        
-                        adapter.showTimestamp = response.data.showTimestamp ?: true
 
-                        val allItems = response.data.counts.toCountItemList()
-                        val isInspection = reportType?.type_code == ReportTypes.INSPECTION.value
-                        val otherItems = if (isInspection) allItems.filter { it.label == "Checklist" } else allItems
-                        (binding.rvOtherItems.layoutManager as? GridLayoutManager)?.spanCount = if (otherItems.size == 1) 1 else 2
-                        binding.rvOtherItems.adapter = InventoryOtherItemsAdapter(this@InventoryListingActivity, ArrayList(otherItems), reportId, response.data.status, response.data.showTimestamp ?: true)
+                        adapter.showTimestamp = response.data.showTimestamp
 
                         val rawDate = response.data.completionDate
                         if (rawDate.isNotEmpty()) {
                             try {
-                                val inSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                                val inSdf =
+                                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
                                 val outSdf = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-                                inSdf.parse(rawDate)?.let { binding.tvDate.text = outSdf.format(it) }
-                            } catch (_: Exception) {}
+                                inSdf.parse(rawDate)
+                                    ?.let { binding.tvDate.text = outSdf.format(it) }
+                            } catch (_: Exception) {
+                            }
                         }
 
                         if (response.data.status == TenantReportStatus.TENANT_REVIEW.value) {
@@ -364,7 +428,8 @@ class InventoryListingActivity : BaseActivity() {
                             val blankCount = response.data.blankSpacesCount
                             if (blankCount != 0 && reportType?.type_code != ReportTypes.CHECK_OUT.value) {
                                 binding.tvBlankSpaces.visibility = View.VISIBLE
-                                binding.tvBlankSpaces.text = "Completed with $blankCount blank signature spaces"
+                                binding.tvBlankSpaces.text =
+                                    "Completed with $blankCount blank signature spaces"
                             }
                             pdfUrl = response.data.pdfUrl?.let { "${ApiClient.IMAGE_BASE_URL}$it" }
                             updateViewForCompletedReport()
@@ -372,8 +437,14 @@ class InventoryListingActivity : BaseActivity() {
                         }
                     }
                 }
-                override fun onFailure(errorMessage: ErrorResponse?) { showToast(errorMessage?.error?.message ?: "") }
-                override fun onError(throwable: Throwable) { showToast("Error: ${throwable.message}") }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    showToast(errorMessage?.error?.message ?: "")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    showToast("Error: ${throwable.message}")
+                }
             }
         )
     }
@@ -388,12 +459,20 @@ class InventoryListingActivity : BaseActivity() {
                 @RequiresApi(Build.VERSION_CODES.O)
                 override fun onSuccess(response: ApiResponse<ArrayList<TenantReview>>) {
                     if (response.success) {
-                        if (reportStatus == TenantReportStatus.COMPLETED.value) updateCompletedWithTenants(response.data)
+                        if (reportStatus == TenantReportStatus.COMPLETED.value) updateCompletedWithTenants(
+                            response.data
+                        )
                         else updateViewForTenantReview(response.data)
                     }
                 }
-                override fun onFailure(errorMessage: ErrorResponse?) { showToast(errorMessage?.error?.message ?: "") }
-                override fun onError(throwable: Throwable) { showToast("Error: ${throwable.message}") }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    showToast(errorMessage?.error?.message ?: "")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    showToast("Error: ${throwable.message}")
+                }
             }
         )
     }
@@ -419,26 +498,33 @@ class InventoryListingActivity : BaseActivity() {
         if (data.isEmpty()) return
         val count = data.count { it.is_submitted }
         binding.completedTenantSection.visibility = View.VISIBLE
-        binding.tvReviewPeriodEnded.text = "Review period ended with $count of ${data.size} signatures"
+        binding.tvReviewPeriodEnded.text =
+            "Review period ended with $count of ${data.size} signatures"
         binding.tvCompletedTenantSignatures.text = "Tenant signatures ($count of ${data.size})"
-        binding.rvCompletedTenants.adapter = ReportTenantsAdapter(this, data, reportStatus = TenantReportStatus.COMPLETED.value)
+        binding.rvCompletedTenants.adapter =
+            ReportTenantsAdapter(this, data, reportStatus = TenantReportStatus.COMPLETED.value)
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
     private fun updateViewForTenantReview(data: ArrayList<TenantReview>) {
         binding.tenantReviewLayout.visibility = View.VISIBLE
-        binding.rvTenants.adapter = ReportTenantsAdapter(this, data, reportId = reportId, reportStatus = TenantReportStatus.TENANT_REVIEW.value, onTenantClick = { tenant ->
-            startActivityForResult(Intent(this, EditTenantActivity::class.java).apply {
-                putExtra("isEditMode", true)
-                putExtra("reportId", reportId)
-                putExtra("tenantReviewId", tenant.id)
-                putExtra("firstName", tenant.first_name)
-                putExtra("lastName", tenant.last_name)
-                putExtra("email", tenant.email_address)
-                putExtra("mobileNumber", tenant.mobile_number)
-                putExtra("tenantCount", data.size)
-            }, TENANT_REQUEST_CODE)
-        })
+        binding.rvTenants.adapter = ReportTenantsAdapter(
+            this,
+            data,
+            reportId = reportId,
+            reportStatus = TenantReportStatus.TENANT_REVIEW.value,
+            onTenantClick = { tenant ->
+                startActivityForResult(Intent(this, EditTenantActivity::class.java).apply {
+                    putExtra("isEditMode", true)
+                    putExtra("reportId", reportId)
+                    putExtra("tenantReviewId", tenant.id)
+                    putExtra("firstName", tenant.first_name)
+                    putExtra("lastName", tenant.last_name)
+                    putExtra("email", tenant.email_address)
+                    putExtra("mobileNumber", tenant.mobile_number)
+                    putExtra("tenantCount", data.size)
+                }, TENANT_REQUEST_CODE)
+            })
         val expiryDate = reportData?.extendReviewExpiry ?: reportData?.tenantReviewExpiry
         binding.daysRemaining.text = "${Utils.getDaysDifference(expiryDate ?: "")} days remaining"
         val count = data.count { it.is_submitted }
@@ -447,7 +533,11 @@ class InventoryListingActivity : BaseActivity() {
         binding.tvReceivedSigns.text = "${count}/${data.size}"
         binding.tvTotalTenants.text = "Tenant (${data.size})"
         binding.tvCancelSignatureRequest.setOnClickListener {
-            Utils.showDialogBox(this, "Cancel Signature Request", "Are you sure you want to cancel?") { cancelSignatureRequestApi() }
+            Utils.showDialogBox(
+                this,
+                "Cancel Signature Request",
+                "Are you sure you want to cancel?"
+            ) { cancelSignatureRequestApi() }
         }
     }
 
@@ -458,9 +548,17 @@ class InventoryListingActivity : BaseActivity() {
             showLoading = true,
             requestAction = { api -> api.cancelSignatureRequest(reportId) },
             listener = object : ApiResponseListener<ApiResponse<Any>> {
-                override fun onSuccess(response: ApiResponse<Any>) { showToast("Cancelled"); getReportByIdApi() }
-                override fun onFailure(errorMessage: ErrorResponse?) { showToast(errorMessage?.error?.message ?: "Failed") }
-                override fun onError(throwable: Throwable) { showToast("Error: ${throwable.message}") }
+                override fun onSuccess(response: ApiResponse<Any>) {
+                    showToast("Cancelled"); getReportByIdApi()
+                }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    showToast(errorMessage?.error?.message ?: "Failed")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    showToast("Error: ${throwable.message}")
+                }
             }
         )
     }
@@ -486,9 +584,17 @@ class InventoryListingActivity : BaseActivity() {
                 showLoading = true,
                 requestAction = { api -> api.completeReport(reportId, CompleteReportRequest(0)) },
                 listener = object : ApiResponseListener<ApiResponse<ReportData>> {
-                    override fun onSuccess(response: ApiResponse<ReportData>) { bottomSheet.dismiss(); showReportCompletedDialog() }
-                    override fun onFailure(errorMessage: ErrorResponse?) { showToast(errorMessage?.error?.message ?: "Failed") }
-                    override fun onError(throwable: Throwable) { showToast("Error: ${throwable.message}") }
+                    override fun onSuccess(response: ApiResponse<ReportData>) {
+                        bottomSheet.dismiss(); showReportCompletedDialog()
+                    }
+
+                    override fun onFailure(errorMessage: ErrorResponse?) {
+                        showToast(errorMessage?.error?.message ?: "Failed")
+                    }
+
+                    override fun onError(throwable: Throwable) {
+                        showToast("Error: ${throwable.message}")
+                    }
                 }
             )
         }
@@ -496,24 +602,38 @@ class InventoryListingActivity : BaseActivity() {
     }
 
     private fun updateCoverImageView() {
-        val isReviewOrComplete = reportStatus == TenantReportStatus.TENANT_REVIEW.value || reportStatus == TenantReportStatus.COMPLETED.value
+        val isReviewOrComplete =
+            reportStatus == TenantReportStatus.TENANT_REVIEW.value || reportStatus == TenantReportStatus.COMPLETED.value
         if (isReviewOrComplete && coverImageStorageKey.isNullOrEmpty()) {
             binding.coverImageSection.visibility = View.GONE
             return
         }
         binding.coverImageSection.visibility = View.VISIBLE
         if (!coverImageStorageKey.isNullOrEmpty()) {
-            Glide.with(this).load("${ApiClient.IMAGE_BASE_URL}$coverImageStorageKey").centerCrop().into(binding.ivCoverImage)
+            Glide.with(this).load("${ApiClient.IMAGE_BASE_URL}$coverImageStorageKey").centerCrop()
+                .into(binding.ivCoverImage)
         } else {
-            binding.ivCoverImage.setImageDrawable(ContextCompat.getDrawable(this, R.drawable.svg_img_placeholder))
+            binding.ivCoverImage.setImageDrawable(
+                ContextCompat.getDrawable(
+                    this,
+                    R.drawable.svg_img_placeholder
+                )
+            )
         }
     }
 
-    private fun showReportCompletedDialog() { Utils.showReportCompletedDialog(this) { getReportByIdApi() } }
+    private fun showReportCompletedDialog() {
+        Utils.showReportCompletedDialog(this) { getReportByIdApi() }
+    }
 
     private fun showCoverImagePopup(anchor: View) {
         val popupBinding = PopupCoverImageMenuBinding.inflate(layoutInflater)
-        val popup = PopupWindow(popupBinding.root, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        val popup = PopupWindow(
+            popupBinding.root,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        )
         popup.elevation = resources.getDimension(com.intuit.sdp.R.dimen._4sdp)
         popupBinding.tvView.setOnClickListener { popup.dismiss(); viewCoverImage() }
         popupBinding.tvTakeNewPhoto.setOnClickListener {
@@ -527,13 +647,27 @@ class InventoryListingActivity : BaseActivity() {
         popupBinding.tvDelete.setOnClickListener {
             popup.dismiss()
             if (coverImageStorageKey.isNullOrEmpty()) return@setOnClickListener
-            Utils.showDialogBox(this, "Delete Cover Image", "Are you sure?") { patchCoverImageApi(null) }
+            Utils.showDialogBox(this, "Delete Cover Image", "Are you sure?") {
+                if (!com.wooma.sync.ConnectivityObserver(this@InventoryListingActivity)
+                        .isConnected()
+                ) {
+                    showToast("Internet connection required to delete cover image")
+                    return@showDialogBox
+                }
+                patchCoverImageApi(null)
+            }
         }
-        popup.showAsDropDown(anchor, resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._12sdp), 0)
+        popup.showAsDropDown(
+            anchor,
+            resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._12sdp),
+            0
+        )
     }
 
     private fun viewCoverImage() {
-        val url = "${ApiClient.IMAGE_BASE_URL}$coverImageStorageKey".takeIf { !coverImageStorageKey.isNullOrEmpty() } ?: return
+        val url =
+            "${ApiClient.IMAGE_BASE_URL}$coverImageStorageKey".takeIf { !coverImageStorageKey.isNullOrEmpty() }
+                ?: return
         Utils.showFullScreenImage(this, listOf(ImageItem.Remote("", url)), 0, "", null)
     }
 
@@ -543,7 +677,8 @@ class InventoryListingActivity : BaseActivity() {
             context = this,
             showLoading = true,
             requestAction = { api ->
-                val json = if (storageKey != null) """{"cover_image_storage_key":"$storageKey"}""" else """{"cover_image_storage_key":null}"""
+                val json =
+                    if (storageKey != null) """{"cover_image_storage_key":"$storageKey"}""" else """{"cover_image_storage_key":null}"""
                 api.updateReport(reportId, json.toRequestBody("application/json".toMediaType()))
             },
             listener = object : ApiResponseListener<ApiResponse<ReportData>> {
@@ -551,8 +686,14 @@ class InventoryListingActivity : BaseActivity() {
                     coverImageStorageKey = storageKey
                     updateCoverImageView()
                 }
-                override fun onFailure(errorMessage: ErrorResponse?) { showToast(errorMessage?.error?.message ?: "Failed") }
-                override fun onError(throwable: Throwable) { showToast("Error: ${throwable.message}") }
+
+                override fun onFailure(errorMessage: ErrorResponse?) {
+                    showToast(errorMessage?.error?.message ?: "Failed")
+                }
+
+                override fun onError(throwable: Throwable) {
+                    showToast("Error: ${throwable.message}")
+                }
             }
         )
     }

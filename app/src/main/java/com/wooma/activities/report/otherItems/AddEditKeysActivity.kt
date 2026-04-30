@@ -268,15 +268,26 @@ class AddEditKeysActivity : BaseActivity() {
             binding.etNote.setText(keyItem?.note ?: "")
 
             lifecycleScope.launch {
-                val dbAttachments = db.attachmentDao().getByEntity(keyItem!!.id, "KEY")
-                dbAttachments.forEach { a ->
-                    if (a.isUploaded && a.storageKey != null) {
-                        allImages.add(ImageItem.Remote(a.serverId ?: a.id, "${ApiClient.IMAGE_BASE_URL}${a.storageKey}"))
-                    } else if (!a.isUploaded && a.localUri != null) {
-                        allImages.add(ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!))))
+                db.attachmentDao().observeByEntity(keyItem!!.id, "KEY").collect { dbAttachments ->
+                    dbAttachments.forEach { a ->
+                        val img: ImageItem? = when {
+                            a.isUploaded && a.storageKey != null ->
+                                ImageItem.Remote(a.serverId ?: a.id, "${ApiClient.IMAGE_BASE_URL}${a.storageKey}")
+                            !a.isUploaded && a.localUri != null ->
+                                ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!)))
+                            else -> null
+                        }
+                        img ?: return@forEach
+                        val exists = allImages.any {
+                            (img is ImageItem.Remote && it is ImageItem.Remote && it.id == img.id) ||
+                            (img is ImageItem.Local && it is ImageItem.Local && it.uri == img.uri)
+                        }
+                        if (!exists) {
+                            allImages.add(img)
+                            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
+                        }
                     }
                 }
-                cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
             }
         }
     }

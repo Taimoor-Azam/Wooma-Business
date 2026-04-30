@@ -12,10 +12,13 @@ import com.wooma.activities.BaseActivity
 import com.wooma.activities.report.CameraActivity
 import com.wooma.adapter.CheckListInfoAdapter
 import com.wooma.adapter.InventoryCheckListQuestionAdapter
+import com.wooma.data.local.WoomaDatabase
 import com.wooma.data.local.mapper.toInfoField
 import com.wooma.data.local.mapper.toQuestion
 import com.wooma.data.repository.ChecklistRepository
 import com.wooma.databinding.ActivityCheckListDetailBinding
+import com.wooma.model.AnswerAttachment
+import com.wooma.model.Attachment
 import com.wooma.model.InfoField
 import com.wooma.model.Question
 import com.wooma.model.enums.TenantReportStatus
@@ -39,6 +42,7 @@ class CheckListDetailActivity : BaseActivity() {
     private var showTimestamp = true
 
     private lateinit var checklistRepo: ChecklistRepository
+    private val db by lazy { WoomaDatabase.getInstance(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -122,8 +126,26 @@ class CheckListDetailActivity : BaseActivity() {
                 }
                 launch {
                     checklistRepo.observeChecklistQuestions(checklistId).collect { entities ->
+                        val questions = entities.map { it.toQuestion() }
+                        // Inject answer attachment URLs from local DB into question models
+                        val questionsWithAttachments = questions.mapIndexed { i, q ->
+                            val answerAttachmentId = entities.getOrNull(i)?.answerAttachmentId
+                                ?: return@mapIndexed q
+                            val attachments = db.attachmentDao()
+                                .getByEntity(answerAttachmentId, "CHECKLIST_ANSWER")
+                            if (attachments.isEmpty()) return@mapIndexed q
+                            q.copy(
+                                checklist_question_answer_attachment = AnswerAttachment(
+                                    id = answerAttachmentId,
+                                    attachments = ArrayList(attachments.mapNotNull { a ->
+                                        if (a.storageKey.isNullOrEmpty()) null
+                                        else Attachment(a.id, a.link, a.storageKey)
+                                    })
+                                )
+                            )
+                        }
                         checkListQuestionItems.clear()
-                        checkListQuestionItems.addAll(entities.map { it.toQuestion() })
+                        checkListQuestionItems.addAll(questionsWithAttachments)
                         questionAdapter.updateList(checkListQuestionItems)
                         binding.tvQuestion.visibility = if (checkListQuestionItems.isNotEmpty()) View.VISIBLE else View.GONE
                         binding.rvQuestions.visibility = binding.tvQuestion.visibility

@@ -66,6 +66,25 @@ class ChecklistRepository(private val ctx: Context) {
     suspend fun refreshChecklist(reportChecklistId: String) = withContext(Dispatchers.IO) {
         val resp = api.getReportCheckList(reportChecklistId, include_attachments = true).execute()
         resp.body()?.data?.let { data ->
+            // Save answer attachments to local DB
+            data.questions.forEach { q ->
+                val answerAtt = q.checklist_question_answer_attachment ?: return@forEach
+                val toSave = answerAtt.attachments?.mapNotNull { att ->
+                    if (att.storageKey.isNullOrEmpty()) null
+                    else AttachmentEntity(
+                        id = att.id ?: return@mapNotNull null,
+                        serverId = att.id,
+                        entityId = answerAtt.id,
+                        entityType = "CHECKLIST_ANSWER",
+                        storageKey = att.storageKey,
+                        link = att.url,
+                        localUri = null,
+                        isUploaded = true
+                    )
+                } ?: return@forEach
+                if (toSave.isNotEmpty()) db.attachmentDao().upsertAll(toSave)
+            }
+
             // Update Questions
             val questionEntities = data.questions.map { q ->
                 ChecklistQuestionEntity(
@@ -80,6 +99,7 @@ class ChecklistRepository(private val ctx: Context) {
                     answerText = q.answer_text,
                     note = q.note,
                     originalNote = q.original_note,
+                    answerAttachmentId = q.checklist_question_answer_attachment?.id,
                     syncStatus = SyncStatus.SYNCED
                 )
             }

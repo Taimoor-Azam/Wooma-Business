@@ -67,4 +67,7 @@ interface ReportDao {
 
     @Query("UPDATE reports SET reportTypeId = :typeId, reportTypeDisplayName = :typeName, reportTypeCode = :typeCode WHERE id = :reportId")
     suspend fun updateReportType(reportId: String, typeId: String, typeName: String, typeCode: String)
+
+    @Query("UPDATE reports SET countMeters = :meters, countKeys = :keys, countDetectors = :detectors, countChecklists = :checklists WHERE id = :reportId")
+    suspend fun updateCounts(reportId: String, meters: Int, keys: Int, detectors: Int, checklists: Int)
 }

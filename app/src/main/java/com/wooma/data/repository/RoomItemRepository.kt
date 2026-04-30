@@ -3,6 +3,7 @@ package com.wooma.data.repository
 import android.content.Context
 import com.google.gson.Gson
 import com.wooma.data.local.WoomaDatabase
+import com.wooma.data.local.entity.AttachmentEntity
 import com.wooma.data.local.entity.RoomItemEntity
 import com.wooma.data.local.entity.SyncQueueEntity
 import com.wooma.data.local.entity.SyncStatus
@@ -43,6 +44,26 @@ class RoomItemRepository(private val ctx: Context) {
             val pendingIds = db.roomItemDao().getPendingSyncItems().map { it.id }.toSet()
             val entities = items.map { it.toEntity(roomId) }.filter { it.id !in pendingIds }
             db.roomItemDao().upsertAll(entities)
+
+            // Persist API attachments for room items
+            val roomItemAttachments = items
+                .filter { it.id !in pendingIds }
+                .flatMap { item ->
+                    (item.attachments ?: emptyList()).mapNotNull { att ->
+                        if (att.storageKey.isNullOrEmpty()) null
+                        else AttachmentEntity(
+                            id = att.id ?: return@mapNotNull null,
+                            serverId = att.id,
+                            entityId = item.id ?: return@mapNotNull null,
+                            entityType = "ROOM_ITEM",
+                            storageKey = att.storageKey,
+                            link = att.url,
+                            localUri = null,
+                            isUploaded = true
+                        )
+                    }
+                }
+            if (roomItemAttachments.isNotEmpty()) db.attachmentDao().upsertAll(roomItemAttachments)
         }
     }
 

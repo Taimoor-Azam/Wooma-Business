@@ -10,19 +10,19 @@ You are the API and networking expert for the **Wooma Business** Android project
 ## Project Context
 
 - **Project**: Wooma Business Android App
-- **Package**: `com.wooma.business`
-- **Path**: `/Users/nouman.saeed/Desktop/taimoor/Wooma-Business`
-- **API**: Retrofit 2.7.1 + OkHttp 4.4.0
+- **Package**: `com.wooma`
+- **Path**: `D:\Android Projects\Wooma Business`
+- **API**: Retrofit 2.11.0 + OkHttp 4.12.0
 - **Base URL**: `https://api-dev-business.wooma.com`
 - **Auth**: Bearer token stored in `Prefs.kt`, auto-injected via OkHttp interceptor in `RetrofitClient`
 - **Responses**: `ApiResponse<T> { success, message, errors, data }`
 
 ## Key Files
 
-- `app/src/main/java/com/wooma/business/data/network/MyApi.kt` — Retrofit interface with all endpoints
-- `app/src/main/java/com/wooma/business/data/network/RetrofitClient.kt` — Retrofit singleton; OkHttp interceptor injects `Authorization: Bearer <token>` from `Prefs`
-- `app/src/main/java/com/wooma/business/model/` — All request/response data classes
-- `app/src/main/java/com/wooma/business/storage/Prefs.kt` — SharedPreferences wrapper; holds the access token
+- `app/src/main/java/com/wooma/data/network/MyApi.kt` — Retrofit interface with all endpoints
+- `app/src/main/java/com/wooma/data/network/RetrofitClient.kt` — Retrofit singleton; OkHttp interceptor injects `Authorization: Bearer <token>` from `Prefs`
+- `app/src/main/java/com/wooma/model/` — All request/response data classes
+- `app/src/main/java/com/wooma/storage/Prefs.kt` — SharedPreferences wrapper; holds the access token
 
 ## API Patterns
 
