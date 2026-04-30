@@ -1,12 +1,10 @@
 package com.wooma.activities.report
 
-import android.app.ProgressDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
 import android.view.View
 import android.view.ViewGroup
 import android.widget.BaseAdapter
@@ -15,17 +13,20 @@ import android.widget.ListPopupWindow
 import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.activities.BaseActivity
 import com.wooma.adapter.ImageAdapter
 import com.wooma.adapter.SuggestionsAdapter
 import com.wooma.R
-import com.wooma.customs.AttachmentUploadHelper
 import com.wooma.data.network.ApiClient
 import com.wooma.data.network.ApiResponseListener
 import com.wooma.data.network.MyApi
 import com.wooma.data.network.makeApiRequest
 import com.wooma.data.network.showToast
+import com.wooma.data.local.WoomaDatabase
+import com.wooma.data.repository.AttachmentRepository
+import com.wooma.data.repository.InspectionRepository
 import com.wooma.databinding.ActivityInspectionRoomBinding
 import com.wooma.databinding.AddImageLayoutBinding
 import com.wooma.model.ApiResponse
@@ -35,6 +36,9 @@ import com.wooma.model.RoomInspection
 import com.wooma.model.RoomsResponse
 import com.wooma.model.UpsertRoomInspectionRequest
 import com.wooma.model.enums.TenantReportStatus
+import com.wooma.sync.SyncScheduler
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 class InspectionRoomActivity : BaseActivity() {
 
@@ -57,6 +61,10 @@ class InspectionRoomActivity : BaseActivity() {
     private lateinit var issueSuggestionsAdapter: SuggestionsAdapter
     private var isHandlingEnter = false
     private var hasChanges = false
+
+    private val inspectionRepo by lazy { InspectionRepository(this) }
+    private val attachmentRepo by lazy { AttachmentRepository(this) }
+    private val db by lazy { WoomaDatabase.getInstance(this) }
 
     companion object {
         val ISSUE_SUGGESTIONS = mutableListOf(
@@ -381,20 +389,7 @@ class InspectionRoomActivity : BaseActivity() {
             allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
             if (newUris.isNotEmpty()) hasChanges = true
-            val entityId = room?.id ?: ""
-            if (entityId.isNotEmpty() && newUris.isNotEmpty()) {
-                showLoading("Uploading images...")
-                AttachmentUploadHelper.uploadImages(
-                    activity = this,
-                    imageUris = newUris,
-                    entityId = entityId,
-                    entityType = "ROOM",
-                    onComplete = { hideLoading() },
-                    onError = { hideLoading() }
-                )
-            } else {
-                capturedUris.addAll(newUris)
-            }
+            capturedUris.addAll(newUris)
         }
     }
 
@@ -422,6 +417,37 @@ class InspectionRoomActivity : BaseActivity() {
     }
 
     private fun fetchRoomData() {
+        val roomId = room?.id ?: return
+        // Populate existing inspection state from local Room (one-shot)
+        lifecycleScope.launch {
+            val inspection = inspectionRepo.observeInspections(roomId).first().firstOrNull()
+            if (inspection != null) {
+                populateInspection(
+                    RoomInspection(
+                        id = inspection.serverId ?: inspection.id,
+                        roomId = roomId,
+                        isIssue = inspection.isIssue,
+                        note = inspection.note,
+                        priority = inspection.priority
+                    )
+                )
+                binding.root.post { hasChanges = false }
+            }
+        }
+        // Load local DB images immediately (works offline)
+        lifecycleScope.launch {
+            val roomId = room?.id ?: return@launch
+            val dbAttachments = db.attachmentDao().getByEntity(roomId, "ROOM")
+            dbAttachments.forEach { a ->
+                if (a.isUploaded && a.storageKey != null) {
+                    allImages.add(ImageItem.Remote(a.serverId ?: a.id, "${ApiClient.IMAGE_BASE_URL}${a.storageKey}"))
+                } else if (!a.isUploaded && a.localUri != null) {
+                    allImages.add(ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!))))
+                }
+            }
+            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
+        }
+        // Background refresh: fetch attachments (existing photos) from server
         makeApiRequest(
             apiServiceClass = MyApi::class.java,
             context = this,
@@ -447,10 +473,7 @@ class InspectionRoomActivity : BaseActivity() {
                         )
                     }
                     cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
-                    roomData.inspection?.firstOrNull()?.let { populateInspection(it) }
-                    binding.root.post { hasChanges = false }
                 }
-
                 override fun onFailure(errorMessage: ErrorResponse?) {}
                 override fun onError(throwable: Throwable) {}
             }
@@ -579,48 +602,42 @@ class InspectionRoomActivity : BaseActivity() {
         val note = if (isIssue) binding.etIssueNote.text.toString().ifEmpty { null } else null
         val priority = if (isIssue) selectedPriority else null
 
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { api ->
-                api.upsertRoomInspection(
-                    UpsertRoomInspectionRequest(
-                        room_id = roomId,
-                        is_issue = isIssue,
-                        note = note,
-                        priority = priority
-                    )
+        lifecycleScope.launch {
+            inspectionRepo.upsertInspection(
+                reportId,
+                roomId,
+                UpsertRoomInspectionRequest(
+                    room_id = roomId,
+                    is_issue = isIssue,
+                    note = note,
+                    priority = priority
                 )
-            },
-            listener = object : ApiResponseListener<ApiResponse<Any>> {
-                override fun onSuccess(response: ApiResponse<Any>) {
-                    uploadPhotosIfNeeded(roomId)
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    showToast(errorMessage?.error?.message ?: "Failed to save inspection")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    Log.e("InspectionRoom", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
+            )
+            SyncScheduler.scheduleImmediateSync(this@InspectionRoomActivity)
+            uploadPhotosIfNeeded(roomId)
+        }
     }
 
     private fun uploadPhotosIfNeeded(entityId: String) {
         if (capturedUris.isEmpty()) {
             finish(); return
         }
-        AttachmentUploadHelper.uploadImages(
-            activity = this,
-            imageUris = capturedUris,
-            entityId = entityId,
-            entityType = "ROOM",
-            onComplete = { finish() },
-            onError = { finish() }
-        )
+        val serverId = entityId.takeIf { !it.startsWith("local_") }
+        lifecycleScope.launch {
+            try {
+                capturedUris.forEach { uri ->
+                    attachmentRepo.saveLocalAttachment(
+                        uri = uri,
+                        entityLocalId = entityId,
+                        entityServerId = serverId,
+                        entityType = "ROOM"
+                    )
+                }
+                SyncScheduler.scheduleImmediateSync(this@InspectionRoomActivity)
+            } catch (e: Exception) {
+                showToast("Failed to save photos: ${e.message}")
+            }
+            finish()
+        }
     }
 }

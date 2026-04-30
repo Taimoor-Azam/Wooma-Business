@@ -1,40 +1,36 @@
 package com.wooma.activities.report.otherItems
 
-import android.app.ProgressDialog
-import com.wooma.data.network.ApiClient
-import com.wooma.model.ImageItem
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
 import android.view.View
 import androidx.activity.OnBackPressedCallback
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.activities.BaseActivity
 import com.wooma.activities.report.CameraActivity
 import com.wooma.adapter.ImageAdapter
 import com.wooma.adapter.SuggestionsAdapter
-import com.wooma.customs.AttachmentUploadHelper
 import com.wooma.customs.Utils
-import com.wooma.data.network.ApiResponseListener
-import com.wooma.data.network.MyApi
-import com.wooma.data.network.makeApiRequest
+import com.wooma.data.local.WoomaDatabase
+import com.wooma.data.network.ApiClient
 import com.wooma.data.network.showToast
+import com.wooma.data.repository.AttachmentRepository
+import com.wooma.data.repository.OtherItemsRepository
 import com.wooma.databinding.ActivityAddEditDetectorBinding
 import com.wooma.databinding.AddImageLayoutBinding
 import com.wooma.model.AddDetectorRequest
-import com.wooma.model.ApiResponse
 import com.wooma.model.DetectorItem
-import com.wooma.model.ErrorResponse
-import com.wooma.model.ReportData
+import com.wooma.model.ImageItem
+import com.wooma.sync.SyncScheduler
+import kotlinx.coroutines.launch
 
 class AddEditDetectorActivity : BaseActivity() {
     private lateinit var binding: ActivityAddEditDetectorBinding
     private lateinit var cameraBinding: AddImageLayoutBinding
     var detectorItem: DetectorItem? = null
-    var savedDetectorId = ""
 
     private val capturedUris = mutableListOf<Uri>()
     private val allImages = mutableListOf<ImageItem>()
@@ -84,6 +80,10 @@ class AddEditDetectorActivity : BaseActivity() {
     var isEdit = false
     private var hasChanges = false
 
+    private val repo by lazy { OtherItemsRepository(this) }
+    private val attachmentRepo by lazy { AttachmentRepository(this) }
+    private val db by lazy { WoomaDatabase.getInstance(this) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -93,13 +93,13 @@ class AddEditDetectorActivity : BaseActivity() {
         applyWindowInsetsToBinding(binding.root)
         setupCapturedImagesRecycler()
         detectorItem = intent.getParcelableExtra("detectorItem")
-        savedDetectorId = detectorItem?.id ?: ""
 
         reportId = intent.getStringExtra("reportId") ?: ""
         showTimestamp = intent.getBooleanExtra("showTimestamp", true)
         isEdit = intent.getBooleanExtra("isEdit", false)
 
         cameraBinding.ivAddImage.setOnClickListener {
+            CameraActivity.Companion.existingImages = allImages.toList()
             CameraActivity.Companion.pendingUris.clear()
             startActivityForResult(
                 Intent(this, CameraActivity::class.java).putExtra(
@@ -110,9 +110,7 @@ class AddEditDetectorActivity : BaseActivity() {
         }
 
         binding.btnSave.setOnClickListener {
-            if (isValid()) {
-                addNewDetectorApi()
-            }
+            saveDetector()
         }
 
         binding.ivDelete.visibility = if (detectorItem != null) {
@@ -122,13 +120,7 @@ class AddEditDetectorActivity : BaseActivity() {
         }
 
         binding.ivDelete.setOnClickListener {
-            Utils.showDialogBox(
-                this,
-                "Delete Detector",
-                "Do you want to delete this ? This action can't be undone"
-            ) {
-                deleteDetectorApi(detectorItem?.id ?: "")
-            }
+            deleteDetector()
         }
 
         suggestionsAdapter = SuggestionsAdapter(
@@ -195,8 +187,7 @@ class AddEditDetectorActivity : BaseActivity() {
             if (hasChanges) showUnsavedChangesDialog { finish() } else finish()
         }
 
-
-        setMeterData()
+        setDetectorData()
         attachChangeWatchers()
 
         val callback = object : OnBackPressedCallback(true) {
@@ -243,40 +234,32 @@ class AddEditDetectorActivity : BaseActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == RESULT_OK) {
             val newUris = CameraActivity.Companion.pendingUris.toList()
+            allImages.removeAll { it is ImageItem.Local }
             allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
             if (newUris.isNotEmpty()) hasChanges = true
-            if (savedDetectorId.isNotEmpty() && newUris.isNotEmpty()) {
-                showLoading("Uploading images...")
-                AttachmentUploadHelper.uploadImages(
-                    activity = this,
-                    imageUris = newUris,
-                    entityId = savedDetectorId,
-                    entityType = "DETECTOR",
-                    onComplete = { hideLoading() },
-                    onError = { hideLoading() }
-                )
-            } else {
-                capturedUris.addAll(newUris)
-            }
+            capturedUris.clear()
+            capturedUris.addAll(newUris)
         }
     }
 
-    private fun setMeterData() {
+    private fun setDetectorData() {
         if (detectorItem != null) {
             binding.etType.setText(detectorItem?.name)
             binding.etLocation.setText(detectorItem?.location ?: "")
             binding.etTestResult.setText(detectorItem?.note ?: "")
 
-            detectorItem?.attachments?.forEach { attachment ->
-                allImages.add(
-                    ImageItem.Remote(
-                        attachment.id,
-                        "${ApiClient.IMAGE_BASE_URL}${attachment.storageKey}"
-                    )
-                )
+            lifecycleScope.launch {
+                val dbAttachments = db.attachmentDao().getByEntity(detectorItem!!.id, "DETECTOR")
+                dbAttachments.forEach { a ->
+                    if (a.isUploaded && a.storageKey != null) {
+                        allImages.add(ImageItem.Remote(a.serverId ?: a.id, "${ApiClient.IMAGE_BASE_URL}${a.storageKey}"))
+                    } else if (!a.isUploaded && a.localUri != null) {
+                        allImages.add(ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!))))
+                    }
+                }
+                cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
             }
-            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
         }
     }
 
@@ -288,135 +271,49 @@ class AddEditDetectorActivity : BaseActivity() {
         return true
     }
 
-    private fun deleteDetectorApi(detectorId: String) {
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.deleteDetector(reportId, detectorId) },
-            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
-                override fun onSuccess(response: ApiResponse<ReportData>) {
-                    if (response.success) {
-                        showToast("Detector Deleted successfully")
-                        finish()
+    private fun saveDetector() {
+        if (!isValid()) return
+        val request = AddDetectorRequest(
+            name = binding.etType.text.toString(),
+            location = binding.etLocation.text.toString(),
+            note = binding.etTestResult.text.toString()
+        )
+        showLoading("Saving...")
+        lifecycleScope.launch {
+            try {
+                if (detectorItem != null) {
+                    repo.updateDetector(detectorItem!!.id, request)
+                    for (uri in capturedUris) {
+                        val existing = db.detectorDao().getById(detectorItem!!.id)
+                        attachmentRepo.saveLocalAttachment(uri, detectorItem!!.id, existing?.serverId, "DETECTOR")
+                    }
+                } else {
+                    val entity = repo.addDetector(reportId, request)
+                    for (uri in capturedUris) {
+                        attachmentRepo.saveLocalAttachment(uri, entity.id, entity.serverId, "DETECTOR")
                     }
                 }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
+                hasChanges = false
+                SyncScheduler.scheduleImmediateSync(this@AddEditDetectorActivity)
+                finish()
+            } catch (e: Exception) {
+                showToast("Failed to save: ${e.message}")
+            } finally {
+                hideLoading()
             }
-        )
-    }
-
-    private fun addNewDetectorApi() {
-        val body = AddDetectorRequest(
-            binding.etType.text.toString(),
-            binding.etLocation.text.toString(),
-            binding.etTestResult.text.toString()
-        )
-
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService ->
-                if (detectorItem != null) apiService.updateDetector(
-                    reportId,
-                    detectorItem?.id ?: "",
-                    body
-                ) else apiService.addNewDetector(reportId, body)
-            },
-            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
-                override fun onSuccess(response: ApiResponse<ReportData>) {
-                    if (response.success) {
-                        showToast(
-                            if (detectorItem != null) "Detector Updated successfully"
-                            else "Detector Added successfully"
-                        )
-                        if (detectorItem != null) {
-                            uploadPhotosIfNeeded(savedDetectorId)
-                        } else {
-                            uploadPhotosAfterCreate(body)
-                        }
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
-    }
-
-    private fun uploadPhotosIfNeeded(entityId: String) {
-        if (capturedUris.isEmpty() || entityId.isEmpty()) {
-            finish()
-            return
         }
-        AttachmentUploadHelper.uploadImages(
-            activity = this,
-            imageUris = capturedUris.filterIsInstance<Uri>(),
-            entityId = entityId,
-            entityType = "DETECTOR",
-            onComplete = { finish() },
-            onError = { finish() }
-        )
     }
 
-    private fun uploadPhotosAfterCreate(requestBody: AddDetectorRequest) {
-        if (capturedUris.isEmpty()) {
-            finish()
-            return
-        }
-
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = false,
-            requestAction = { api -> api.getReportDetector(reportId, include_attachments = false) },
-            listener = object : ApiResponseListener<ApiResponse<ArrayList<DetectorItem>>> {
-                override fun onSuccess(response: ApiResponse<ArrayList<DetectorItem>>) {
-                    val createdDetectorId = response.data
-                        .asReversed()
-                        .firstOrNull { detector ->
-                            detector.name == requestBody.name &&
-                                    (detector.location ?: "") == requestBody.location &&
-                                    (detector.note ?: "") == requestBody.note
-                        }?.id.orEmpty()
-
-                    if (createdDetectorId.isEmpty()) {
-                        showToast("Detector saved, but photos could not be attached")
-                        finish()
-                        return
-                    }
-
-                    savedDetectorId = createdDetectorId
-                    uploadPhotosIfNeeded(savedDetectorId)
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    showToast("Detector saved, but photos could not be attached")
-                    finish()
-                }
-
-                override fun onError(throwable: Throwable) {
-                    showToast("Detector saved, but photos could not be attached")
-                    finish()
-                }
+    private fun deleteDetector() {
+        Utils.showDialogBox(
+            this, "Delete Detector",
+            "Do you want to delete this ? This action can't be undone"
+        ) {
+            lifecycleScope.launch {
+                repo.deleteDetector(detectorItem?.id ?: "")
+                SyncScheduler.scheduleImmediateSync(this@AddEditDetectorActivity)
+                finish()
             }
-        )
+        }
     }
 }

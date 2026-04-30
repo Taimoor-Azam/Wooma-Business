@@ -3,22 +3,21 @@ package com.wooma.activities.report.inventorysettings
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
+import androidx.lifecycle.lifecycleScope
 import com.wooma.activities.BaseActivity
-import com.wooma.data.network.ApiResponseListener
-import com.wooma.data.network.MyApi
-import com.wooma.data.network.makeApiRequest
 import com.wooma.data.network.showToast
+import com.wooma.data.repository.ReportRepository
 import com.wooma.databinding.ActivityChangeReportDateBinding
-import com.wooma.model.ApiResponse
-import com.wooma.model.ChangeDateRequest
-import com.wooma.model.ErrorResponse
-import com.wooma.model.ReportData
+import com.wooma.sync.ConnectivityObserver
+import com.wooma.sync.SyncScheduler
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
 
 class ChangeReportDateActivity : BaseActivity() {
     private lateinit var binding: ActivityChangeReportDateBinding
+    private val reportRepo by lazy { ReportRepository(this) }
 
     var selectedDate = ""
     var reportId = ""
@@ -68,33 +67,16 @@ class ChangeReportDateActivity : BaseActivity() {
     }
 
     private fun changeDateApi() {
-        val item = ChangeDateRequest(selectedDate)
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.changeDate(reportId, item) },
-            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
-                override fun onSuccess(response: ApiResponse<ReportData>) {
-                    if (response.success) {
-                        showToast("Completion Date changed successfully")
-                        setResult(RESULT_OK, Intent().putExtra("completionDate", selectedDate))
-                        finish()
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    // Handle network error
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
+        if (!ConnectivityObserver(this).isConnected()) {
+            showToast("Internet connection required")
+            return
+        }
+        lifecycleScope.launch {
+            reportRepo.updateCompletionDate(reportId, selectedDate)
+            SyncScheduler.scheduleImmediateSync(this@ChangeReportDateActivity)
+            showToast("Completion Date changed successfully")
+            setResult(RESULT_OK, Intent().putExtra("completionDate", selectedDate))
+            finish()
+        }
     }
 }

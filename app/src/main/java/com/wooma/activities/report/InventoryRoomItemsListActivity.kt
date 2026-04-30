@@ -4,12 +4,16 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.wooma.activities.BaseActivity
 import com.wooma.adapter.InventoryRoomItemsAdapter
 import com.wooma.data.network.ApiResponseListener
 import com.wooma.data.network.MyApi
 import com.wooma.data.network.makeApiRequest
 import com.wooma.data.network.showToast
+import com.wooma.data.repository.RoomItemRepository
 import com.wooma.databinding.ActivityInventoryRoomsListBinding
 import com.wooma.model.AddNewRoomItemsRequest
 import com.wooma.model.ApiResponse
@@ -19,6 +23,7 @@ import com.wooma.model.ReportData
 import com.wooma.model.RoomItem
 import com.wooma.model.RoomsResponse
 import com.wooma.model.enums.TenantReportStatus
+import kotlinx.coroutines.launch
 
 class InventoryRoomItemsListActivity : BaseActivity() {
     private lateinit var binding: ActivityInventoryRoomsListBinding
@@ -30,6 +35,8 @@ class InventoryRoomItemsListActivity : BaseActivity() {
     var reportType: PropertyReportType? = null
     var showTimestamp = true
     val roomItems = mutableListOf<RoomItem>()
+
+    private val roomItemRepo by lazy { RoomItemRepository(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,44 +74,28 @@ class InventoryRoomItemsListActivity : BaseActivity() {
             )
         }
 
-        supportFragmentManager.setFragmentResultListener(
-            "sheet_key",
-            this
-        ) { requestKey, bundle ->
-
+        supportFragmentManager.setFragmentResultListener("sheet_key", this) { _, bundle ->
             val value = bundle.getString("added_room")
-            roomItems.add(
-                0,
-                RoomItem(
-                    "",
-                    true,
-                    false,
-                    "",
-                    "",
-                    roomId,
-                    value ?: "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    "",
-                    ArrayList()
-                )
-            )
-            println(value)
-
-            val request = AddNewRoomItemsRequest(
-                room_items = listOf(value ?: "")
-            )
-
+            val request = AddNewRoomItemsRequest(room_items = listOf(value ?: ""))
             addNewRoomApi(request)
-            adapter.updateList(roomItems)
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                roomItemRepo.observeItems(roomId).collect { items ->
+                    roomItems.clear()
+                    roomItems.addAll(items)
+                    adapter.updateList(roomItems)
+                }
+            }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        getReportByIdApi()
+        lifecycleScope.launch {
+            try { roomItemRepo.refreshItems(reportId, roomId) } catch (_: Exception) {}
+        }
     }
 
     private fun addNewRoomApi(request: AddNewRoomItemsRequest) {
@@ -112,60 +103,19 @@ class InventoryRoomItemsListActivity : BaseActivity() {
             apiServiceClass = MyApi::class.java,
             context = this,
             showLoading = true,
-            requestAction = { apiService ->
-                apiService.addRoomItemsToReport(
-                    reportId,
-                    roomId,
-                    request
-                )
-            },
+            requestAction = { apiService -> apiService.addRoomItemsToReport(reportId, roomId, request) },
             listener = object : ApiResponseListener<ApiResponse<ArrayList<ReportData>>> {
                 override fun onSuccess(response: ApiResponse<ArrayList<ReportData>>) {
-                    if (response.success) {
-                    } else {
+                    // Refresh from local cache so new items appear via the Flow
+                    lifecycleScope.launch {
+                        try { roomItemRepo.refreshItems(reportId, roomId) } catch (_: Exception) {}
                     }
                 }
-
                 override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-//                    Log.e("API", errorMessage?.error?.message ?: "")
-//                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    // Handle network error
-//                    Log.e("API", "Error: ${throwable.message}")
-//                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
-    }
-
-    private fun getReportByIdApi() {
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.getRoomById(roomId, reportId, true, true) },
-            listener = object : ApiResponseListener<ApiResponse<RoomsResponse>> {
-                override fun onSuccess(response: ApiResponse<RoomsResponse>) {
-                    if (response.success) {
-                        roomItems.clear()
-                        roomItems.addAll(response.data.items ?: emptyList())
-                        adapter.updateList(roomItems)
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
                     Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
                 }
-
                 override fun onError(throwable: Throwable) {
-                    // Handle network error
                     Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
                 }
             }
         )

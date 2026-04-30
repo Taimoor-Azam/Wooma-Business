@@ -24,5 +24,7 @@ data class RoomInspectionEntity(
     val isIssue: Boolean = false,
     val note: String? = null,
     val priority: String? = null,
+    val createdAt: String = "",
+    val updatedAt: String = "",
     val syncStatus: SyncStatus = SyncStatus.SYNCED
 )

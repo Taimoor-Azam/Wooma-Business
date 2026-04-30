@@ -10,6 +10,67 @@ Operations that remain **online-only** (require internet, show a toast if offlin
 - PDF download
 - Postal code lookup
 - Account deletion / restore
+- Contact support (Crisp chat)
+- Creating a new property
+- Creating a new report
+
+### Complete Report — Sync Gate
+
+The **Complete Report** button is disabled unless **all** local data is fully synced (i.e. `sync_queue` has zero PENDING/IN_PROGRESS/FAILED rows **and** `pending_uploads` has zero PENDING rows for this report).
+
+- `ConfigureReportActivity` and `InventoryListingActivity` observe `SyncQueueDao.countPending()` + `PendingUploadDao` count; the button is greyed out with label "Sync pending…" while any unsynced data exists.
+- Once the queue is empty (all DONE) **and** the device is online, the button becomes active.
+- If the device is offline, the button stays disabled regardless of queue state (can't complete without internet even if data is synced).
+
+Implementation note for Phase 5:
+```kotlin
+// In ConfigureReportActivity / InventoryListingActivity
+lifecycleScope.launch {
+    combine(
+        db.syncQueueDao().countPending(),           // Flow<Int>
+        connectivityObserver.observeConnectivity()  // Flow<Boolean>
+    ) { pendingCount, isOnline ->
+        pendingCount == 0 && isOnline
+    }.collect { canComplete ->
+        binding.btnCompleteReport.isEnabled = canComplete
+        binding.btnCompleteReport.alpha = if (canComplete) 1f else 0.5f
+    }
+}
+```
+
+### Report List — Offline Cache Only
+
+Only reports that have been previously fetched and stored in Room will appear when offline. No "empty state due to no internet" workaround — the list simply shows whatever is in the local DB. Reports never seen on this device (i.e. not yet in Room) will not appear until the device goes online and a background refresh runs.
+
+- `ReportListingActivity` observes `ReportDao.observeByProperty(propertyId)` — the Flow emits whatever is in Room regardless of connectivity.
+- Background `refreshReports(propertyId)` is attempted silently on resume; if it fails (offline), the cached list remains unchanged — no error shown to the user.
+- Same rule applies to `ArchivePropertiesActivity` (archived reports) and `PropertiesFragment` (property list).
+
+### Add Property / Add Report — Online-Only Guard
+
+Both are fully online-only actions:
+- **Add Property** (`AddPropertyActivity`) — show toast and return if `ConnectivityObserver.isConnected() == false`
+- **Add Report** (`ConfigureReportActivity` / `SelectReportTypeActivity`) — same guard; button/FAB disabled when offline
+
+```kotlin
+binding.btnAddProperty.setOnClickListener {
+    if (!ConnectivityObserver(this).isConnected()) {
+        showToast("Internet connection required to add a property")
+        return@setOnClickListener
+    }
+    // existing flow…
+}
+```
+
+### Contact Support — Online-Only Guard
+
+Crisp chat (`Crisp.chat(…)`) requires an internet connection. Guard every entry point that opens Crisp:
+```kotlin
+if (!ConnectivityObserver(this).isConnected()) {
+    showToast("Internet connection required for support")
+    return
+}
+```
 
 ---
 
@@ -459,6 +520,12 @@ private fun completeReportAction() {
 
 Apply this guard to: `CompleteReportActivity`, `ExtendTimerActivity`, `InventoryListingActivity.cancelSignatureRequestApi()`.
 
+**Complete Report sync gate** — apply to `InventoryListingActivity` and `ConfigureReportActivity`: button disabled unless `countPending() == 0` AND device is online (see sync gate pattern above).
+
+**Add Property / Add Report online guard** — apply to `AddPropertyActivity`, `SelectPropertyForReportActivity`, `SelectReportTypeActivity`: block action immediately if offline.
+
+**Contact Support online guard** — find every Crisp entry point (search `Crisp.` in codebase) and wrap with connectivity check.
+
 ### Seed reference data on login
 In `OTPActivity.onSuccess` (or `ActivateAccountActivity`), before navigating to MainActivity:
 ```kotlin
@@ -478,15 +545,19 @@ lifecycleScope.launch {
 (`countPending()` = `@Query("SELECT COUNT(*) FROM sync_queue WHERE status='PENDING'") fun countPending(): Flow<Int>`)
 
 ### Files to migrate in Phase 5
-- `activities/property/AddPropertyActivity.kt`
+- `activities/property/AddPropertyActivity.kt` — add online-only guard at entry
 - `activities/property/EditPropertyActivity.kt`
 - `activities/property/ArchivePropertiesActivity.kt` (already read-migrated in Phase 2)
-- `activities/report/ConfigureReportActivity.kt`
-- `activities/report/complete/CompleteReportActivity.kt` (add connectivity guard only)
+- `activities/report/ConfigureReportActivity.kt` — sync gate on Complete Report button
+- `activities/report/InventoryListingActivity.kt` — sync gate on Complete Report button
+- `activities/report/complete/CompleteReportActivity.kt` — connectivity guard only
+- `activities/report/SelectPropertyForReportActivity.kt` — add online-only guard at entry
+- `activities/report/SelectReportTypeActivity.kt` — add online-only guard at entry
 - `activities/report/inventorysettings/ChangeAssessorActivity.kt`
 - `activities/report/inventorysettings/ChangeReportDateActivity.kt`
 - `activities/report/inventorysettings/ChangeReportTypeActivity.kt`
 - `activities/report/inventorysettings/DuplicateReportActivity.kt`
+- Any activity/fragment that opens Crisp chat — wrap with connectivity check
 
 ---
 

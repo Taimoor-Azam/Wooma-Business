@@ -1,41 +1,37 @@
 package com.wooma.activities.report.otherItems
 
-import android.app.ProgressDialog
-import com.wooma.data.network.ApiClient
-import com.wooma.model.ImageItem
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
 import android.view.View
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.addCallback
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.activities.BaseActivity
 import com.wooma.activities.report.CameraActivity
 import com.wooma.adapter.ImageAdapter
 import com.wooma.adapter.SuggestionsAdapter
-import com.wooma.customs.AttachmentUploadHelper
 import com.wooma.customs.Utils
-import com.wooma.data.network.ApiResponseListener
-import com.wooma.data.network.MyApi
-import com.wooma.data.network.makeApiRequest
+import com.wooma.data.local.WoomaDatabase
+import com.wooma.data.network.ApiClient
 import com.wooma.data.network.showToast
+import com.wooma.data.repository.AttachmentRepository
+import com.wooma.data.repository.OtherItemsRepository
 import com.wooma.databinding.ActivityAddEditMeterBinding
 import com.wooma.databinding.AddImageLayoutBinding
 import com.wooma.model.AddMeterRequest
-import com.wooma.model.ApiResponse
-import com.wooma.model.ErrorResponse
+import com.wooma.model.ImageItem
 import com.wooma.model.Meter
-import com.wooma.model.ReportData
+import com.wooma.sync.SyncScheduler
+import kotlinx.coroutines.launch
 
 class AddEditMeterActivity : BaseActivity() {
     private lateinit var binding: ActivityAddEditMeterBinding
     private lateinit var cameraBinding: AddImageLayoutBinding
     var meterItem: Meter? = null
-    var savedMeterId = ""
 
     private val capturedUris = mutableListOf<Uri>()
     private val allImages = mutableListOf<ImageItem>()
@@ -65,6 +61,10 @@ class AddEditMeterActivity : BaseActivity() {
     private var initialSerialNumber = ""
     private var initialLocation = ""
 
+    private val repo by lazy { OtherItemsRepository(this) }
+    private val attachmentRepo by lazy { AttachmentRepository(this) }
+    private val db by lazy { WoomaDatabase.getInstance(this) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -74,7 +74,6 @@ class AddEditMeterActivity : BaseActivity() {
         applyWindowInsetsToBinding(binding.root)
         setupCapturedImagesRecycler()
         meterItem = intent.getParcelableExtra("meterItem")
-        savedMeterId = meterItem?.id ?: ""
 
         reportId = intent.getStringExtra("reportId") ?: ""
         isEdit = intent.getBooleanExtra("isEdit", false)
@@ -90,11 +89,7 @@ class AddEditMeterActivity : BaseActivity() {
             )
         }
 
-        binding.btnSave.setOnClickListener {
-            if (isValid()) {
-                addNewMeterApi()
-            }
-        }
+        binding.btnSave.setOnClickListener { saveMeter() }
 
         binding.ivDelete.visibility = if (meterItem != null) {
             View.VISIBLE
@@ -102,15 +97,7 @@ class AddEditMeterActivity : BaseActivity() {
             View.GONE
         }
 
-        binding.ivDelete.setOnClickListener {
-            Utils.showDialogBox(
-                this,
-                "Delete Meter",
-                "Do you want to delete this ? This action can't be undone"
-            ) {
-                deleteMeterApi(meterItem?.id ?: "")
-            }
-        }
+        binding.ivDelete.setOnClickListener { deleteMeter() }
 
         suggestionsAdapter = SuggestionsAdapter(
             this,
@@ -207,20 +194,8 @@ class AddEditMeterActivity : BaseActivity() {
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
 
             if (newUris.isNotEmpty()) hasChanges = true
-            if (savedMeterId.isNotEmpty() && newUris.isNotEmpty()) {
-                showLoading("Uploading images...")
-                AttachmentUploadHelper.uploadImages(
-                    activity = this,
-                    imageUris = newUris,
-                    entityId = savedMeterId,
-                    entityType = "METER",
-                    onComplete = { hideLoading() },
-                    onError = { hideLoading() }
-                )
-            } else {
-                capturedUris.clear()
-                capturedUris.addAll(newUris)
-            }
+            capturedUris.clear()
+            capturedUris.addAll(newUris)
         }
     }
 
@@ -262,16 +237,17 @@ class AddEditMeterActivity : BaseActivity() {
             binding.etSerialNumber.setText(meterItem?.serial_number)
             binding.etLocation.setText(meterItem?.location)
 
-            // Load existing images from API
-            meterItem?.attachments?.forEach { attachment ->
-                allImages.add(
-                    ImageItem.Remote(
-                        attachment.id,
-                        "$S3_BASE_URL${attachment.storageKey}"
-                    )
-                )
+            lifecycleScope.launch {
+                val dbAttachments = db.attachmentDao().getByEntity(meterItem!!.id, "METER")
+                dbAttachments.forEach { a ->
+                    if (a.isUploaded && a.storageKey != null) {
+                        allImages.add(ImageItem.Remote(a.serverId ?: a.id, "$S3_BASE_URL${a.storageKey}"))
+                    } else if (!a.isUploaded && a.localUri != null) {
+                        allImages.add(ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!))))
+                    }
+                }
+                cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
             }
-            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
         }
     }
 
@@ -283,135 +259,51 @@ class AddEditMeterActivity : BaseActivity() {
         return true
     }
 
-    private fun deleteMeterApi(meterId: String) {
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.deleteMeter(reportId, meterId) },
-            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
-                override fun onSuccess(response: ApiResponse<ReportData>) {
-                    if (response.success) {
-                        showToast("Meter Deleted successfully")
-                        finish()
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
-    }
-
-    private fun addNewMeterApi() {
-        val body = AddMeterRequest(
+    private fun saveMeter() {
+        if (!isValid()) return
+        val request = AddMeterRequest(
             binding.etType.text.toString(),
             binding.etReading.text.toString(),
             binding.etLocation.text.toString(),
             binding.etSerialNumber.text.toString()
         )
-
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService ->
-                if (meterItem != null) apiService.updateMeter(
-                    reportId,
-                    meterItem?.id ?: "",
-                    body
-                ) else apiService.addNewMeter(reportId, body)
-            },
-            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
-                override fun onSuccess(response: ApiResponse<ReportData>) {
-                    if (response.success) {
-                        showToast("Meter Added successfully")
-                        hasChanges = false
-                        if (meterItem != null) {
-                            uploadPhotosIfNeeded(savedMeterId)
-                        } else {
-                            uploadPhotosAfterCreate(body)
-                        }
+        showLoading("Saving...")
+        lifecycleScope.launch {
+            try {
+                if (meterItem != null) {
+                    repo.updateMeter(meterItem!!.id, request)
+                    for (uri in capturedUris) {
+                        val existing = db.meterDao().getById(meterItem!!.id)
+                        attachmentRepo.saveLocalAttachment(uri, meterItem!!.id, existing?.serverId, "METER")
+                    }
+                } else {
+                    val entity = repo.addMeter(reportId, request)
+                    for (uri in capturedUris) {
+                        attachmentRepo.saveLocalAttachment(uri, entity.id, entity.serverId, "METER")
                     }
                 }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
+                hasChanges = false
+                SyncScheduler.scheduleImmediateSync(this@AddEditMeterActivity)
+                finish()
+            } catch (e: Exception) {
+                showToast("Failed to save: ${e.message}")
+            } finally {
+                hideLoading()
             }
-        )
+        }
     }
 
-    private fun uploadPhotosIfNeeded(entityId: String) {
-        if (capturedUris.isEmpty() || entityId.isEmpty()) {
-            finish()
-            return
-        }
-        AttachmentUploadHelper.uploadImages(
-            activity = this,
-            imageUris = capturedUris,
-            entityId = entityId,
-            entityType = "METER",
-            onComplete = { finish() },
-            onError = { finish() }
-        )
-    }
-
-    private fun uploadPhotosAfterCreate(requestBody: AddMeterRequest) {
-        if (capturedUris.isEmpty()) {
-            finish()
-            return
-        }
-
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = false,
-            requestAction = { api -> api.getReportMeters(reportId, include_attachments = false) },
-            listener = object : ApiResponseListener<ApiResponse<ArrayList<Meter>>> {
-                override fun onSuccess(response: ApiResponse<ArrayList<Meter>>) {
-                    val createdMeterId = response.data
-                        .asReversed()
-                        .firstOrNull { meter ->
-                            meter.name == requestBody.name &&
-                                    (meter.reading ?: "") == requestBody.reading &&
-                                    (meter.location ?: "") == requestBody.location &&
-                                    (meter.serial_number ?: "") == requestBody.serial_number
-                        }?.id.orEmpty()
-
-                    if (createdMeterId.isEmpty()) {
-                        showToast("Meter saved, but photos could not be attached")
-                        finish()
-                        return
-                    }
-
-                    savedMeterId = createdMeterId
-                    uploadPhotosIfNeeded(savedMeterId)
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    showToast("Meter saved, but photos could not be attached")
-                    finish()
-                }
-
-                override fun onError(throwable: Throwable) {
-                    showToast("Meter saved, but photos could not be attached")
-                    finish()
-                }
+    private fun deleteMeter() {
+        Utils.showDialogBox(
+            this,
+            "Delete Meter",
+            "Do you want to delete this ? This action can't be undone"
+        ) {
+            lifecycleScope.launch {
+                repo.deleteMeter(meterItem?.id ?: "")
+                SyncScheduler.scheduleImmediateSync(this@AddEditMeterActivity)
+                finish()
             }
-        )
+        }
     }
 }

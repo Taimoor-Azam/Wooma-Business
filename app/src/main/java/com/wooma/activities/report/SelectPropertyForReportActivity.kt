@@ -4,22 +4,22 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.wooma.activities.BaseActivity
 import com.wooma.adapter.SelectPropertyAdapter
-import com.wooma.data.network.ApiResponseListener
-import com.wooma.data.network.MyApi
-import com.wooma.data.network.makeApiRequest
 import com.wooma.data.network.showToast
+import com.wooma.data.repository.PropertyRepository
 import com.wooma.databinding.ActivitySelectPropertyForReportBinding
-import com.wooma.model.ApiResponse
-import com.wooma.model.ErrorResponse
 import com.wooma.model.Property
-import com.wooma.model.TenantPropertiesWrapper
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 class SelectPropertyForReportActivity : BaseActivity() {
     private lateinit var adapter: SelectPropertyAdapter
     private val properties = mutableListOf<Property>()
+    private val propertyRepo by lazy { PropertyRepository(this) }
 
     var isFromProperty = false
     private lateinit var binding: ActivitySelectPropertyForReportBinding
@@ -43,7 +43,15 @@ class SelectPropertyForReportActivity : BaseActivity() {
                 }
             })
         binding.rvSelectProperty.adapter = adapter
-        getPropertiesList()
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                propertyRepo.observeActivePropertiesAsModels().collect { list ->
+                    properties.clear()
+                    properties.addAll(list)
+                    adapter.updateList(properties)
+                }
+            }
+        }
 
         binding.ivBack.setOnClickListener { finish() }
 
@@ -75,6 +83,9 @@ class SelectPropertyForReportActivity : BaseActivity() {
             }
             finish()
         }
+        lifecycleScope.launch {
+            try { propertyRepo.refreshActiveProperties() } catch (_: Exception) {}
+        }
     }
 
     /*private fun loadProperties() {
@@ -100,42 +111,5 @@ class SelectPropertyForReportActivity : BaseActivity() {
          )
         adapter.updateList(properties)
     }*/
-
-    private fun getPropertiesList() {
-        val queryMap = mutableMapOf<String, Any>().apply {
-            put("page", 1)
-            put("limit", 100)
-            put("search", binding.searchView.text.toString())
-            put("is_active", true)
-        }
-
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.getPropertiesList(queryMap) },
-            listener = object : ApiResponseListener<ApiResponse<TenantPropertiesWrapper>> {
-                override fun onSuccess(response: ApiResponse<TenantPropertiesWrapper>) {
-                    if (response.data.data.isNotEmpty()) {
-                        properties.clear()
-                        properties.addAll(response.data.data)
-                        adapter.updateList(properties)
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    // Handle network error
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
-    }
 
 }

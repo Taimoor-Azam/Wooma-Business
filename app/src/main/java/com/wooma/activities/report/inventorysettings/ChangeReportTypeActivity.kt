@@ -5,37 +5,40 @@ import android.graphics.Color
 import android.os.Bundle
 import android.text.SpannableString
 import android.text.style.ForegroundColorSpan
-import android.util.Log
 import android.view.Gravity
 import android.view.Menu
 import android.view.View
 import androidx.appcompat.widget.PopupMenu
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.wooma.activities.BaseActivity
 import com.wooma.activities.report.ReportListingActivity
 import com.wooma.R
-import com.wooma.data.network.ApiResponseListener
-import com.wooma.data.network.MyApi
-import com.wooma.data.network.makeApiRequest
+import com.wooma.data.local.entity.ReportTypeEntity
 import com.wooma.data.network.showToast
+import com.wooma.data.repository.ConfigRepository
+import com.wooma.data.repository.ReportRepository
 import com.wooma.databinding.ActivityChangeReportTypeBinding
-import com.wooma.model.ApiResponse
-import com.wooma.model.ErrorResponse
-import com.wooma.model.ReportData
-import com.wooma.model.ReportType
-import com.wooma.model.ReportTypeResponse
-import com.wooma.model.changeReportType
 import com.wooma.model.enums.ReportTypes
+import com.wooma.sync.ConnectivityObserver
+import com.wooma.sync.SyncScheduler
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 class ChangeReportTypeActivity : BaseActivity() {
     private lateinit var binding: ActivityChangeReportTypeBinding
 
-    val reportTypeList: ArrayList<ReportType> = ArrayList()
+    val reportTypeList = mutableListOf<ReportTypeEntity>()
 
     var selectedReportTypeId = ""
     var reportTypeName = ""
     var reportTypeId = ""
     var reportId = ""
     var propertyId = ""
+
+    private val configRepo by lazy { ConfigRepository(this) }
+    private val reportRepo by lazy { ReportRepository(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -49,12 +52,24 @@ class ChangeReportTypeActivity : BaseActivity() {
         reportId = intent.getStringExtra("reportId") ?: ""
         propertyId = intent.getStringExtra("propertyId") ?: ""
 
-
         if (reportTypeName.isNotEmpty()) {
             binding.tvCurrentReportType.text = reportTypeName
         }
 
-        getReportTypeListApi()
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                configRepo.observeReportTypes().collect { list ->
+                    reportTypeList.clear()
+                    reportTypeList.addAll(list.filter {
+                        (it.typeCode == ReportTypes.CHECK_OUT.value || it.typeCode == ReportTypes.INVENTORY.value)
+                            && it.id != reportTypeId
+                    })
+                }
+            }
+        }
+        lifecycleScope.launch {
+            try { configRepo.seedReferenceData() } catch (_: Exception) {}
+        }
 
         binding.tvReportChangeTo.setOnClickListener { view ->
             showDynamicPopupMenu(view)
@@ -112,7 +127,7 @@ class ChangeReportTypeActivity : BaseActivity() {
 
         // 3. Iterate and add items dynamically
         for (i in reportTypeList.indices) {
-            popup.menu.add(Menu.NONE, i, Menu.NONE, reportTypeList[i].display_name)
+            popup.menu.add(Menu.NONE, i, Menu.NONE, reportTypeList[i].displayName)
         }
         for (i in 0 until popup.menu.size()) {
             val item = popup.menu.getItem(i)
@@ -133,70 +148,20 @@ class ChangeReportTypeActivity : BaseActivity() {
     }
 
     private fun changeReportTypeApi() {
-        val item = changeReportType(selectedReportTypeId)
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.changeReportType(reportId, item) },
-            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
-                override fun onSuccess(response: ApiResponse<ReportData>) {
-                    if (response.success) {
-                        showToast("Report Type changed successfully")
-                        startActivity(
-                            Intent(this@ChangeReportTypeActivity, ReportListingActivity::class.java)
-                                .putExtra("propertyId", propertyId)
-                                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                        )
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    // Handle network error
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
-    }
-
-    private fun getReportTypeListApi() {
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.getReportTypes() },
-            listener = object : ApiResponseListener<ApiResponse<ReportTypeResponse>> {
-                override fun onSuccess(response: ApiResponse<ReportTypeResponse>) {
-                    if (response.data.data.isNotEmpty()) {
-                        reportTypeList.clear()
-                        for (item in response.data.data) {
-                            if (item.type_code == ReportTypes.CHECK_OUT.value || item.type_code == ReportTypes.INVENTORY.value) {
-                                if (item.id != reportTypeId)
-                                    reportTypeList.add(item)
-                            }
-                        }
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    // Handle network error
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
+        if (!ConnectivityObserver(this).isConnected()) {
+            showToast("Internet connection required")
+            return
+        }
+        val selected = reportTypeList.find { it.id == selectedReportTypeId } ?: return
+        lifecycleScope.launch {
+            reportRepo.updateReportType(reportId, selected.id, selected.displayName, selected.typeCode)
+            SyncScheduler.scheduleImmediateSync(this@ChangeReportTypeActivity)
+            showToast("Report Type changed successfully")
+            startActivity(
+                Intent(this@ChangeReportTypeActivity, ReportListingActivity::class.java)
+                    .putExtra("propertyId", propertyId)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            )
+        }
     }
 }

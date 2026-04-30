@@ -2,27 +2,28 @@ package com.wooma.activities.report.otherItems
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.view.View
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.wooma.R
 import com.wooma.activities.BaseActivity
 import com.wooma.adapter.InventoryKeysAdapter
-import com.wooma.model.enums.TenantReportStatus
-import com.wooma.data.network.ApiResponseListener
-import com.wooma.data.network.MyApi
-import com.wooma.data.network.makeApiRequest
-import com.wooma.data.network.showToast
+import com.wooma.data.local.WoomaDatabase
+import com.wooma.data.repository.OtherItemsRepository
 import com.wooma.databinding.ActivityInventoryKeysListBinding
-import com.wooma.model.ApiResponse
-import com.wooma.model.ErrorResponse
-import com.wooma.model.KeyItem
+import com.wooma.model.enums.TenantReportStatus
+import kotlinx.coroutines.launch
 
 class KeysListingActivity : BaseActivity() {
     private lateinit var adapter: InventoryKeysAdapter
-    private val keysList = mutableListOf<KeyItem>()
+    private val keysList = mutableListOf<com.wooma.model.KeyItem>()
     private lateinit var binding: ActivityInventoryKeysListBinding
     var reportId = ""
     var reportStatus = ""
     var showTimestamp = true
+
+    private val repo by lazy { OtherItemsRepository(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,7 +37,6 @@ class KeysListingActivity : BaseActivity() {
         showTimestamp = intent.getBooleanExtra("showTimestamp", true)
 
         adapter = InventoryKeysAdapter(this, keysList, reportId, reportStatus, showTimestamp)
-
         binding.rvMeters.adapter = adapter
         binding.ivBack.setOnClickListener { finish() }
 
@@ -44,48 +44,41 @@ class KeysListingActivity : BaseActivity() {
 
         binding.ivAdd.setOnClickListener {
             startActivity(
-                Intent(this, AddEditKeysActivity::class.java).putExtra(
-                    "reportId",
-                    reportId
-                ).putExtra("showTimestamp", showTimestamp)
+                Intent(this, AddEditKeysActivity::class.java)
+                    .putExtra("reportId", reportId)
+                    .putExtra("showTimestamp", showTimestamp)
             )
+        }
+
+        // Observe keys from Room — instant, works offline
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                repo.observeKeys(reportId).collect { keys ->
+                    keysList.clear()
+                    keysList.addAll(keys)
+                    adapter.updateList(keysList)
+                    binding.tvEmpty.visibility = if (keys.isEmpty()) View.VISIBLE else View.GONE
+                }
+            }
+        }
+
+        // Observe sync status indicator
+        val db = WoomaDatabase.getInstance(this)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                db.syncQueueDao().countPending().collect { count ->
+                    binding.ivSyncStatus.setImageResource(
+                        if (count > 0) R.drawable.svg_syncing else R.drawable.svg_synced
+                    )
+                }
+            }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        getReportByIdApi()
-    }
-
-    private fun getReportByIdApi() {
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.getReportKeys(reportId, true) },
-            listener = object : ApiResponseListener<ApiResponse<ArrayList<KeyItem>>> {
-                override fun onSuccess(response: ApiResponse<ArrayList<KeyItem>>) {
-                    if (response.success) {
-                        keysList.clear()
-                        keysList.addAll(response.data)
-                        adapter.updateList(keysList)
-                        binding.tvEmpty.visibility = if (keysList.isEmpty()) View.VISIBLE else View.GONE
-                    } else {
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    // Handle network error
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
+        lifecycleScope.launch {
+            try { repo.refreshKeys(reportId) } catch (_: Exception) {}
+        }
     }
 }

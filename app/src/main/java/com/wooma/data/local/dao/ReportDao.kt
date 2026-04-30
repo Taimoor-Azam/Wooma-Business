@@ -58,4 +58,13 @@ interface ReportDao {
 
     @Query("DELETE FROM reports WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    @Query("UPDATE reports SET assessorId = :assessorId, assessorFirstName = :firstName, assessorLastName = :lastName WHERE id = :reportId")
+    suspend fun updateAssessor(reportId: String, assessorId: String, firstName: String, lastName: String)
+
+    @Query("UPDATE reports SET completionDate = :date WHERE id = :reportId")
+    suspend fun updateCompletionDate(reportId: String, date: String)
+
+    @Query("UPDATE reports SET reportTypeId = :typeId, reportTypeDisplayName = :typeName, reportTypeCode = :typeCode WHERE id = :reportId")
+    suspend fun updateReportType(reportId: String, typeId: String, typeName: String, typeCode: String)
 }

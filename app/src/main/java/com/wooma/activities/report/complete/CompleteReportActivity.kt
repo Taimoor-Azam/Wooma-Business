@@ -3,9 +3,12 @@ package com.wooma.activities.report.complete
 import android.os.Bundle
 import android.util.Log
 import android.view.View
+import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
 import com.wooma.activities.BaseActivity
 import com.wooma.adapter.AddTenantsAdapter
 import com.wooma.R
+import com.wooma.data.local.WoomaDatabase
 import com.wooma.data.network.ApiResponseListener
 import com.wooma.data.network.MyApi
 import com.wooma.data.network.makeApiRequest
@@ -19,6 +22,9 @@ import com.wooma.model.ReportData
 import com.wooma.model.Tenant
 import com.wooma.model.TenantsRequest
 import com.wooma.model.Users
+import com.wooma.sync.ConnectivityObserver
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 
 class CompleteReportActivity : BaseActivity() {
     private lateinit var adapter: AddTenantsAdapter
@@ -85,6 +91,8 @@ class CompleteReportActivity : BaseActivity() {
             }
         }
 
+        observeSyncGate()
+
         binding.ivMinus.setOnClickListener {
             if (count > 1)
                 count--
@@ -94,6 +102,31 @@ class CompleteReportActivity : BaseActivity() {
         binding.ivPlus.setOnClickListener {
             count++
             binding.tvTotalSigns.text = "$count"
+        }
+    }
+
+    private fun observeSyncGate() {
+        val db = WoomaDatabase.getInstance(this)
+        val connectivity = ConnectivityObserver(this)
+        lifecycleScope.launch {
+            combine(
+                db.syncQueueDao().countPending(),
+                db.pendingUploadDao().countPending(),
+                connectivity.observeConnectivity()
+            ) { pendingSync, pendingUploads, isOnline ->
+                Triple(pendingSync, pendingUploads, isOnline)
+            }.collect { (pendingSync, pendingUploads, isOnline) ->
+                val hasPending = pendingSync > 0 || pendingUploads > 0
+                val canComplete = isOnline && !hasPending
+                binding.btnSendReview.isEnabled = canComplete
+                binding.btnSendReview.alpha = if (canComplete) 1f else 0.5f
+                binding.tvSyncStatus.isVisible = !canComplete
+                binding.tvSyncStatus.text = when {
+                    hasPending -> "Syncing changes… please wait"
+                    !isOnline  -> "Internet connection required"
+                    else       -> ""
+                }
+            }
         }
     }
 

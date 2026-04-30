@@ -34,6 +34,7 @@ import com.wooma.model.Room
 import com.wooma.model.SendRequestRoom
 import com.wooma.model.Template
 import com.wooma.model.TemplateData
+import com.wooma.sync.ConnectivityObserver
 import java.util.Collections
 
 class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListener {
@@ -83,6 +84,10 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
         }
 
         binding.btnCreateReport.setOnClickListener {
+            if (!ConnectivityObserver(this).isConnected()) {
+                showToast("Please connect to internet to create report")
+                return@setOnClickListener
+            }
             if (binding.switchButton.isChecked) {
                 val previousReport =
                     CreateReportFromPreviousRequest(propertyId, reportTypeId, previousReportId)

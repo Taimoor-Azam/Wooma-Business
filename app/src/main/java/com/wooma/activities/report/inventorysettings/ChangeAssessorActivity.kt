@@ -10,29 +10,34 @@ import android.view.Menu
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.widget.PopupMenu
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.wooma.activities.BaseActivity
 import com.wooma.R
-import com.wooma.data.network.ApiResponseListener
-import com.wooma.data.network.MyApi
-import com.wooma.data.network.makeApiRequest
+import com.wooma.data.local.entity.AssessorEntity
 import com.wooma.data.network.showToast
+import com.wooma.data.repository.ConfigRepository
+import com.wooma.data.repository.ReportRepository
 import com.wooma.databinding.ActivityChangeAssessorBinding
-import com.wooma.model.ApiResponse
 import com.wooma.model.Assessor
-import com.wooma.model.AssessorUsers
-import com.wooma.model.ChangeAssessor
-import com.wooma.model.ErrorResponse
-import com.wooma.model.ReportData
+import com.wooma.sync.ConnectivityObserver
+import com.wooma.sync.SyncScheduler
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 class ChangeAssessorActivity : BaseActivity() {
     private lateinit var binding: ActivityChangeAssessorBinding
 
-    private val assessorsList = mutableListOf<AssessorUsers>()
+    private val assessorsList = mutableListOf<AssessorEntity>()
     var assessor: Assessor? = null
 
     var selectedAssessorId = ""
     var selectedAssessorName = ""
     var reportId = ""
+
+    private val configRepo by lazy { ConfigRepository(this) }
+    private val reportRepo by lazy { ReportRepository(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,7 +64,19 @@ class ChangeAssessorActivity : BaseActivity() {
 
         binding.ivBack.setOnClickListener { finish() }
 
-        getAssessorsApi()
+        // Observe from local DB
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                configRepo.observeAssessors().collect { list ->
+                    assessorsList.clear()
+                    assessorsList.addAll(list.filter { it.userId != assessor?.id })
+                }
+            }
+        }
+        // Background refresh from server
+        lifecycleScope.launch {
+            try { configRepo.seedReferenceData() } catch (_: Exception) {}
+        }
 
         binding.btnAddReport.setOnClickListener {
             if (selectedAssessorId.isNotEmpty()) {
@@ -71,36 +88,23 @@ class ChangeAssessorActivity : BaseActivity() {
     }
 
     private fun changeAssessorApi() {
-        val item = ChangeAssessor(selectedAssessorId)
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.changeAssessor(reportId, item) },
-            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
-                override fun onSuccess(response: ApiResponse<ReportData>) {
-                    if (response.success) {
-                        binding.tvCurrentAssessor.text = selectedAssessorName
-
-                        showToast("Assessor changed successfully")
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    // Handle network error
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
+        if (!ConnectivityObserver(this).isConnected()) {
+            showToast("Internet connection required")
+            return
+        }
+        val nameParts = selectedAssessorName.split(" ", limit = 2)
+        lifecycleScope.launch {
+            reportRepo.updateAssessor(
+                reportId,
+                selectedAssessorId,
+                nameParts.getOrElse(0) { "" },
+                nameParts.getOrElse(1) { "" }
+            )
+            SyncScheduler.scheduleImmediateSync(this@ChangeAssessorActivity)
+            binding.tvCurrentAssessor.text = selectedAssessorName
+            showToast("Assessor changed successfully")
+        }
     }
-
 
     fun showDynamicPopupMenu(view: View) {
         val popup = PopupMenu(
@@ -117,7 +121,7 @@ class ChangeAssessorActivity : BaseActivity() {
                 Menu.NONE,
                 i,
                 Menu.NONE,
-                assessorsList[i].first_name + " " + assessorsList[i].last_name
+                assessorsList[i].firstName + " " + assessorsList[i].lastName
             )
         }
         for (i in 0 until popup.menu.size()) {
@@ -131,44 +135,11 @@ class ChangeAssessorActivity : BaseActivity() {
         popup.setOnMenuItemClickListener { menuItem ->
             val id = menuItem.itemId
             binding.tvReportChangeTo.text = "${menuItem.title}"
-            selectedAssessorId = assessorsList[id].user_id
-            selectedAssessorName = assessorsList[id].first_name + " " + assessorsList[id].last_name
+            selectedAssessorId = assessorsList[id].userId
+            selectedAssessorName = assessorsList[id].firstName + " " + assessorsList[id].lastName
             true
         }
 
         popup.show()
-    }
-
-    private fun getAssessorsApi() {
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.getAssessors() },
-            listener = object : ApiResponseListener<ApiResponse<ArrayList<AssessorUsers>>> {
-                override fun onSuccess(response: ApiResponse<ArrayList<AssessorUsers>>) {
-                    if (response.success && response.data.isNotEmpty()) {
-                        assessorsList.clear()
-                        for (item in response.data) {
-                            if (item.user_id != assessor?.id) {
-                                assessorsList.add(item)
-                            }
-                        }
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    // Handle network error
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
     }
 }

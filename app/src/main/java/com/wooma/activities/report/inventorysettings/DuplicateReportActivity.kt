@@ -13,6 +13,7 @@ import com.wooma.data.network.MyApi
 import com.wooma.data.network.makeApiRequest
 import com.wooma.data.network.showToast
 import com.wooma.databinding.ActivityDuplicateReportBinding
+import com.wooma.sync.ConnectivityObserver
 import com.wooma.model.AddReportResponse
 import com.wooma.model.ApiResponse
 import com.wooma.model.CreateDuplicateReport
@@ -60,6 +61,10 @@ class DuplicateReportActivity : BaseActivity() {
     }
 
     private fun duplicateReportApi() {
+        if (!ConnectivityObserver(this).isConnected()) {
+            showToast("Internet connection required")
+            return
+        }
         val item = CreateDuplicateReport(
             property_id = property?.id ?: "",
             include_images = if (binding.cbCopyPhoto.isChecked) true else null,

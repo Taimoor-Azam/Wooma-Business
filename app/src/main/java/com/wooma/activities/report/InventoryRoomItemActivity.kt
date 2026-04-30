@@ -1,9 +1,9 @@
 package com.wooma.activities.report
 
-import android.app.ProgressDialog
 import android.text.Editable
 import android.text.TextWatcher
 import com.wooma.data.network.ApiClient
+import com.wooma.data.network.showToast
 import com.wooma.model.ImageItem
 import android.content.Intent
 import android.net.Uri
@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.view.View
 import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.activities.BaseActivity
 import com.wooma.adapter.ConditionChipAdapter
@@ -18,23 +19,21 @@ import com.wooma.adapter.ImageAdapter
 import com.wooma.adapter.ItemConditionAdapter
 import com.wooma.adapter.SuggestionsAdapter
 import com.wooma.R
-import com.wooma.customs.AttachmentUploadHelper
 import com.wooma.customs.Utils
-import com.wooma.data.network.ApiResponseListener
-import com.wooma.data.network.MyApi
-import com.wooma.data.network.makeApiRequest
-import com.wooma.data.network.showToast
+import com.wooma.data.local.WoomaDatabase
+import com.wooma.data.repository.AttachmentRepository
+import com.wooma.data.repository.InspectionRepository
+import com.wooma.data.repository.RoomItemRepository
 import com.wooma.databinding.ActivityInventoryRoomItemBinding
 import com.wooma.databinding.AddImageLayoutBinding
-import com.wooma.model.ApiResponse
 import com.wooma.model.ConditionDAO
-import com.wooma.model.ErrorResponse
 import com.wooma.model.PropertyReportType
-import com.wooma.model.ReportData
 import com.wooma.model.RoomItem
 import com.wooma.model.UpdateRoomItemRequest
 import com.wooma.model.UpsertRoomInspectionRequest
 import com.wooma.model.enums.ReportTypes
+import com.wooma.sync.SyncScheduler
+import kotlinx.coroutines.launch
 import java.util.Locale
 
 class InventoryRoomItemActivity : BaseActivity() {
@@ -64,6 +63,11 @@ class InventoryRoomItemActivity : BaseActivity() {
     private val allImages = mutableListOf<ImageItem>()
     private val CAMERA_REQUEST = 1001
     private val S3_BASE_URL = ApiClient.IMAGE_BASE_URL
+
+    private val roomItemRepo by lazy { RoomItemRepository(this) }
+    private val inspectionRepo by lazy { InspectionRepository(this) }
+    private val attachmentRepo by lazy { AttachmentRepository(this) }
+    private val db by lazy { WoomaDatabase.getInstance(this) }
 
     val conditionItems = mutableListOf(
         ConditionDAO(R.drawable.svg_excellent, "Excellent"),
@@ -110,6 +114,76 @@ class InventoryRoomItemActivity : BaseActivity() {
             "Knot holes", "Veneer lifting", "Veneer bubbling", "Delaminating", "Rusty",
             "Corroded", "Tarnished", "Oxidised", "Stiff to operate", "Loose fixings",
             "Missing screws", "Stripped threads"
+        )
+
+        val WALL_SUGGESTIONS = mutableListOf(
+            "Wallpapered", "Textured", "Smooth", "Plastered", "Rendered", "Tiled",
+            "Wood panelled", "Brick", "Exposed brick", "Feature wall", "Dado rail",
+            "Picture rail", "Coving", "Matt emulsion", "Silk emulsion", "Vinyl matt",
+            "Vinyl silk", "Ceramic", "Porcelain", "Metro", "Subway", "Mosaic",
+            "Marble", "Travertine", "Full height", "Half height", "Splashback only"
+        )
+
+        val FLOORING_SUGGESTIONS = mutableListOf(
+            "Carpet", "Laminate", "Vinyl", "Engineered wood", "Tile", "Ceramic tile",
+            "Porcelain tile", "Stone", "Slate", "Linoleum", "Cork", "Parquet", "LVT",
+            "Vinyl planks", "Concrete", "Beige", "Light grey", "Dark grey", "Light brown",
+            "Dark brown", "Walnut", "Natural", "Terracotta", "Blue", "Polished", "Honed",
+            "Rustic", "Distressed", "Short pile", "Medium pile", "Long pile", "Loop pile",
+            "Twist pile", "Berber", "Shag", "Plain", "Patterned", "Striped", "Herringbone",
+            "Chevron", "Wood effect", "Stone effect", "Marble effect"
+        )
+
+        val CEILING_SUGGESTIONS = mutableListOf(
+            "Artex", "Stippled", "Ceiling rose", "Beamed", "Cornicing", "Suspended", "Coffered"
+        )
+
+        val LIGHTING_SUGGESTIONS = mutableListOf(
+            "Pendant", "Ceiling light", "Chandelier", "Downlights", "Spotlights",
+            "Strip light", "LED panel", "Track lighting", "Wall light", "Wall sconce",
+            "Picture light", "Under-cabinet", "Recessed", "Flush mount", "Semi-flush",
+            "Statement light", "Bayonet", "Screw", "GU10", "E27", "E14", "LED", "Halogen",
+            "Fluorescent", "Chrome", "Brass", "Brushed nickel", "Brushed steel", "Copper",
+            "Bronze", "Fabric shade", "Metal shade", "Dimmable", "Dimmer switch",
+            "Pull cord", "Motion sensor", "Timer", "Smart bulb", "Multiple bulbs", "Single bulb"
+        )
+
+        val WINDOW_SUGGESTIONS = mutableListOf(
+            "Sash", "Casement", "Tilt and turn", "Bay", "Bow", "Skylight", "Velux",
+            "Awning", "Picture window", "Fixed"
+        )
+
+        val SWITCH_SOCKET_SUGGESTIONS = mutableListOf(
+            "Single socket", "Double socket", "USB socket", "Single switch", "Double switch",
+            "Cooker switch", "Fused spur", "Shaver socket", "TV point", "Telephone point",
+            "Ethernet point", "White plastic", "Brushed chrome", "Polished chrome",
+            "Stainless steel", "Modern", "Victorian", "Edwardian", "Art deco",
+            "Flush", "Surface mounted"
+        )
+
+        val SKIRTING_SUGGESTIONS = mutableListOf(
+            "Bullnose", "Torus", "Ogee", "Square edge", "Chamfered", "Traditional", "Ornate",
+            "White", "Cream", "Magnolia", "Grey", "Black", "Brown", "Natural wood", "Stained",
+            "Off-white", "Ivory", "Neutral", "50mm", "70mm", "95mm", "120mm", "145mm",
+            "170mm", "220mm"
+        )
+
+        val HEATING_SUGGESTIONS = mutableListOf(
+            "Radiator/Heating", "Radiator", "Radiator Valve", "Thermostatic Valve",
+            "Towel Rail", "Radiator/Towel Rail", "Underfloor Heating", "Storage Heater",
+            "Boiler", "Gas Boiler", "Electric Boiler", "Combi Boiler", "Immersion Heater",
+            "Hot Water Tank", "Thermostat", "Smart Thermostat", "Central Heating Timer"
+        )
+
+        val DOOR_SUGGESTIONS = mutableListOf(
+            "Timber", "UPVC", "Composite", "Oak", "Pine", "MDF", "Hardwood", "Softwood",
+            "Glass", "Metal", "Fire-rated", "Panel", "Flush", "Glazed", "Half-glazed",
+            "Fully glazed", "Bi-fold", "Sliding", "French", "Pocket", "4-panel", "6-panel",
+            "Gloss", "Matt", "Satin", "Eggshell", "Varnished", "Lacquered", "Waxed", "Painted",
+            "Chrome handle", "Brass handle", "Nickel handle", "Stainless steel handle",
+            "Lever handle", "Round knob", "D-handle", "Mortice lock", "Yale lock",
+            "Multi-point lock", "Barrel bolt", "Chain", "Spy hole", "Letter plate",
+            "Brass hinges", "Chrome hinges", "Self-closing"
         )
 
         val DESCRIPTION_SUGGESTIONS = mutableListOf(
@@ -214,13 +288,19 @@ class InventoryRoomItemActivity : BaseActivity() {
             binding.etDescription.setText(roomItems?.description ?: "")
             binding.etNote.setText(roomItems?.note ?: "")
 
-            // Load existing images from API
-            roomItems?.attachments?.forEach { attachment ->
-                val id = attachment.id ?: return@forEach
-                val key = attachment.storageKey ?: return@forEach
-                allImages.add(ImageItem.Remote(id, "$S3_BASE_URL$key"))
+            // Load existing images from local DB
+            lifecycleScope.launch {
+                val entityId = roomItems?.id ?: return@launch
+                val dbAttachments = db.attachmentDao().getByEntity(entityId, "ROOM_ITEM")
+                dbAttachments.forEach { a ->
+                    if (a.isUploaded && a.storageKey != null) {
+                        allImages.add(ImageItem.Remote(a.serverId ?: a.id, "$S3_BASE_URL${a.storageKey}"))
+                    } else if (!a.isUploaded && a.localUri != null) {
+                        allImages.add(ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!))))
+                    }
+                }
+                cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
             }
-            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
 
             binding.rvCondition.adapter =
                 ItemConditionAdapter(this, conditionItems, selectedCondition) { dao ->
@@ -233,10 +313,16 @@ class InventoryRoomItemActivity : BaseActivity() {
                     hasChanges = true
                 }
 
-            val conditionIndex = conditionItems.indexOfFirst { it.name.equals(selectedCondition, ignoreCase = true) }
+            val conditionIndex =
+                conditionItems.indexOfFirst { it.name.equals(selectedCondition, ignoreCase = true) }
             if (conditionIndex >= 0) binding.rvCondition.scrollToPosition(conditionIndex)
 
-            val cleanlinessIndex = conditionItems.indexOfFirst { it.name.equals(selectedCleanliness, ignoreCase = true) }
+            val cleanlinessIndex = conditionItems.indexOfFirst {
+                it.name.equals(
+                    selectedCleanliness,
+                    ignoreCase = true
+                )
+            }
             if (cleanlinessIndex >= 0) binding.tvCleanliness.scrollToPosition(cleanlinessIndex)
         }
 
@@ -286,12 +372,12 @@ class InventoryRoomItemActivity : BaseActivity() {
                 upsertRoomInspectionApi()
             } else {
                 var genCondition = selectedCondition.lowercase(Locale.ROOT)
-                if (selectedCondition.equals("N/A")){
+                if (selectedCondition.equals("N/A")) {
                     genCondition = selectedCondition
                 }
 
                 var genCleanliness = selectedCleanliness.lowercase(Locale.ROOT)
-                if (selectedCleanliness.equals("N/A")){
+                if (selectedCleanliness.equals("N/A")) {
                     genCleanliness = selectedCleanliness
                 }
 
@@ -378,16 +464,35 @@ class InventoryRoomItemActivity : BaseActivity() {
                     return
                 }
                 val lastSemicolon = fullText.lastIndexOf(';')
-                val currentWord = if (lastSemicolon >= 0) fullText.substring(lastSemicolon + 1).trim() else fullText.trim()
+                val currentWord = if (lastSemicolon >= 0) fullText.substring(lastSemicolon + 1)
+                    .trim() else fullText.trim()
                 noteSuggestionsAdapter.filter(currentWord)
             }
         })
     }
 
+    private fun getDescriptionSuggestions(itemName: String?): List<String> {
+        val name = itemName?.lowercase() ?: return DESCRIPTION_SUGGESTIONS
+        return when {
+            name.contains("wall") -> WALL_SUGGESTIONS
+            name.contains("floor") -> FLOORING_SUGGESTIONS
+            name.contains("ceiling") -> CEILING_SUGGESTIONS
+            name.contains("light") -> LIGHTING_SUGGESTIONS
+            name.contains("window") -> WINDOW_SUGGESTIONS
+            name.contains("switch") || name.contains("socket") -> SWITCH_SOCKET_SUGGESTIONS
+            name.contains("skirting") -> SKIRTING_SUGGESTIONS
+            name.contains("heating") -> HEATING_SUGGESTIONS
+            name.contains("door") -> DOOR_SUGGESTIONS
+            else -> DESCRIPTION_SUGGESTIONS
+        }
+    }
+
     private fun setupDescriptionSuggestions() {
+        val suggestions =
+            if (roomItems != null) getDescriptionSuggestions(roomItems?.name) else DESCRIPTION_SUGGESTIONS
         descriptionSuggestionsAdapter = SuggestionsAdapter(
             this,
-            DESCRIPTION_SUGGESTIONS,
+            suggestions.toMutableList(),
             object : SuggestionsAdapter.OnItemClickInterface {
                 override fun onItemClick(item: String) {
                     val fullText = binding.etDescription.text.toString()
@@ -423,7 +528,8 @@ class InventoryRoomItemActivity : BaseActivity() {
                     return
                 }
                 val lastSemicolon = fullText.lastIndexOf(';')
-                val currentWord = if (lastSemicolon >= 0) fullText.substring(lastSemicolon + 1).trim() else fullText.trim()
+                val currentWord = if (lastSemicolon >= 0) fullText.substring(lastSemicolon + 1)
+                    .trim() else fullText.trim()
                 descriptionSuggestionsAdapter.filter(currentWord)
             }
         })
@@ -457,7 +563,7 @@ class InventoryRoomItemActivity : BaseActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == RESULT_OK) {
             val newUris = CameraActivity.pendingUris.toList()
-            
+
             // Sync allImages based on what remains in CameraActivity.resultImages
             allImages.clear()
             allImages.addAll(CameraActivity.resultImages)
@@ -467,86 +573,49 @@ class InventoryRoomItemActivity : BaseActivity() {
             capturedUris.clear()
             capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
 
-            val entityId = roomItems?.id ?: ""
-            if (entityId.isNotEmpty() && newUris.isNotEmpty()) {
-                showLoading("Uploading images...")
-                AttachmentUploadHelper.uploadImages(
-                    activity = this,
-                    imageUris = newUris,
-                    entityId = entityId,
-                    entityType = "ROOM_ITEM",
-                    onComplete = { hideLoading() },
-                    onError = { hideLoading() }
-                )
-            }
+            // New photos are queued for upload when the user saves (uploadPhotosIfNeeded)
         }
     }
 
     private fun deleteRoomItemApi() {
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService ->
-                apiService.deleteRoomItem(
-                    reportId,
-                    roomId,
-                    roomItems?.id ?: ""
-                )
-            },
-            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
-                override fun onSuccess(response: ApiResponse<ReportData>) {
-                    if (response.success) {
-                        finish()
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {}
-                override fun onError(throwable: Throwable) {}
-            }
-        )
+        lifecycleScope.launch {
+            roomItemRepo.deleteItem(roomItems?.id ?: "")
+            SyncScheduler.scheduleImmediateSync(this@InventoryRoomItemActivity)
+            finish()
+        }
     }
 
     private fun updateRoomItemApi(item: UpdateRoomItemRequest) {
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService ->
-                apiService.updateRoomItem(
-                    reportId,
-                    roomId,
-                    roomItems?.id ?: "",
-                    item
-                )
-            },
-            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
-                override fun onSuccess(response: ApiResponse<ReportData>) {
-                    if (response.success) {
-                        uploadPhotosIfNeeded()
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {}
-                override fun onError(throwable: Throwable) {}
-            }
-        )
+        lifecycleScope.launch {
+            roomItemRepo.updateItem(roomItems?.id ?: "", item)
+            SyncScheduler.scheduleImmediateSync(this@InventoryRoomItemActivity)
+            uploadPhotosIfNeeded()
+        }
     }
 
     private fun uploadPhotosIfNeeded() {
         val itemId = roomItems?.id ?: return finish()
+        val serverId = itemId.takeIf { !it.startsWith("local_") }
         if (capturedUris.isEmpty()) {
             finish()
             return
         }
-        AttachmentUploadHelper.uploadImages(
-            activity = this,
-            imageUris = capturedUris,
-            entityId = itemId,
-            entityType = "ROOM_ITEM",
-            onComplete = { finish() },
-            onError = { finish() }
-        )
+        lifecycleScope.launch {
+            try {
+                capturedUris.forEach { uri ->
+                    attachmentRepo.saveLocalAttachment(
+                        uri = uri,
+                        entityLocalId = itemId,
+                        entityServerId = serverId,
+                        entityType = "ROOM_ITEM"
+                    )
+                }
+                SyncScheduler.scheduleImmediateSync(this@InventoryRoomItemActivity)
+            } catch (e: Exception) {
+                showToast("Failed to save photos: ${e.message}")
+            }
+            finish()
+        }
     }
 
     private fun setupConditionChipsRecycler() {
@@ -594,34 +663,19 @@ class InventoryRoomItemActivity : BaseActivity() {
     }
 
     private fun upsertRoomInspectionApi() {
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { api ->
-                api.upsertRoomInspection(
-                    UpsertRoomInspectionRequest(
-                        room_id = roomItems?.room_id ?: roomId,
-                        is_issue = isIssue,
-                        note = if (isIssue) binding.etIssueNote.text.toString()
-                            .ifEmpty { null } else null,
-                        priority = if (isIssue) selectedPriority else null
-                    )
+        lifecycleScope.launch {
+            inspectionRepo.upsertInspection(
+                reportId,
+                roomItems?.room_id ?: roomId,
+                UpsertRoomInspectionRequest(
+                    room_id = roomItems?.room_id ?: roomId,
+                    is_issue = isIssue,
+                    note = if (isIssue) binding.etIssueNote.text.toString().ifEmpty { null } else null,
+                    priority = if (isIssue) selectedPriority else null
                 )
-            },
-            listener = object : ApiResponseListener<ApiResponse<Any>> {
-                override fun onSuccess(response: ApiResponse<Any>) {
-                    uploadPhotosIfNeeded()
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    showToast(errorMessage?.error?.message ?: "Failed to save inspection")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
+            )
+            SyncScheduler.scheduleImmediateSync(this@InventoryRoomItemActivity)
+            uploadPhotosIfNeeded()
+        }
     }
 }

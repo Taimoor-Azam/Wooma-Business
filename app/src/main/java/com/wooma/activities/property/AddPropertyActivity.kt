@@ -15,6 +15,7 @@ import com.wooma.model.PostalAddress
 import com.wooma.model.PropertiesRequest
 import com.wooma.model.Property
 import com.wooma.storage.Prefs
+import com.wooma.sync.ConnectivityObserver
 
 class AddPropertyActivity : BaseActivity() {
     private lateinit var binding: ActivityAddPropertyBinding
@@ -35,6 +36,10 @@ class AddPropertyActivity : BaseActivity() {
         }
 
         binding.btnSave.setOnClickListener {
+            if (!ConnectivityObserver(this).isConnected()) {
+                showToast("Internet connection required to add a property")
+                return@setOnClickListener
+            }
             if (isValid()) {
                 createPropertyApi()
             }

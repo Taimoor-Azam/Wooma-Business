@@ -4,22 +4,21 @@ import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import androidx.activity.OnBackPressedCallback
+import androidx.lifecycle.lifecycleScope
 import com.wooma.activities.BaseActivity
 import com.wooma.activities.MainActivity
 import com.wooma.activities.report.ReportListingActivity
 import com.wooma.customs.Utils
-import com.wooma.data.network.ApiResponseListener
-import com.wooma.data.network.MyApi
-import com.wooma.data.network.makeApiRequest
 import com.wooma.data.network.showToast
+import com.wooma.data.repository.PropertyRepository
 import com.wooma.databinding.ActivityEditPropertyBinding
-import com.wooma.model.ApiResponse
-import com.wooma.model.ErrorResponse
 import com.wooma.model.PropertiesRequest
-import com.wooma.model.Property
+import com.wooma.sync.SyncScheduler
+import kotlinx.coroutines.launch
 
 class EditPropertyActivity : BaseActivity() {
     private lateinit var binding: ActivityEditPropertyBinding
+    private val propertyRepo by lazy { PropertyRepository(this) }
 
     var id = ""
     var address = ""
@@ -107,33 +106,12 @@ class EditPropertyActivity : BaseActivity() {
             binding.etPostalCode.text.toString(),
             null
         )
-
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.updateProperty(id, body) },
-            listener = object : ApiResponseListener<ApiResponse<Property>> {
-                override fun onSuccess(response: ApiResponse<Property>) {
-                    if (response.success) {
-                        showToast("Property Updated successfully")
-                        navigateToReportListing()
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    // Handle network error
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
+        lifecycleScope.launch {
+            propertyRepo.updateProperty(id, body)
+            SyncScheduler.scheduleImmediateSync(this@EditPropertyActivity)
+            showToast("Property updated")
+            navigateToReportListing()
+        }
     }
 
     private fun navigateToReportListing() {
@@ -145,35 +123,15 @@ class EditPropertyActivity : BaseActivity() {
     }
 
     private fun archivePropertyApi(id: String) {
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.archiveProperty(id) },
-            listener = object : ApiResponseListener<ApiResponse<Property>> {
-                override fun onSuccess(response: ApiResponse<Property>) {
-                    if (response.success) {
-                        showToast("Archived Successfully")
-                        val intent = Intent(this@EditPropertyActivity, MainActivity::class.java)
-                        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
-                        startActivity(intent)
-                        finish()
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    // Handle network error
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
+        lifecycleScope.launch {
+            propertyRepo.archiveProperty(id)
+            SyncScheduler.scheduleImmediateSync(this@EditPropertyActivity)
+            showToast("Archived Successfully")
+            val intent = Intent(this@EditPropertyActivity, MainActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+            startActivity(intent)
+            finish()
+        }
     }
 
 

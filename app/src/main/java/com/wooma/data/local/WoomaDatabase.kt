@@ -31,7 +31,7 @@ import com.wooma.data.local.entity.*
         SyncQueueEntity::class,
         PendingUploadEntity::class
     ],
-    version = 1,
+    version = 3,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -66,7 +66,7 @@ abstract class WoomaDatabase : RoomDatabase() {
                     context.applicationContext,
                     WoomaDatabase::class.java,
                     "wooma_db"
-                ).build().also { INSTANCE = it }
+                ).fallbackToDestructiveMigration().build().also { INSTANCE = it }
             }
         }
     }

@@ -11,6 +11,7 @@ import android.util.Log
 import android.view.KeyEvent
 import android.widget.EditText
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.wooma.activities.BaseActivity
 import com.wooma.activities.MainActivity
 import com.wooma.R
@@ -26,11 +27,14 @@ import com.wooma.model.SendOtpRequest
 import com.wooma.model.User
 import com.wooma.model.VerifyOTPRequest
 import com.wooma.model.VerifyOtpData
+import com.wooma.data.repository.ConfigRepository
 import com.wooma.storage.Prefs
+import kotlinx.coroutines.launch
 
 class OTPActivity : BaseActivity() {
     private lateinit var binding: ActivityOtpBinding
     var email: String = ""
+    private val configRepo by lazy { ConfigRepository(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -176,6 +180,10 @@ class OTPActivity : BaseActivity() {
                             response.data.refreshToken
                         )
                         Prefs.saveUser(this@OTPActivity, user)
+                        // Seed reference data in background — fire and forget
+                        lifecycleScope.launch {
+                            try { configRepo.seedReferenceData() } catch (_: Exception) {}
+                        }
 
                         if (!response.data.user.isOnboarded) {
                             val intent =

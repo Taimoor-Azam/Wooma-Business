@@ -1,40 +1,37 @@
 package com.wooma.activities.report.otherItems
 
-import android.app.ProgressDialog
-import com.wooma.data.network.ApiClient
-import com.wooma.model.ImageItem
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
 import android.view.View
 import androidx.activity.OnBackPressedCallback
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.activities.BaseActivity
 import com.wooma.activities.report.CameraActivity
 import com.wooma.adapter.ImageAdapter
 import com.wooma.adapter.SuggestionsAdapter
-import com.wooma.customs.AttachmentUploadHelper
 import com.wooma.customs.Utils
-import com.wooma.data.network.ApiResponseListener
-import com.wooma.data.network.MyApi
-import com.wooma.data.network.makeApiRequest
+import com.wooma.data.local.WoomaDatabase
 import com.wooma.data.network.showToast
+import com.wooma.data.repository.AttachmentRepository
+import com.wooma.data.repository.OtherItemsRepository
 import com.wooma.databinding.ActivityAddEditKeysBinding
 import com.wooma.databinding.AddImageLayoutBinding
 import com.wooma.model.AddKeyRequest
-import com.wooma.model.ApiResponse
-import com.wooma.model.ErrorResponse
+import com.wooma.model.ImageItem
 import com.wooma.model.KeyItem
-import com.wooma.model.ReportData
+import com.wooma.sync.SyncScheduler
+import kotlinx.coroutines.launch
+import com.wooma.data.network.ApiClient
 
 class AddEditKeysActivity : BaseActivity() {
     private lateinit var binding: ActivityAddEditKeysBinding
     private lateinit var cameraBinding: AddImageLayoutBinding
+
     var keyItem: KeyItem? = null
-    var savedKeyId = ""
     var count = 1
 
     private val capturedUris = mutableListOf<Uri>()
@@ -43,24 +40,24 @@ class AddEditKeysActivity : BaseActivity() {
 
     var reportId = ""
     var showTimestamp = true
-    val suggestionList =
-        mutableListOf(
-            "Yale",
-            "Mortice",
-            "Cylinder",
-            "Chubb",
-            "Union",
-            "Era",
-            "Abloy",
-            "Mul-T-Lock",
-            "UPVC Door Key",
-            "Window Key",
-            "Deadbolt Key",
-            "Padlock Key",
-            "Garage Key",
-            "Shed Key",
-            "Gate Key"
-        )
+
+    val suggestionList = mutableListOf(
+        "Yale",
+        "Mortice",
+        "Cylinder",
+        "Chubb",
+        "Union",
+        "Era",
+        "Abloy",
+        "Mul-T-Lock",
+        "UPVC Door Key",
+        "Window Key",
+        "Deadbolt Key",
+        "Padlock Key",
+        "Garage Key",
+        "Shed Key",
+        "Gate Key"
+    )
 
     val noteSuggestionList = mutableListOf(
         "Front Door", "Back Door", "Side Door", "Garage Door", "Shed Door", "Gate",
@@ -75,6 +72,10 @@ class AddEditKeysActivity : BaseActivity() {
     var isEdit = false
     private var hasChanges = false
 
+    private val repo by lazy { OtherItemsRepository(this) }
+    private val attachmentRepo by lazy { AttachmentRepository(this) }
+    private val db by lazy { WoomaDatabase.getInstance(this) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -83,9 +84,8 @@ class AddEditKeysActivity : BaseActivity() {
         cameraBinding = binding.cameraLayout
         applyWindowInsetsToBinding(binding.root)
         setupCapturedImagesRecycler()
-        keyItem = intent.getParcelableExtra("keyItem")
-        savedKeyId = keyItem?.id ?: ""
 
+        keyItem = intent.getParcelableExtra("keyItem")
         reportId = intent.getStringExtra("reportId") ?: ""
         showTimestamp = intent.getBooleanExtra("showTimestamp", true)
         isEdit = intent.getBooleanExtra("isEdit", false)
@@ -94,33 +94,18 @@ class AddEditKeysActivity : BaseActivity() {
             CameraActivity.Companion.existingImages = allImages.toList()
             CameraActivity.Companion.pendingUris.clear()
             startActivityForResult(
-                Intent(this, CameraActivity::class.java).putExtra(
-                    "showTimestamp",
-                    showTimestamp
-                ), CAMERA_REQUEST
+                Intent(this, CameraActivity::class.java).putExtra("showTimestamp", showTimestamp),
+                CAMERA_REQUEST
             )
         }
 
         binding.btnSave.setOnClickListener {
-            if (isValid()) {
-                addNewKeyApi()
-            }
+            saveKey()
         }
 
-        binding.ivDelete.visibility = if (keyItem != null) {
-            View.VISIBLE
-        } else {
-            View.GONE
-        }
-
+        binding.ivDelete.visibility = if (keyItem != null) View.VISIBLE else View.GONE
         binding.ivDelete.setOnClickListener {
-            Utils.showDialogBox(
-                this,
-                "Delete Key",
-                "Do you want to delete this ? This action can't be undone"
-            ) {
-                deleteKeyApi(keyItem?.id ?: "")
-            }
+            deleteKey()
         }
 
         suggestionsAdapter = SuggestionsAdapter(
@@ -177,6 +162,7 @@ class AddEditKeysActivity : BaseActivity() {
             hasChanges = true
             binding.tvQty.text = "$count"
         }
+
         setMeterData()
         attachChangeWatchers()
 
@@ -186,14 +172,58 @@ class AddEditKeysActivity : BaseActivity() {
                     isEnabled = false
                     onBackPressedDispatcher.onBackPressed()
                 } else {
-                    // If you want default behavior after your logic:
                     isEnabled = false
                     onBackPressedDispatcher.onBackPressed()
                 }
             }
         }
-
         onBackPressedDispatcher.addCallback(this, callback)
+    }
+
+    private fun saveKey() {
+        if (!isValid()) return
+        val request = AddKeyRequest(
+            name = binding.etType.text.toString(),
+            no_of_keys = count,
+            note = binding.etNote.text.toString()
+        )
+        showLoading("Saving...")
+        lifecycleScope.launch {
+            try {
+                if (keyItem != null) {
+                    repo.updateKey(keyItem!!.id, request)
+                    for (uri in capturedUris) {
+                        val existing = db.keyDao().getById(keyItem!!.id)
+                        attachmentRepo.saveLocalAttachment(uri, keyItem!!.id, existing?.serverId, "KEY")
+                    }
+                } else {
+                    val entity = repo.addKey(reportId, request)
+                    for (uri in capturedUris) {
+                        attachmentRepo.saveLocalAttachment(uri, entity.id, entity.serverId, "KEY")
+                    }
+                }
+                hasChanges = false
+                SyncScheduler.scheduleImmediateSync(this@AddEditKeysActivity)
+                finish()
+            } catch (e: Exception) {
+                showToast("Failed to save: ${e.message}")
+            } finally {
+                hideLoading()
+            }
+        }
+    }
+
+    private fun deleteKey() {
+        Utils.showDialogBox(
+            this, "Delete Key",
+            "Do you want to delete this ? This action can't be undone"
+        ) {
+            lifecycleScope.launch {
+                repo.deleteKey(keyItem?.id ?: "")
+                SyncScheduler.scheduleImmediateSync(this@AddEditKeysActivity)
+                finish()
+            }
+        }
     }
 
     private fun attachChangeWatchers() {
@@ -221,26 +251,12 @@ class AddEditKeysActivity : BaseActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == RESULT_OK) {
             val newUris = CameraActivity.Companion.pendingUris.toList()
-            
             allImages.removeAll { it is ImageItem.Local }
             allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
-            
             if (newUris.isNotEmpty()) hasChanges = true
-            if (savedKeyId.isNotEmpty() && newUris.isNotEmpty()) {
-                showLoading("Uploading images...")
-                AttachmentUploadHelper.uploadImages(
-                    activity = this,
-                    imageUris = newUris,
-                    entityId = savedKeyId,
-                    entityType = "KEY",
-                    onComplete = { hideLoading() },
-                    onError = { hideLoading() }
-                )
-            } else {
-                capturedUris.clear()
-                capturedUris.addAll(newUris)
-            }
+            capturedUris.clear()
+            capturedUris.addAll(newUris)
         }
     }
 
@@ -251,10 +267,17 @@ class AddEditKeysActivity : BaseActivity() {
             binding.tvQty.text = (keyItem?.no_of_keys ?: 0).toString()
             binding.etNote.setText(keyItem?.note ?: "")
 
-            keyItem?.attachments?.forEach { attachment ->
-                allImages.add(ImageItem.Remote(attachment.id, "${ApiClient.IMAGE_BASE_URL}${attachment.storageKey}"))
+            lifecycleScope.launch {
+                val dbAttachments = db.attachmentDao().getByEntity(keyItem!!.id, "KEY")
+                dbAttachments.forEach { a ->
+                    if (a.isUploaded && a.storageKey != null) {
+                        allImages.add(ImageItem.Remote(a.serverId ?: a.id, "${ApiClient.IMAGE_BASE_URL}${a.storageKey}"))
+                    } else if (!a.isUploaded && a.localUri != null) {
+                        allImages.add(ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!))))
+                    }
+                }
+                cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
             }
-            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
         }
     }
 
@@ -264,137 +287,5 @@ class AddEditKeysActivity : BaseActivity() {
             return false
         }
         return true
-    }
-
-    private fun deleteKeyApi(keyId: String) {
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.deleteKey(reportId, keyId) },
-            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
-                override fun onSuccess(response: ApiResponse<ReportData>) {
-                    if (response.success) {
-                        showToast("Key Deleted successfully")
-                        finish()
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
-    }
-
-    private fun addNewKeyApi() {
-        val body = AddKeyRequest(
-            binding.etType.text.toString(),
-            binding.tvQty.text.toString().toInt(),
-            binding.etNote.text.toString()
-        )
-
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService ->
-                if (keyItem != null) apiService.updateKey(
-                    reportId,
-                    keyItem?.id ?: "",
-                    body
-                ) else apiService.addNewKey(reportId, body)
-            },
-            listener = object : ApiResponseListener<ApiResponse<ReportData>> {
-                override fun onSuccess(response: ApiResponse<ReportData>) {
-                    if (response.success) {
-                        showToast(
-                            if (keyItem != null) "Key Updated successfully"
-                            else "Key Added successfully"
-                        )
-                        if (keyItem != null) {
-                            uploadPhotosIfNeeded(savedKeyId)
-                        } else {
-                            uploadPhotosAfterCreate(body)
-                        }
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
-    }
-
-    private fun uploadPhotosIfNeeded(entityId: String) {
-        if (capturedUris.isEmpty() || entityId.isEmpty()) {
-            finish()
-            return
-        }
-        AttachmentUploadHelper.uploadImages(
-            activity = this,
-            imageUris = capturedUris.filterIsInstance<Uri>(),
-            entityId = entityId,
-            entityType = "KEY",
-            onComplete = { finish() },
-            onError = { finish() }
-        )
-    }
-
-    private fun uploadPhotosAfterCreate(requestBody: AddKeyRequest) {
-        if (capturedUris.isEmpty()) {
-            finish()
-            return
-        }
-
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = false,
-            requestAction = { api -> api.getReportKeys(reportId, include_attachments = false) },
-            listener = object : ApiResponseListener<ApiResponse<ArrayList<KeyItem>>> {
-                override fun onSuccess(response: ApiResponse<ArrayList<KeyItem>>) {
-                    val createdKeyId = response.data
-                        .asReversed()
-                        .firstOrNull { key ->
-                            key.name == requestBody.name &&
-                                    (key.no_of_keys ?: 1) == requestBody.no_of_keys &&
-                                    (key.note ?: "") == requestBody.note
-                        }?.id.orEmpty()
-
-                    if (createdKeyId.isEmpty()) {
-                        showToast("Key saved, but photos could not be attached")
-                        finish()
-                        return
-                    }
-
-                    savedKeyId = createdKeyId
-                    uploadPhotosIfNeeded(savedKeyId)
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    showToast("Key saved, but photos could not be attached")
-                    finish()
-                }
-
-                override fun onError(throwable: Throwable) {
-                    showToast("Key saved, but photos could not be attached")
-                    finish()
-                }
-            }
-        )
     }
 }

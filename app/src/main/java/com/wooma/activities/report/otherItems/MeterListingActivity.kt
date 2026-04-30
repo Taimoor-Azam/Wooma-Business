@@ -2,27 +2,28 @@ package com.wooma.activities.report.otherItems
 
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.view.View
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.wooma.R
 import com.wooma.activities.BaseActivity
 import com.wooma.adapter.InventoryMetersAdapter
-import com.wooma.model.enums.TenantReportStatus
-import com.wooma.data.network.ApiResponseListener
-import com.wooma.data.network.MyApi
-import com.wooma.data.network.makeApiRequest
-import com.wooma.data.network.showToast
+import com.wooma.data.local.WoomaDatabase
+import com.wooma.data.repository.OtherItemsRepository
 import com.wooma.databinding.ActivityInventoryMeterListBinding
-import com.wooma.model.ApiResponse
-import com.wooma.model.ErrorResponse
-import com.wooma.model.Meter
+import com.wooma.model.enums.TenantReportStatus
+import kotlinx.coroutines.launch
 
 class MeterListingActivity : BaseActivity() {
     private lateinit var adapter: InventoryMetersAdapter
-    private val metersList = mutableListOf<Meter>()
+    private val metersList = mutableListOf<com.wooma.model.Meter>()
     private lateinit var binding: ActivityInventoryMeterListBinding
     var reportId = ""
     var reportStatus = ""
     var showTimestamp = true
+
+    private val repo by lazy { OtherItemsRepository(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,7 +37,6 @@ class MeterListingActivity : BaseActivity() {
         showTimestamp = intent.getBooleanExtra("showTimestamp", true)
 
         adapter = InventoryMetersAdapter(this, metersList, reportId, reportStatus, showTimestamp)
-
         binding.rvMeters.adapter = adapter
         binding.ivBack.setOnClickListener { finish() }
 
@@ -44,48 +44,42 @@ class MeterListingActivity : BaseActivity() {
 
         binding.ivAdd.setOnClickListener {
             startActivity(
-                Intent(this, AddEditMeterActivity::class.java).putExtra(
-                    "reportId",
-                    reportId
-                ).putExtra("showTimestamp", showTimestamp)
+                Intent(this, AddEditMeterActivity::class.java)
+                    .putExtra("reportId", reportId)
+                    .putExtra("showTimestamp", showTimestamp)
             )
+        }
+
+        // Observe meters from Room — instant, works offline
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                repo.observeMeters(reportId).collect { meters ->
+                    metersList.clear()
+                    metersList.addAll(meters)
+                    adapter.updateList(metersList)
+                    binding.tvEmpty.visibility = if (meters.isEmpty()) View.VISIBLE else View.GONE
+                }
+            }
+        }
+
+        // Observe sync status indicator
+        val db = WoomaDatabase.getInstance(this)
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                db.syncQueueDao().countPending().collect { count ->
+                    binding.ivSyncStatus.setImageResource(
+                        if (count > 0) R.drawable.svg_syncing else R.drawable.svg_synced
+                    )
+                }
+            }
         }
     }
 
     override fun onResume() {
         super.onResume()
-        getReportByIdApi()
-    }
-
-    private fun getReportByIdApi() {
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.getReportMeters(reportId, true) },
-            listener = object : ApiResponseListener<ApiResponse<ArrayList<Meter>>> {
-                override fun onSuccess(response: ApiResponse<ArrayList<Meter>>) {
-                    if (response.success) {
-                        metersList.clear()
-                        metersList.addAll(response.data)
-                        adapter.updateList(metersList)
-                        binding.tvEmpty.visibility = if (metersList.isEmpty()) View.VISIBLE else View.GONE
-                    } else {
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    // Handle API error
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    // Handle network error
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
-            }
-        )
+        // Silent background refresh — updates Room cache, Flow re-emits automatically
+        lifecycleScope.launch {
+            try { repo.refreshMeters(reportId) } catch (_: Exception) {}
+        }
     }
 }

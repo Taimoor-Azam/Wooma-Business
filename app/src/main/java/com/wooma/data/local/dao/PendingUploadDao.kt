@@ -4,9 +4,13 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import com.wooma.data.local.entity.PendingUploadEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface PendingUploadDao {
+
+    @Query("SELECT COUNT(*) FROM pending_uploads WHERE status = 'PENDING'")
+    fun countPending(): Flow<Int>
 
     @Query("SELECT * FROM pending_uploads WHERE status = 'PENDING' ORDER BY createdAt ASC")
     suspend fun getPending(): List<PendingUploadEntity>
