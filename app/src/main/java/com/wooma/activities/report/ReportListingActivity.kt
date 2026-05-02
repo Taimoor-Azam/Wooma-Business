@@ -1,6 +1,5 @@
 package com.wooma.activities.report
 
-import android.app.ProgressDialog
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -13,7 +12,9 @@ import com.wooma.activities.BaseActivity
 import com.wooma.activities.MainActivity
 import com.wooma.activities.property.EditPropertyActivity
 import com.wooma.adapter.ReportListingAdapter
+import com.wooma.customs.Utils
 import com.wooma.data.local.mapper.toReport
+import com.wooma.data.network.showToast
 import com.wooma.data.repository.PropertyRepository
 import com.wooma.data.repository.ReportRepository
 import com.wooma.databinding.ActivityReportListingBinding
@@ -54,6 +55,10 @@ class ReportListingActivity : BaseActivity() {
         handleIntent(intent)
 
         binding.btnContinue.setOnClickListener {
+            if (!Utils.isOnline(this)) {
+                showToast("Connect to internet to add reports")
+                return@setOnClickListener
+            }
             startActivity(
                 Intent(this, SelectReportTypeActivity::class.java)
                     .putExtra("propertyId", propertyId)
@@ -152,22 +157,7 @@ class ReportListingActivity : BaseActivity() {
         super.onResume()
         if (propertyId.isNotEmpty()) {
             lifecycleScope.launch {
-                if (reportRepo.hasData(propertyId)) {
-                    try { reportRepo.refreshByProperty(propertyId) } catch (_: Exception) {}
-                } else {
-                    val progress = ProgressDialog(this@ReportListingActivity).apply {
-                        setMessage("Please Wait...")
-                        setCancelable(false)
-                    }
-                    if (!isFinishing && !isDestroyed) progress.show()
-                    try {
-                        reportRepo.refreshByProperty(propertyId)
-                    } catch (e: Exception) {
-                        Log.e("ReportListing", "Refresh failed: ${e.message}")
-                    } finally {
-                        if (progress.isShowing) progress.dismiss()
-                    }
-                }
+                try { reportRepo.refreshByProperty(propertyId) } catch (_: Exception) {}
             }
         }
     }

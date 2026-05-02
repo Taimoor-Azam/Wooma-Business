@@ -15,7 +15,9 @@ import com.wooma.activities.property.AddPropertyByPostalCodeActivity
 import com.wooma.activities.property.ArchivePropertiesActivity
 import com.wooma.activities.report.SelectPropertyForReportActivity
 import com.wooma.adapter.PropertyAdapter
+import com.wooma.customs.Utils
 import com.wooma.data.local.mapper.toProperty
+import com.wooma.data.network.showToast
 import com.wooma.data.repository.PropertyRepository
 import com.wooma.databinding.FragmentPropertiesBinding
 import com.wooma.model.Property
@@ -51,6 +53,10 @@ class PropertiesFragment : Fragment() {
         }
 
         binding.btnCreateReport.setOnClickListener {
+            if (!Utils.isOnline(requireContext())) {
+                requireContext().showToast("Connect to internet to add reports")
+                return@setOnClickListener
+            }
             startActivity(
                 Intent(requireActivity(), SelectPropertyForReportActivity::class.java)
                     .putExtra("isFromProperty", true)
@@ -58,10 +64,18 @@ class PropertiesFragment : Fragment() {
         }
 
         binding.ivAddProperty.setOnClickListener {
+            if (!Utils.isOnline(requireContext())) {
+                requireContext().showToast("Connect to internet to add property")
+                return@setOnClickListener
+            }
             startActivity(Intent(requireActivity(), AddPropertyByPostalCodeActivity::class.java))
         }
 
         binding.btnAddProperty.setOnClickListener {
+            if (!Utils.isOnline(requireContext())) {
+                requireContext().showToast("Connect to internet to add property")
+                return@setOnClickListener
+            }
             startActivity(Intent(requireActivity(), AddPropertyByPostalCodeActivity::class.java))
         }
 

@@ -34,31 +34,39 @@ class OtherItemsRepository(private val ctx: Context) {
         val serverId = db.reportDao().getById(reportId)?.serverId ?: return@withContext
         val resp = api.getReportMeters(serverId, include_attachments = true).execute()
         resp.body()?.data?.let { meters ->
-            val pendingIds = db.meterDao().getByReport(reportId)
+            val localEntities = db.meterDao().getByReport(reportId)
+            val pendingIds = localEntities
                 .filter { it.syncStatus != SyncStatus.SYNCED }
                 .map { it.id }
                 .toSet()
-            val toUpsert = meters.map { it.toEntity(reportId) }.filter { it.id !in pendingIds }
+            val existingIds = localEntities.map { it.id }.toSet()
+            val existingServerIds = localEntities.mapNotNull { it.serverId }.toSet()
+            val toUpsert = meters.map { it.toEntity(reportId) }
+                .filter { it.id !in pendingIds && (it.id in existingIds || it.id !in existingServerIds) }
             db.meterDao().upsertAll(toUpsert)
-            // Persist API attachments to local DB
+            val existingAtts = db.attachmentDao().getByEntityType("METER")
+            val existingAttIds = existingAtts.map { it.id }.toSet()
+            val existingAttServerIds = existingAtts.mapNotNull { it.serverId }.toSet()
             val meterAttachments = meters
-                .filter { it.id !in pendingIds }
+                .filter { it.id !in pendingIds && (it.id in existingIds || it.id !in existingServerIds) }
                 .flatMap { meter ->
-                    meter.attachments.map { att ->
-                        AttachmentEntity(
-                            id = att.id,
-                            serverId = att.id,
-                            entityId = meter.id,
-                            entityType = "METER",
-                            originalName = att.originalName,
-                            storageKey = att.storageKey,
-                            link = att.link,
-                            mimeType = att.mimeType,
-                            fileSize = att.fileSize.toLongOrNull() ?: 0L,
-                            localUri = null,
-                            isUploaded = true
-                        )
-                    }
+                    meter.attachments
+                        .filter { att -> att.id in existingAttIds || att.id !in existingAttServerIds }
+                        .map { att ->
+                            AttachmentEntity(
+                                id = att.id,
+                                serverId = att.id,
+                                entityId = meter.id,
+                                entityType = "METER",
+                                originalName = att.originalName,
+                                storageKey = att.storageKey,
+                                link = att.link,
+                                mimeType = att.mimeType,
+                                fileSize = att.fileSize.toLongOrNull() ?: 0L,
+                                localUri = null,
+                                isUploaded = true
+                            )
+                        }
                 }
             if (meterAttachments.isNotEmpty()) db.attachmentDao().upsertAll(meterAttachments)
         }
@@ -136,31 +144,39 @@ class OtherItemsRepository(private val ctx: Context) {
         val serverId = db.reportDao().getById(reportId)?.serverId ?: return@withContext
         val resp = api.getReportKeys(serverId, include_attachments = true).execute()
         resp.body()?.data?.let { keys ->
-            val pendingIds = db.keyDao().getByReport(reportId)
+            val localEntities = db.keyDao().getByReport(reportId)
+            val pendingIds = localEntities
                 .filter { it.syncStatus != SyncStatus.SYNCED }
                 .map { it.id }
                 .toSet()
-            val toUpsert = keys.map { it.toEntity(reportId) }.filter { it.id !in pendingIds }
+            val existingIds = localEntities.map { it.id }.toSet()
+            val existingServerIds = localEntities.mapNotNull { it.serverId }.toSet()
+            val toUpsert = keys.map { it.toEntity(reportId) }
+                .filter { it.id !in pendingIds && (it.id in existingIds || it.id !in existingServerIds) }
             db.keyDao().upsertAll(toUpsert)
-            // Persist API attachments to local DB
+            val existingAtts = db.attachmentDao().getByEntityType("KEY")
+            val existingAttIds = existingAtts.map { it.id }.toSet()
+            val existingAttServerIds = existingAtts.mapNotNull { it.serverId }.toSet()
             val keyAttachments = keys
-                .filter { it.id !in pendingIds }
+                .filter { it.id !in pendingIds && (it.id in existingIds || it.id !in existingServerIds) }
                 .flatMap { key ->
-                    key.attachments.map { att ->
-                        AttachmentEntity(
-                            id = att.id,
-                            serverId = att.id,
-                            entityId = key.id,
-                            entityType = "KEY",
-                            originalName = att.originalName,
-                            storageKey = att.storageKey,
-                            link = att.link,
-                            mimeType = att.mimeType,
-                            fileSize = att.fileSize.toLongOrNull() ?: 0L,
-                            localUri = null,
-                            isUploaded = true
-                        )
-                    }
+                    key.attachments
+                        .filter { att -> att.id in existingAttIds || att.id !in existingAttServerIds }
+                        .map { att ->
+                            AttachmentEntity(
+                                id = att.id,
+                                serverId = att.id,
+                                entityId = key.id,
+                                entityType = "KEY",
+                                originalName = att.originalName,
+                                storageKey = att.storageKey,
+                                link = att.link,
+                                mimeType = att.mimeType,
+                                fileSize = att.fileSize.toLongOrNull() ?: 0L,
+                                localUri = null,
+                                isUploaded = true
+                            )
+                        }
                 }
             if (keyAttachments.isNotEmpty()) db.attachmentDao().upsertAll(keyAttachments)
         }
@@ -235,31 +251,39 @@ class OtherItemsRepository(private val ctx: Context) {
         val serverId = db.reportDao().getById(reportId)?.serverId ?: return@withContext
         val resp = api.getReportDetector(serverId, include_attachments = true).execute()
         resp.body()?.data?.let { dets ->
-            val pendingIds = db.detectorDao().getByReport(reportId)
+            val localEntities = db.detectorDao().getByReport(reportId)
+            val pendingIds = localEntities
                 .filter { it.syncStatus != SyncStatus.SYNCED }
                 .map { it.id }
                 .toSet()
-            val toUpsert = dets.map { it.toEntity(reportId) }.filter { it.id !in pendingIds }
+            val existingIds = localEntities.map { it.id }.toSet()
+            val existingServerIds = localEntities.mapNotNull { it.serverId }.toSet()
+            val toUpsert = dets.map { it.toEntity(reportId) }
+                .filter { it.id !in pendingIds && (it.id in existingIds || it.id !in existingServerIds) }
             db.detectorDao().upsertAll(toUpsert)
-            // Persist API attachments to local DB
+            val existingAtts = db.attachmentDao().getByEntityType("DETECTOR")
+            val existingAttIds = existingAtts.map { it.id }.toSet()
+            val existingAttServerIds = existingAtts.mapNotNull { it.serverId }.toSet()
             val detectorAttachments = dets
-                .filter { it.id !in pendingIds }
+                .filter { it.id !in pendingIds && (it.id in existingIds || it.id !in existingServerIds) }
                 .flatMap { det ->
-                    det.attachments.map { att ->
-                        AttachmentEntity(
-                            id = att.id,
-                            serverId = att.id,
-                            entityId = det.id,
-                            entityType = "DETECTOR",
-                            originalName = att.originalName,
-                            storageKey = att.storageKey,
-                            link = att.link,
-                            mimeType = att.mimeType,
-                            fileSize = att.fileSize.toLongOrNull() ?: 0L,
-                            localUri = null,
-                            isUploaded = true
-                        )
-                    }
+                    det.attachments
+                        .filter { att -> att.id in existingAttIds || att.id !in existingAttServerIds }
+                        .map { att ->
+                            AttachmentEntity(
+                                id = att.id,
+                                serverId = att.id,
+                                entityId = det.id,
+                                entityType = "DETECTOR",
+                                originalName = att.originalName,
+                                storageKey = att.storageKey,
+                                link = att.link,
+                                mimeType = att.mimeType,
+                                fileSize = att.fileSize.toLongOrNull() ?: 0L,
+                                localUri = null,
+                                isUploaded = true
+                            )
+                        }
                 }
             if (detectorAttachments.isNotEmpty()) db.attachmentDao().upsertAll(detectorAttachments)
         }

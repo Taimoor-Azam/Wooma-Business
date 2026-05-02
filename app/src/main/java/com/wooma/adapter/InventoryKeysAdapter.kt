@@ -57,7 +57,13 @@ class InventoryKeysAdapter(
         holder.tvWhatFor.visibility = if (noteVisible) View.VISIBLE else View.GONE
         holder.tvWhatFor.text = item.note ?: ""
 
-        val imageItems = item.attachments.map { ImageItem.Remote(it.id, "${ApiClient.IMAGE_BASE_URL}${it.storageKey}") }.toMutableList<ImageItem>()
+        val imageItems = item.attachments.map {
+            if (!it.storageKey.isNullOrEmpty()) {
+                ImageItem.Remote(it.id, "${ApiClient.IMAGE_BASE_URL}${it.storageKey}")
+            } else {
+                ImageItem.Local(android.net.Uri.parse(it.link ?: ""))
+            }
+        }.toMutableList<ImageItem>()
         holder.rvImages.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         holder.rvImages.adapter = ImageAdapter(imageItems, showDelete = false, title = item.name)
 

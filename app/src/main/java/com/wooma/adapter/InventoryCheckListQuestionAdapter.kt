@@ -207,17 +207,21 @@ class InventoryCheckListQuestionAdapter(
             }
         }
 
-        val remoteImages = item.checklist_question_answer_attachment?.attachments
+        val savedImages = item.checklist_question_answer_attachment?.attachments
             ?.mapNotNull { att ->
                 val id = att.id ?: return@mapNotNull null
-                val url = att.url ?: att.storageKey?.let { "${ApiClient.IMAGE_BASE_URL}$it" }
-                ?: return@mapNotNull null
-                ImageItem.Remote(id, url)
+                if (!att.storageKey.isNullOrEmpty()) {
+                    val url = att.url ?: "${ApiClient.IMAGE_BASE_URL}${att.storageKey}"
+                    ImageItem.Remote(id, url)
+                } else if (!att.url.isNullOrEmpty()) {
+                    ImageItem.Local(Uri.parse(att.url))
+                } else null
             } ?: emptyList()
-        val localUris = localPhotos[questionId] ?: emptyList<Uri>()
+
+        val questionAttachments = localPhotos[questionId] ?: emptyList<Uri>()
         val photoList = mutableListOf<ImageItem>().apply {
-            addAll(remoteImages)
-            addAll(localUris.map { ImageItem.Local(it) })
+            addAll(savedImages)
+            addAll(questionAttachments.map { ImageItem.Local(it) })
         }
 
         holder.rvImages.layoutManager =

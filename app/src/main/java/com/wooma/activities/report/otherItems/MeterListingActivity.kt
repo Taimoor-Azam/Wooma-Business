@@ -10,9 +10,12 @@ import com.wooma.R
 import com.wooma.activities.BaseActivity
 import com.wooma.adapter.InventoryMetersAdapter
 import com.wooma.data.local.WoomaDatabase
+import com.wooma.data.local.entity.AttachmentEntity
 import com.wooma.data.repository.OtherItemsRepository
 import com.wooma.databinding.ActivityInventoryMeterListBinding
+import com.wooma.model.OtherItemsAttachment
 import com.wooma.model.enums.TenantReportStatus
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 class MeterListingActivity : BaseActivity() {
@@ -50,10 +53,37 @@ class MeterListingActivity : BaseActivity() {
             )
         }
 
+        val db = WoomaDatabase.getInstance(this)
+
         // Observe meters from Room — instant, works offline
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                repo.observeMeters(reportId).collect { meters ->
+                combine(
+                    repo.observeMeters(reportId),
+                    db.attachmentDao().observeByEntityType("METER")
+                ) { meters, allAttachments ->
+                    meters.map { meter ->
+                        val meterAttachments = allAttachments.filter { it.entityId == meter.id }
+                        meter.copy(
+                            attachments = meterAttachments.map { att ->
+                                OtherItemsAttachment(
+                                    id = att.serverId ?: att.id,
+                                    is_active = true,
+                                    is_deleted = false,
+                                    created_at = "",
+                                    updated_at = "",
+                                    entityId = att.entityId,
+                                    entityType = att.entityType,
+                                    originalName = att.originalName,
+                                    storageKey = att.storageKey ?: "",
+                                    link = att.link,
+                                    mimeType = att.mimeType,
+                                    fileSize = att.fileSize.toString()
+                                )
+                            }
+                        )
+                    }
+                }.collect { meters ->
                     metersList.clear()
                     metersList.addAll(meters)
                     adapter.updateList(metersList)
@@ -63,7 +93,6 @@ class MeterListingActivity : BaseActivity() {
         }
 
         // Observe sync status indicator
-        val db = WoomaDatabase.getInstance(this)
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 db.syncQueueDao().countPending().collect { count ->

@@ -13,6 +13,12 @@ interface AttachmentDao {
     @Query("SELECT * FROM attachments WHERE entityId = :entityId AND entityType = :entityType")
     fun observeByEntity(entityId: String, entityType: String): Flow<List<AttachmentEntity>>
 
+    @Query("SELECT * FROM attachments WHERE entityType = :entityType")
+    fun observeByEntityType(entityType: String): Flow<List<AttachmentEntity>>
+
+    @Query("SELECT * FROM attachments WHERE entityType = :entityType")
+    suspend fun getByEntityType(entityType: String): List<AttachmentEntity>
+
     @Query("SELECT * FROM attachments WHERE entityId = :entityId AND entityType = :entityType")
     suspend fun getByEntity(entityId: String, entityType: String): List<AttachmentEntity>
 
