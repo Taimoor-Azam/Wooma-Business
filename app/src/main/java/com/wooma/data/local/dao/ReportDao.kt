@@ -70,4 +70,37 @@ interface ReportDao {
 
     @Query("UPDATE reports SET countMeters = :meters, countKeys = :keys, countDetectors = :detectors, countChecklists = :checklists WHERE id = :reportId")
     suspend fun updateCounts(reportId: String, meters: Int, keys: Int, detectors: Int, checklists: Int)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIgnore(report: ReportEntity): Long
+
+    @Query("""UPDATE reports SET
+        reportTypeId = :reportTypeId,
+        reportTypeCode = :reportTypeCode,
+        reportTypeDisplayName = :reportTypeDisplayName,
+        status = :status,
+        assessorId = :assessorId,
+        assessorFirstName = :assessorFirstName,
+        assessorLastName = :assessorLastName,
+        assessorEmail = :assessorEmail,
+        completionDate = :completionDate,
+        isActive = :isActive,
+        isDeleted = :isDeleted,
+        updatedAt = :updatedAt
+        WHERE id = :id AND syncStatus = 'SYNCED'""")
+    suspend fun updateFromServer(
+        id: String,
+        reportTypeId: String,
+        reportTypeCode: String,
+        reportTypeDisplayName: String,
+        status: String,
+        assessorId: String?,
+        assessorFirstName: String?,
+        assessorLastName: String?,
+        assessorEmail: String?,
+        completionDate: String,
+        isActive: Boolean,
+        isDeleted: Boolean,
+        updatedAt: String
+    ): Int
 }

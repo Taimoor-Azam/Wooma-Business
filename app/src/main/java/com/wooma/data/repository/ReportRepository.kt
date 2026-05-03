@@ -35,8 +35,46 @@ class ReportRepository(private val context: Context) {
         val r = api.getPropertyById(propertyId).execute()
         if (r.isSuccessful) {
             val data = r.body()?.data ?: return@withContext
-            propertyDao.upsert(data.toPropertyEntity())
-            reportDao.upsertAll(data.reports.map { it.toEntity(propertyId) })
+            // UPDATE in-place to avoid INSERT OR REPLACE which CASCADE-deletes all reports
+            val rowsUpdated = propertyDao.updateFromServer(
+                id = data.id,
+                address = data.address,
+                addressLine2 = data.address_line_2,
+                city = data.city,
+                postcode = data.postcode,
+                country = data.country,
+                propertyType = data.property_type,
+                isActive = data.is_active,
+                updatedAt = data.updated_at
+            )
+            if (rowsUpdated == 0) propertyDao.insertIgnore(data.toPropertyEntity())
+            // Guard: only sync reports when the API actually returned them
+            if (data.reports.isNotEmpty()) {
+                val pendingIds = db.reportDao().getPendingSyncReports()
+                    .filter { it.propertyId == propertyId }
+                    .map { it.id }.toSet()
+                // UPDATE in-place (no REPLACE, no CASCADE-delete of rooms) for each report
+                for (report in data.reports) {
+                    if (report.id in pendingIds) continue
+                    val entity = report.toEntity(propertyId)
+                    val updated = reportDao.updateFromServer(
+                        id = entity.id,
+                        reportTypeId = entity.reportTypeId,
+                        reportTypeCode = entity.reportTypeCode,
+                        reportTypeDisplayName = entity.reportTypeDisplayName,
+                        status = entity.status,
+                        assessorId = entity.assessorId,
+                        assessorFirstName = entity.assessorFirstName,
+                        assessorLastName = entity.assessorLastName,
+                        assessorEmail = entity.assessorEmail,
+                        completionDate = entity.completionDate,
+                        isActive = entity.isActive,
+                        isDeleted = entity.isDeleted,
+                        updatedAt = entity.updatedAt
+                    )
+                    if (updated == 0) reportDao.insertIgnore(entity)
+                }
+            }
         }
     }
 

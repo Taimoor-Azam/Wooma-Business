@@ -363,11 +363,18 @@ class InventoryListingActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
-        getReportByIdApi()
-        lifecycleScope.launch {
-            try {
-                roomRepo.refreshRooms(reportId)
-            } catch (_: Exception) {
+        if (Utils.isOnline(this)) {
+            getReportByIdApi()
+            lifecycleScope.launch {
+                try { roomRepo.refreshRooms(reportId) } catch (_: Exception) {}
+            }
+        } else {
+            lifecycleScope.launch {
+                val hasRooms = db.roomDao().getByReport(reportId).isNotEmpty()
+                if (!hasRooms) {
+                    showToast("Please connect to internet and then come back")
+                    finish()
+                }
             }
         }
     }

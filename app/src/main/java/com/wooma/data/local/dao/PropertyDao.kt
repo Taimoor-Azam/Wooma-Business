@@ -40,4 +40,23 @@ interface PropertyDao {
 
     @Query("DELETE FROM properties WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIgnore(property: PropertyEntity): Long
+
+    @Query("UPDATE properties SET noOfReports = noOfReports + 1 WHERE id = :propertyId")
+    suspend fun incrementReportCount(propertyId: String)
+
+    @Query("UPDATE properties SET address = :address, addressLine2 = :addressLine2, city = :city, postcode = :postcode, country = :country, propertyType = :propertyType, isActive = :isActive, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateFromServer(
+        id: String,
+        address: String,
+        addressLine2: String?,
+        city: String,
+        postcode: String,
+        country: String?,
+        propertyType: String?,
+        isActive: Boolean,
+        updatedAt: String
+    ): Int
 }

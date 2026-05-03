@@ -11,6 +11,7 @@ import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import com.wooma.R
@@ -18,6 +19,9 @@ import com.wooma.activities.BaseActivity
 import com.wooma.adapter.ReportRoomsAdapter
 import com.wooma.adapter.TemplateHorizontalAdapter
 import com.wooma.customs.Utils
+import com.wooma.data.local.WoomaDatabase
+import com.wooma.data.local.entity.ReportEntity
+import com.wooma.data.local.entity.SyncStatus
 import com.wooma.data.network.ApiResponseListener
 import com.wooma.data.network.MyApi
 import com.wooma.data.network.makeApiRequest
@@ -36,6 +40,7 @@ import com.wooma.model.Template
 import com.wooma.model.TemplateData
 import com.wooma.sync.ConnectivityObserver
 import java.util.Collections
+import kotlinx.coroutines.launch
 
 class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListener {
     private lateinit var binding: ActivityConfigureReportBinding
@@ -149,13 +154,40 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
                         showToast("Report Created Successfully")
                         reportCreated = true
                         createdPropertyId = propertyId
-                        startActivity(
-                            Intent(this@ConfigureReportActivity, InventoryListingActivity::class.java)
-                                .putExtra("reportId", response.data.report_id)
-                                .putExtra("reportStatus", response.data.status)
-                                .putExtra("propertyId", propertyId)
-                        )
-                        finish()
+                        lifecycleScope.launch {
+                            // Save the new report to Room so InventoryListingActivity
+                            // can find it via getById() and load rooms offline-first
+                            val db = WoomaDatabase.getInstance(this@ConfigureReportActivity)
+                            db.reportDao()
+                                .insertIgnore(
+                                    ReportEntity(
+                                        id = response.data.report_id,
+                                        serverId = response.data.report_id,
+                                        propertyId = propertyId,
+                                        reportTypeId = response.data.report_type.id,
+                                        reportTypeCode = response.data.report_type.type_code,
+                                        reportTypeDisplayName = response.data.report_type.display_name,
+                                        status = response.data.status,
+                                        assessorId = response.data.assessor.id,
+                                        assessorFirstName = response.data.assessor.first_name,
+                                        assessorLastName = response.data.assessor.last_name,
+                                        assessorEmail = response.data.assessor.email,
+                                        completionDate = response.data.completion_date,
+                                        completionPercentage = response.data.completion_percentage,
+                                        tenantReviewExpiry = response.data.tenant_review_expiry,
+                                        extendReviewExpiry = response.data.extend_review_expiry,
+                                        syncStatus = SyncStatus.SYNCED
+                                    )
+                                )
+                            db.propertyDao().incrementReportCount(propertyId)
+                            startActivity(
+                                Intent(this@ConfigureReportActivity, InventoryListingActivity::class.java)
+                                    .putExtra("reportId", response.data.report_id)
+                                    .putExtra("reportStatus", response.data.status)
+                                    .putExtra("propertyId", propertyId)
+                            )
+                            finish()
+                        }
                     }
                 }
 
