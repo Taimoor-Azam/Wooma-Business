@@ -9,6 +9,8 @@ import com.wooma.data.local.entity.ReportEntity
 import com.wooma.data.local.entity.SyncQueueEntity
 import com.wooma.data.local.mapper.toEntity
 import com.wooma.data.local.mapper.toPropertyEntity
+import com.wooma.data.local.mapper.toReport
+import com.wooma.model.Report
 import com.wooma.data.network.RetrofitClient
 import com.wooma.model.ChangeAssessor
 import com.wooma.model.ChangeDateRequest
@@ -27,6 +29,11 @@ class ReportRepository(private val context: Context) {
 
     fun observeByProperty(propertyId: String): Flow<List<ReportEntity>> =
         reportDao.observeByProperty(propertyId)
+
+    suspend fun getLocalByProperty(propertyId: String): List<Report> =
+        withContext(Dispatchers.IO) {
+            reportDao.getByProperty(propertyId).map { it.toReport() }
+        }
 
     suspend fun hasData(propertyId: String): Boolean =
         withContext(Dispatchers.IO) { reportDao.countByProperty(propertyId) > 0 }
@@ -76,6 +83,24 @@ class ReportRepository(private val context: Context) {
                 }
             }
         }
+    }
+
+    suspend fun markArchivedSynced(reportId: String) = withContext(Dispatchers.IO) {
+        val propertyId = reportDao.getById(reportId)?.propertyId
+        reportDao.setDeletedAndSynced(reportId)
+        if (!propertyId.isNullOrEmpty()) propertyDao.decrementReportCount(propertyId)
+    }
+
+    suspend fun archiveOffline(reportId: String) = withContext(Dispatchers.IO) {
+        val propertyId = reportDao.getById(reportId)?.propertyId
+        reportDao.archiveLocal(reportId)
+        if (!propertyId.isNullOrEmpty()) propertyDao.decrementReportCount(propertyId)
+        db.syncQueueDao().enqueue(
+            SyncQueueEntity(
+                entityType = "REPORT", operationType = "ARCHIVE",
+                localEntityId = reportId, payload = "{}"
+            )
+        )
     }
 
     suspend fun updateAssessor(

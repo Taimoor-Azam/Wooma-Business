@@ -56,8 +56,10 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             "CHECKLIST_INFO_FIELD" -> processChecklistInfoField(entry)
             "CHECKLIST_STATUS" -> processChecklistStatus(entry)
             "CHECKLIST_ANSWER_ATTACHMENT" -> processChecklistAnswerAttachment(entry)
+            "ATTACHMENT"   -> processAttachment(entry)
             "REPORT_COVER" -> processReportCover(entry)
             "PROPERTY" -> processProperty(entry)
+            "REPORT"          -> processReport(entry)
             "REPORT_ASSESSOR" -> processReportAssessor(entry)
             "REPORT_DATE" -> processReportDate(entry)
             "REPORT_TYPE" -> processReportType(entry)
@@ -382,6 +384,18 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             }
         }
 
+    private suspend fun processAttachment(entry: com.wooma.data.local.entity.SyncQueueEntity) =
+        withContext(Dispatchers.IO) {
+            when (entry.operationType) {
+                "DELETE" -> {
+                    val resp = api.deleteAttachment(entry.localEntityId).execute()
+                    if (!resp.isSuccessful && resp.code() != 404) {
+                        throw Exception("Attachment DELETE failed: ${resp.code()}")
+                    }
+                }
+            }
+        }
+
     private suspend fun processChecklistQuestion(entry: com.wooma.data.local.entity.SyncQueueEntity) =
         withContext(Dispatchers.IO) {
             val req = gson.fromJson(entry.payload, UpsertQuestionAnswerRequest::class.java)
@@ -440,6 +454,23 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                     val resp = api.archiveProperty(serverId).execute()
                     if (!resp.isSuccessful && resp.code() != 404) throw Exception("Property ARCHIVE failed: ${resp.code()}")
                     db.propertyDao().updateSyncStatus(localId, SyncStatus.SYNCED)
+                }
+            }
+        }
+
+    // ─── REPORT ──────────────────────────────────────────────────────────────
+
+    private suspend fun processReport(entry: com.wooma.data.local.entity.SyncQueueEntity) =
+        withContext(Dispatchers.IO) {
+            val reportEntity = db.reportDao().getById(entry.localEntityId) ?: return@withContext
+            val serverId = reportEntity.serverId ?: return@withContext
+            when (entry.operationType) {
+                "ARCHIVE" -> {
+                    val resp = api.archiveReport(serverId).execute()
+                    if (!resp.isSuccessful && resp.code() != 404) {
+                        throw Exception("Report ARCHIVE failed: ${resp.code()}")
+                    }
+                    db.reportDao().updateSyncStatus(entry.localEntityId, SyncStatus.SYNCED)
                 }
             }
         }

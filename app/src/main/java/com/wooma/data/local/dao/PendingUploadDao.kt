@@ -38,4 +38,7 @@ interface PendingUploadDao {
 
     @Query("SELECT * FROM pending_uploads WHERE status = 'FAILED'")
     suspend fun getFailed(): List<PendingUploadEntity>
+
+    @Query("DELETE FROM pending_uploads WHERE localUri = :localUri")
+    suspend fun deleteByLocalUri(localUri: String)
 }

@@ -2,13 +2,15 @@ package com.wooma.activities.report
 
 import android.text.Editable
 import android.text.TextWatcher
-import com.wooma.data.network.ApiClient
-import com.wooma.data.network.showToast
-import com.wooma.model.ImageItem
+import android.view.View
+import android.view.ViewGroup
+import android.widget.BaseAdapter
+import android.widget.ImageView
+import android.widget.ListPopupWindow
+import android.widget.TextView
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.view.View
 import androidx.activity.OnBackPressedCallback
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
@@ -16,31 +18,38 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.activities.BaseActivity
 import com.wooma.adapter.ConditionChipAdapter
 import com.wooma.adapter.ImageAdapter
-import com.wooma.adapter.ItemConditionAdapter
 import com.wooma.adapter.SuggestionsAdapter
 import com.wooma.R
 import com.wooma.customs.Utils
 import com.wooma.data.local.WoomaDatabase
+import com.wooma.data.network.ApiClient
+import com.wooma.data.network.ApiResponseListener
+import com.wooma.data.network.MyApi
+import com.wooma.data.network.makeApiRequest
+import com.wooma.data.network.showToast
 import com.wooma.data.repository.AttachmentRepository
 import com.wooma.data.repository.InspectionRepository
 import com.wooma.data.repository.RoomItemRepository
 import com.wooma.databinding.ActivityInventoryRoomItemBinding
 import com.wooma.databinding.AddImageLayoutBinding
-import com.wooma.model.ConditionDAO
+import com.wooma.model.ApiResponse
+import com.wooma.model.ErrorResponse
+import com.wooma.model.ImageItem
 import com.wooma.model.PropertyReportType
+import com.wooma.model.RatingItem
+import com.wooma.model.RatingsResponse
 import com.wooma.model.RoomItem
 import com.wooma.model.UpdateRoomItemRequest
 import com.wooma.model.UpsertRoomInspectionRequest
 import com.wooma.model.enums.ReportTypes
 import com.wooma.sync.SyncScheduler
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 class InventoryRoomItemActivity : BaseActivity() {
     private lateinit var binding: ActivityInventoryRoomItemBinding
     private lateinit var cameraBinding: AddImageLayoutBinding
-    var selectedCondition = ""
-    var selectedCleanliness = ""
+    var selectedConditionCode = ""
+    var selectedCleanlinessCode = ""
     var roomItems: RoomItem? = null
     var reportId = ""
     var roomId = ""
@@ -51,6 +60,8 @@ class InventoryRoomItemActivity : BaseActivity() {
     var isIssue: Boolean = false
     var selectedPriority: String? = null
     private var hasChanges = false
+    private var conditionRatings = listOf<RatingItem>()
+    private var cleanlinessRatings = listOf<RatingItem>()
     private lateinit var noteSuggestionsAdapter: SuggestionsAdapter
     private var isHandlingNoteEnter = false
     private lateinit var descriptionSuggestionsAdapter: SuggestionsAdapter
@@ -68,14 +79,6 @@ class InventoryRoomItemActivity : BaseActivity() {
     private val inspectionRepo by lazy { InspectionRepository(this) }
     private val attachmentRepo by lazy { AttachmentRepository(this) }
     private val db by lazy { WoomaDatabase.getInstance(this) }
-
-    val conditionItems = mutableListOf(
-        ConditionDAO(R.drawable.svg_excellent, "Excellent"),
-        ConditionDAO(R.drawable.svg_excellent, "Good"),
-        ConditionDAO(R.drawable.svg_poor, "Poor"),
-        ConditionDAO(R.drawable.svg_poor, "Unacceptable"),
-        ConditionDAO(R.drawable.svg_n_a, "N/A")
-    )
 
     companion object {
         val NOTE_SUGGESTIONS = mutableListOf(
@@ -282,9 +285,6 @@ class InventoryRoomItemActivity : BaseActivity() {
                 override fun afterTextChanged(s: Editable?) {}
             })
 
-            selectedCondition = roomItems?.general_condition ?: ""
-            selectedCleanliness = roomItems?.general_cleanliness ?: ""
-
             binding.etDescription.setText(roomItems?.description ?: "")
             binding.etNote.setText(roomItems?.note ?: "")
 
@@ -313,28 +313,25 @@ class InventoryRoomItemActivity : BaseActivity() {
                 }
             }
 
-            binding.rvCondition.adapter =
-                ItemConditionAdapter(this, conditionItems, selectedCondition) { dao ->
-                    selectedCondition = dao?.name ?: ""
-                    hasChanges = true
-                }
-            binding.tvCleanliness.adapter =
-                ItemConditionAdapter(this, conditionItems, selectedCleanliness) { dao ->
-                    selectedCleanliness = dao?.name ?: ""
-                    hasChanges = true
-                }
+        }
 
-            val conditionIndex =
-                conditionItems.indexOfFirst { it.name.equals(selectedCondition, ignoreCase = true) }
-            if (conditionIndex >= 0) binding.rvCondition.scrollToPosition(conditionIndex)
-
-            val cleanlinessIndex = conditionItems.indexOfFirst {
-                it.name.equals(
-                    selectedCleanliness,
-                    ignoreCase = true
-                )
+        binding.spinnerCondition.setOnClickListener {
+            if (conditionRatings.isNotEmpty()) showRatingDropdown(
+                binding.spinnerCondition, conditionRatings, selectedConditionCode
+            ) { selected ->
+                selectedConditionCode = selected.type_code
+                updateRatingSpinner(binding.ivConditionIcon, binding.tvConditionValue, binding.tvConditionSubtitle, selected)
+                hasChanges = true
             }
-            if (cleanlinessIndex >= 0) binding.tvCleanliness.scrollToPosition(cleanlinessIndex)
+        }
+        binding.spinnerCleanliness.setOnClickListener {
+            if (cleanlinessRatings.isNotEmpty()) showRatingDropdown(
+                binding.spinnerCleanliness, cleanlinessRatings, selectedCleanlinessCode
+            ) { selected ->
+                selectedCleanlinessCode = selected.type_code
+                updateRatingSpinner(binding.ivCleanlinessIcon, binding.tvCleanlinessValue, binding.tvCleanlinessSubtitle, selected)
+                hasChanges = true
+            }
         }
 
         if (isInspection) {
@@ -378,24 +375,16 @@ class InventoryRoomItemActivity : BaseActivity() {
             }
         }
 
+        if (!isInspection) fetchRatings()
+
         binding.btnSave.setOnClickListener {
             if (isInspection) {
                 upsertRoomInspectionApi()
             } else {
-                var genCondition = selectedCondition.lowercase(Locale.ROOT)
-                if (selectedCondition.equals("N/A")) {
-                    genCondition = selectedCondition
-                }
-
-                var genCleanliness = selectedCleanliness.lowercase(Locale.ROOT)
-                if (selectedCleanliness.equals("N/A")) {
-                    genCleanliness = selectedCleanliness
-                }
-
                 val roomItem = UpdateRoomItemRequest(
                     name = binding.etItemName.text.toString().trim().ifEmpty { null },
-                    general_condition = genCondition/*.replace("/", "")*/,
-                    general_cleanliness = genCleanliness/*.replace("/", "")*/,
+                    general_condition = selectedConditionCode,
+                    general_cleanliness = selectedCleanlinessCode,
                     description = binding.etDescription.text.toString(),
                     note = binding.etNote.text.toString()
                 )
@@ -688,5 +677,100 @@ class InventoryRoomItemActivity : BaseActivity() {
             SyncScheduler.scheduleImmediateSync(this@InventoryRoomItemActivity)
             uploadPhotosIfNeeded()
         }
+    }
+
+    private fun fetchRatings() {
+        makeApiRequest(
+            apiServiceClass = MyApi::class.java,
+            context = this,
+            showLoading = true,
+            requestAction = { api -> api.getRatings() },
+            listener = object : ApiResponseListener<ApiResponse<RatingsResponse>> {
+                override fun onSuccess(response: ApiResponse<RatingsResponse>) {
+                    if (!response.success) return
+                    conditionRatings = response.data.condition
+                    cleanlinessRatings = response.data.cleanliness
+
+                    val existingCondition = roomItems?.general_condition
+                    val conditionItem = if (!existingCondition.isNullOrEmpty()) {
+                        conditionRatings.firstOrNull { it.type_code == existingCondition }
+                    } else {
+                        conditionRatings.firstOrNull { it.is_default }
+                    } ?: conditionRatings.firstOrNull()
+                    conditionItem?.let { item ->
+                        selectedConditionCode = item.type_code
+                        updateRatingSpinner(binding.ivConditionIcon, binding.tvConditionValue, binding.tvConditionSubtitle, item)
+                    }
+
+                    val existingCleanliness = roomItems?.general_cleanliness
+                    val cleanlinessItem = if (!existingCleanliness.isNullOrEmpty()) {
+                        cleanlinessRatings.firstOrNull { it.type_code == existingCleanliness }
+                    } else {
+                        cleanlinessRatings.firstOrNull { it.is_default }
+                    } ?: cleanlinessRatings.firstOrNull()
+                    cleanlinessItem?.let { item ->
+                        selectedCleanlinessCode = item.type_code
+                        updateRatingSpinner(binding.ivCleanlinessIcon, binding.tvCleanlinessValue, binding.tvCleanlinessSubtitle, item)
+                    }
+                }
+                override fun onFailure(errorMessage: ErrorResponse?) {}
+                override fun onError(throwable: Throwable) {}
+            }
+        )
+    }
+
+    private fun updateRatingSpinner(icon: ImageView, value: TextView, subtitle: TextView, item: RatingItem) {
+        icon.setImageResource(iconForTypeCode(item.type_code))
+        icon.visibility = View.VISIBLE
+        value.text = item.display_name
+        value.setTextColor(ContextCompat.getColor(this, R.color.black))
+        if (!item.description.isNullOrEmpty()) {
+            subtitle.text = item.description
+            subtitle.visibility = View.VISIBLE
+        } else {
+            subtitle.visibility = View.GONE
+        }
+    }
+
+    private fun showRatingDropdown(
+        anchor: View,
+        items: List<RatingItem>,
+        currentCode: String,
+        onSelect: (RatingItem) -> Unit
+    ) {
+        val adapter = object : BaseAdapter() {
+            override fun getCount() = items.size
+            override fun getItem(position: Int) = items[position]
+            override fun getItemId(position: Int) = position.toLong()
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = convertView ?: layoutInflater.inflate(R.layout.item_priority_option, parent, false)
+                val item = items[position]
+                view.findViewById<ImageView>(R.id.ivPriorityIcon).setImageResource(iconForTypeCode(item.type_code))
+                view.findViewById<TextView>(R.id.tvPriorityTitle).text = item.display_name
+                view.findViewById<TextView>(R.id.tvPrioritySubtitle).text = item.description ?: ""
+                view.findViewById<ImageView>(R.id.ivCheck).visibility =
+                    if (item.type_code == currentCode) View.VISIBLE else View.GONE
+                return view
+            }
+        }
+        val popup = ListPopupWindow(this)
+        popup.anchorView = anchor
+        popup.setAdapter(adapter)
+        popup.width = anchor.width
+        popup.height = ListPopupWindow.WRAP_CONTENT
+        popup.verticalOffset = resources.getDimensionPixelSize(com.intuit.sdp.R.dimen._4sdp)
+        popup.setBackgroundDrawable(ContextCompat.getDrawable(this, R.drawable.bg_edittext))
+        popup.isModal = true
+        popup.setOnItemClickListener { _, _, position, _ ->
+            onSelect(items[position])
+            popup.dismiss()
+        }
+        popup.show()
+    }
+
+    private fun iconForTypeCode(typeCode: String): Int = when (typeCode.lowercase()) {
+        "excellent", "good" -> R.drawable.svg_excellent
+        "poor", "unacceptable" -> R.drawable.svg_poor
+        else -> R.drawable.svg_n_a
     }
 }

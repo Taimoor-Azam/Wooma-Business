@@ -5,7 +5,10 @@ import android.net.Uri
 import android.webkit.MimeTypeMap
 import com.wooma.data.local.WoomaDatabase
 import com.wooma.data.local.entity.AttachmentEntity
+import com.wooma.data.local.entity.SyncQueueEntity
 import com.wooma.data.local.entity.PendingUploadEntity
+import com.wooma.model.ImageItem
+import com.wooma.model.OtherItemsAttachment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -75,6 +78,79 @@ class AttachmentRepository(private val ctx: Context) {
         )
 
         entity
+    }
+
+    /**
+     * Persists server-fetched attachments to local DB so they are visible offline.
+     * Only touches rows with SYNCED state — never overwrites pending local uploads.
+     * Also removes DB rows for server attachments that no longer exist on the server.
+     */
+    suspend fun saveServerAttachments(
+        serverAttachments: List<OtherItemsAttachment>,
+        entityId: String,
+        entityType: String
+    ) = withContext(Dispatchers.IO) {
+        val existing = db.attachmentDao().getByEntity(entityId, entityType)
+        val existingServerIds = existing.mapNotNull { it.serverId }.toSet()
+        val liveServerIds = serverAttachments.filter { !it.is_deleted }.map { it.id }.toSet()
+
+        for (att in serverAttachments) {
+            if (att.is_deleted || att.id in existingServerIds) continue
+            db.attachmentDao().upsert(
+                AttachmentEntity(
+                    id = att.id,
+                    serverId = att.id,
+                    entityId = entityId,
+                    entityType = entityType,
+                    originalName = att.originalName,
+                    storageKey = att.storageKey,
+                    mimeType = att.mimeType,
+                    fileSize = att.fileSize.toLongOrNull() ?: 0L,
+                    isUploaded = true
+                )
+            )
+        }
+
+        // Remove DB rows for attachments deleted on the server (only uploaded ones)
+        for (entity in existing) {
+            if (entity.isUploaded && entity.serverId != null && entity.serverId !in liveServerIds) {
+                db.attachmentDao().deleteById(entity.id)
+            }
+        }
+    }
+
+    /**
+     * Deletes an attachment offline-first.
+     * Local (pending upload): cancels upload + removes from DB + deletes file.
+     * Remote (uploaded): removes from DB + queues server delete for sync.
+     */
+    suspend fun deleteAttachmentOffline(
+        item: ImageItem,
+        entityId: String,
+        entityType: String
+    ) = withContext(Dispatchers.IO) {
+        val existing = db.attachmentDao().getByEntity(entityId, entityType)
+        when (item) {
+            is ImageItem.Local -> {
+                val att = existing.firstOrNull { it.localUri == item.uri.path }
+                if (att != null) {
+                    att.localUri?.let { db.pendingUploadDao().deleteByLocalUri(it) }
+                    db.attachmentDao().deleteById(att.id)
+                    att.localUri?.let { File(it).delete() }
+                }
+            }
+            is ImageItem.Remote -> {
+                val att = existing.firstOrNull { it.serverId == item.id || it.id == item.id }
+                if (att != null) db.attachmentDao().deleteById(att.id)
+                db.syncQueueDao().enqueue(
+                    SyncQueueEntity(
+                        entityType = "ATTACHMENT",
+                        operationType = "DELETE",
+                        localEntityId = item.id
+                    )
+                )
+            }
+        }
     }
 
     private fun resolveMimeType(uri: Uri): String {

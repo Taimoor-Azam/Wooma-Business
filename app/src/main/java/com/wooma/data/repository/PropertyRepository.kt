@@ -41,9 +41,25 @@ class PropertyRepository(private val context: Context) {
         ).execute()
         if (r.isSuccessful) {
             val pendingIds = dao.getPendingSyncProperties().map { it.id }.toSet()
-            r.body()?.data?.data?.map { it.toEntity() }
-                ?.filter { it.id !in pendingIds }
-                ?.let { dao.upsertAll(it) }
+            r.body()?.data?.data
+                ?.filter { (it.id ?: "").isNotEmpty() && it.id !in pendingIds }
+                ?.forEach { prop ->
+                    val entity = prop.toEntity()
+                    val updated = dao.updateFromListServer(
+                        id = entity.id,
+                        address = entity.address,
+                        addressLine2 = entity.addressLine2,
+                        city = entity.city,
+                        postcode = entity.postcode,
+                        country = entity.country,
+                        propertyType = entity.propertyType,
+                        isActive = entity.isActive,
+                        noOfReports = entity.noOfReports,
+                        lastActivity = entity.lastActivity,
+                        updatedAt = entity.updatedAt
+                    )
+                    if (updated == 0) dao.insertIgnore(entity)
+                }
         }
     }
 

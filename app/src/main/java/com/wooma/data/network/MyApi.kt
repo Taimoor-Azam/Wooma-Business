@@ -54,6 +54,7 @@ import com.wooma.model.UpdateRoomNameRequest
 import com.wooma.model.changeReportType
 import com.wooma.model.RefreshTokenRequest
 import com.wooma.model.RefreshTokenResponse
+import com.wooma.model.RatingsResponse
 import com.wooma.model.ReorderRoomRequest
 import okhttp3.RequestBody
 import retrofit2.Call
@@ -88,6 +89,9 @@ interface MyApi {
     fun getPropertiesList(
         @QueryMap queryMap: Map<String, @JvmSuppressWildcards Any>
     ): Call<ApiResponse<TenantPropertiesWrapper>>
+
+    @GET("/api/v1/ratings")
+    fun getRatings(): Call<ApiResponse<RatingsResponse>>
 
     @GET("/api/v1/report-types")
     fun getReportTypes(): Call<ApiResponse<ReportTypeResponse>>

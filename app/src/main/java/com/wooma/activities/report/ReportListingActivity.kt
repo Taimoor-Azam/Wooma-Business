@@ -155,6 +155,7 @@ class ReportListingActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
+        ConfigureReportActivity.reportCreated = false
         if (propertyId.isNotEmpty()) {
             lifecycleScope.launch {
                 try { reportRepo.refreshByProperty(propertyId) } catch (_: Exception) {}

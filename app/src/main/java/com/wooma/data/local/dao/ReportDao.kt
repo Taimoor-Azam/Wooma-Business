@@ -23,6 +23,9 @@ interface ReportDao {
     @Query("SELECT * FROM reports WHERE id = :id")
     suspend fun getById(id: String): ReportEntity?
 
+    @Query("SELECT * FROM reports WHERE propertyId = :propertyId AND isDeleted = 0 ORDER BY createdAt DESC")
+    suspend fun getByProperty(propertyId: String): List<ReportEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(report: ReportEntity)
 
@@ -73,6 +76,12 @@ interface ReportDao {
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertIgnore(report: ReportEntity): Long
+
+    @Query("UPDATE reports SET isDeleted = 1 WHERE id = :reportId")
+    suspend fun setDeletedAndSynced(reportId: String)
+
+    @Query("UPDATE reports SET isDeleted = 1, syncStatus = 'PENDING_UPDATE' WHERE id = :reportId")
+    suspend fun archiveLocal(reportId: String)
 
     @Query("""UPDATE reports SET
         reportTypeId = :reportTypeId,

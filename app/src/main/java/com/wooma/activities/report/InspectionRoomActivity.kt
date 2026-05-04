@@ -39,6 +39,7 @@ import com.wooma.model.enums.TenantReportStatus
 import com.wooma.sync.SyncScheduler
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.io.File
 
 class InspectionRoomActivity : BaseActivity() {
 
@@ -51,7 +52,6 @@ class InspectionRoomActivity : BaseActivity() {
     private var showTimestamp = true
     private var isIssue = false
     private var selectedPriority: String? = "observation"
-    private val capturedUris = mutableListOf<Uri>()
     private val allImages = mutableListOf<ImageItem>()
     private val CAMERA_REQUEST = 1001
 
@@ -272,10 +272,20 @@ class InspectionRoomActivity : BaseActivity() {
         cameraBinding.rvRoomItems.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         cameraBinding.rvRoomItems.adapter =
-            ImageAdapter(allImages, title = room?.name ?: "", onDelete = {
-                capturedUris.clear()
-                capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
-            })
+            ImageAdapter(
+                allImages,
+                title = room?.name ?: "",
+                onDeleteItem = { item, onSuccess ->
+                    val roomId = room?.id ?: return@ImageAdapter
+                    lifecycleScope.launch {
+                        attachmentRepo.deleteAttachmentOffline(item, roomId, "ROOM")
+                        if (item is ImageItem.Remote) {
+                            SyncScheduler.scheduleImmediateSync(this@InspectionRoomActivity)
+                        }
+                        onSuccess()
+                    }
+                }
+            )
 
         room = intent.getParcelableExtra("room")
         reportId = intent.getStringExtra("reportId") ?: ""
@@ -386,10 +396,24 @@ class InspectionRoomActivity : BaseActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == RESULT_OK) {
             val newUris = CameraActivity.pendingUris.toList()
-            allImages.addAll(newUris.map { ImageItem.Local(it) })
-            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
-            if (newUris.isNotEmpty()) hasChanges = true
-            capturedUris.addAll(newUris)
+            if (newUris.isEmpty()) return
+            val roomId = room?.id ?: return
+            val serverId = roomId.takeIf { !it.startsWith("local_") }
+            lifecycleScope.launch {
+                try {
+                    newUris.forEach { uri ->
+                        attachmentRepo.saveLocalAttachment(
+                            uri = uri,
+                            entityLocalId = roomId,
+                            entityServerId = serverId,
+                            entityType = "ROOM"
+                        )
+                    }
+                } catch (e: Exception) {
+                    showToast("Failed to save photo: ${e.message}")
+                }
+                hasChanges = true
+            }
         }
     }
 
@@ -434,30 +458,24 @@ class InspectionRoomActivity : BaseActivity() {
                 binding.root.post { hasChanges = false }
             }
         }
-        // Load local DB images (reactive — works offline, updates when DB changes)
+        // Single source of truth: local DB drives allImages (handles online, offline, and deletes)
         lifecycleScope.launch {
             db.attachmentDao().observeByEntity(roomId, "ROOM").collect { dbAttachments ->
-                dbAttachments.forEach { a ->
-                    val img: ImageItem? = when {
+                val newImages = dbAttachments.mapNotNull { a ->
+                    when {
                         a.isUploaded && a.storageKey != null ->
                             ImageItem.Remote(a.serverId ?: a.id, "${ApiClient.IMAGE_BASE_URL}${a.storageKey}")
                         !a.isUploaded && a.localUri != null ->
-                            ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!)))
+                            ImageItem.Local(Uri.fromFile(File(a.localUri!!)))
                         else -> null
                     }
-                    img ?: return@forEach
-                    val exists = allImages.any {
-                        (img is ImageItem.Remote && it is ImageItem.Remote && it.id == img.id) ||
-                        (img is ImageItem.Local && it is ImageItem.Local && it.uri == img.uri)
-                    }
-                    if (!exists) {
-                        allImages.add(img)
-                        cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
-                    }
                 }
+                allImages.clear()
+                allImages.addAll(newImages)
+                cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
             }
         }
-        // Background refresh: fetch attachments (existing photos) from server
+        // Background server refresh: persist server data to DB so the Flow above picks it up
         makeApiRequest(
             apiServiceClass = MyApi::class.java,
             context = this,
@@ -473,18 +491,23 @@ class InspectionRoomActivity : BaseActivity() {
             listener = object : ApiResponseListener<ApiResponse<ArrayList<RoomsResponse>>> {
                 override fun onSuccess(response: ApiResponse<ArrayList<RoomsResponse>>) {
                     val roomData = response.data?.find { it.id == room?.id } ?: return
-                    allImages.clear()
-                    roomData.attachments?.forEach { attachment ->
-                        allImages.add(
-                            ImageItem.Remote(
-                                attachment.id,
-                                "${ApiClient.IMAGE_BASE_URL}${attachment.storageKey}"
-                            )
+                    lifecycleScope.launch {
+                        // Save attachments to DB — DB Flow will update allImages automatically
+                        attachmentRepo.saveServerAttachments(
+                            roomData.attachments ?: emptyList(),
+                            roomId,
+                            "ROOM"
                         )
+                        // Save inspection to DB and populate UI
+                        val serverInspection = roomData.inspection?.firstOrNull()
+                        if (serverInspection != null) {
+                            inspectionRepo.saveFromServer(roomId, serverInspection)
+                            populateInspection(serverInspection)
+                            binding.root.post { hasChanges = false }
+                        }
                     }
-                    cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
                 }
-                override fun onFailure(errorMessage: ErrorResponse?) {}
+                override fun onFailure(errorResponse: ErrorResponse?) {}
                 override fun onError(throwable: Throwable) {}
             }
         )
@@ -611,7 +634,6 @@ class InspectionRoomActivity : BaseActivity() {
         val roomId = room?.id ?: return
         val note = if (isIssue) binding.etIssueNote.text.toString().ifEmpty { null } else null
         val priority = if (isIssue) selectedPriority else null
-
         lifecycleScope.launch {
             inspectionRepo.upsertInspection(
                 reportId,
@@ -624,29 +646,6 @@ class InspectionRoomActivity : BaseActivity() {
                 )
             )
             SyncScheduler.scheduleImmediateSync(this@InspectionRoomActivity)
-            uploadPhotosIfNeeded(roomId)
-        }
-    }
-
-    private fun uploadPhotosIfNeeded(entityId: String) {
-        if (capturedUris.isEmpty()) {
-            finish(); return
-        }
-        val serverId = entityId.takeIf { !it.startsWith("local_") }
-        lifecycleScope.launch {
-            try {
-                capturedUris.forEach { uri ->
-                    attachmentRepo.saveLocalAttachment(
-                        uri = uri,
-                        entityLocalId = entityId,
-                        entityServerId = serverId,
-                        entityType = "ROOM"
-                    )
-                }
-                SyncScheduler.scheduleImmediateSync(this@InspectionRoomActivity)
-            } catch (e: Exception) {
-                showToast("Failed to save photos: ${e.message}")
-            }
             finish()
         }
     }

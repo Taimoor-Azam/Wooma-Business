@@ -7,6 +7,7 @@ import com.wooma.data.local.entity.RoomInspectionEntity
 import com.wooma.data.local.entity.SyncQueueEntity
 import com.wooma.data.local.entity.SyncStatus
 import com.wooma.data.network.RetrofitClient
+import com.wooma.model.RoomInspection
 import com.wooma.model.UpsertRoomInspectionRequest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -21,6 +22,24 @@ class InspectionRepository(private val ctx: Context) {
 
     fun observeInspections(roomId: String): Flow<List<RoomInspectionEntity>> =
         db.roomInspectionDao().observeByRoom(roomId)
+
+    suspend fun saveFromServer(roomId: String, serverInspection: RoomInspection) = withContext(Dispatchers.IO) {
+        val existing = db.roomInspectionDao().getByRoom(roomId).firstOrNull()
+        if (existing == null || existing.syncStatus == SyncStatus.SYNCED) {
+            val localId = existing?.id ?: "local_${UUID.randomUUID().toString().replace("-", "")}"
+            db.roomInspectionDao().upsert(
+                RoomInspectionEntity(
+                    id = localId,
+                    serverId = serverInspection.id,
+                    roomId = roomId,
+                    isIssue = serverInspection.isIssue ?: false,
+                    note = serverInspection.note,
+                    priority = serverInspection.priority,
+                    syncStatus = SyncStatus.SYNCED
+                )
+            )
+        }
+    }
 
     suspend fun upsertInspection(reportId: String, roomId: String, request: UpsertRoomInspectionRequest) = withContext(Dispatchers.IO) {
         val existing = db.roomInspectionDao().getByRoom(roomId).firstOrNull()

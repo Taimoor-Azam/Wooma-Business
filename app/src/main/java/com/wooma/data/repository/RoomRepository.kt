@@ -56,6 +56,7 @@ class RoomRepository(private val ctx: Context) {
             syncStatus = SyncStatus.PENDING_CREATE
         )
         db.roomDao().upsert(entity)
+        db.reportDao().incrementRoomCount(reportId, 1)
         db.syncQueueDao().enqueue(
             SyncQueueEntity(
                 entityType = "ROOM", operationType = "CREATE",
