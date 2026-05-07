@@ -56,6 +56,7 @@ class AddEditMeterActivity : BaseActivity() {
 
     var isEdit = false
     private var hasChanges = false
+    private var currentDbLocalPaths = emptySet<String>()
     private var initialType = ""
     private var initialReading = ""
     private var initialSerialNumber = ""
@@ -177,10 +178,27 @@ class AddEditMeterActivity : BaseActivity() {
         cameraBinding.rvRoomItems.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         cameraBinding.rvRoomItems.adapter =
-            ImageAdapter(allImages, title = meterItem?.name ?: "", onDelete = {
-                capturedUris.clear()
-                capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
-                hasChanges = true
+            ImageAdapter(allImages, title = meterItem?.name ?: "", onDeleteItem = { item, onSuccess ->
+                lifecycleScope.launch {
+                    val entityId = meterItem?.id
+                    when {
+                        item is ImageItem.Remote && entityId != null ->
+                            attachmentRepo.deleteAttachmentOffline(item, entityId, "METER")
+                        item is ImageItem.Local && item.uri.path in currentDbLocalPaths && entityId != null ->
+                            attachmentRepo.deleteLocalAttachment(item, entityId, "METER")
+                        item is ImageItem.Local -> {
+                            val idx = allImages.indexOf(item)
+                            if (idx != -1) {
+                                allImages.removeAt(idx)
+                                cameraBinding.rvRoomItems.adapter?.notifyItemRemoved(idx)
+                            }
+                            capturedUris.remove(item.uri)
+                        }
+                    }
+                    if (entityId != null && Utils.isOnline(this@AddEditMeterActivity))
+                        SyncScheduler.scheduleImmediateSync(this@AddEditMeterActivity)
+                    onSuccess()
+                }
             })
     }
 
@@ -189,7 +207,8 @@ class AddEditMeterActivity : BaseActivity() {
         if (requestCode == CAMERA_REQUEST && resultCode == RESULT_OK) {
             val newUris = CameraActivity.Companion.pendingUris.toList()
 
-            allImages.removeAll { it is ImageItem.Local }
+            // Preserve DB-backed pending uploads; only replace previous session captures
+            allImages.removeAll { img -> img is ImageItem.Local && img.uri.path !in currentDbLocalPaths }
             allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
 
@@ -239,24 +258,23 @@ class AddEditMeterActivity : BaseActivity() {
 
             lifecycleScope.launch {
                 db.attachmentDao().observeByEntity(meterItem!!.id, "METER").collect { dbAttachments ->
+                    val newDbLocalPaths = dbAttachments.mapNotNull { it.localUri }.toSet()
+                    allImages.removeAll { img ->
+                        img is ImageItem.Remote ||
+                        (img is ImageItem.Local && img.uri.path in currentDbLocalPaths)
+                    }
+                    currentDbLocalPaths = newDbLocalPaths
                     dbAttachments.forEach { a ->
-                        val img: ImageItem? = when {
+                        val img: ImageItem = when {
+                            a.localUri != null ->
+                                ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!)))
                             a.isUploaded && a.storageKey != null ->
                                 ImageItem.Remote(a.serverId ?: a.id, "$S3_BASE_URL${a.storageKey}")
-                            !a.isUploaded && a.localUri != null ->
-                                ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!)))
-                            else -> null
+                            else -> return@forEach
                         }
-                        img ?: return@forEach
-                        val exists = allImages.any {
-                            (img is ImageItem.Remote && it is ImageItem.Remote && it.id == img.id) ||
-                            (img is ImageItem.Local && it is ImageItem.Local && it.uri == img.uri)
-                        }
-                        if (!exists) {
-                            allImages.add(img)
-                            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
-                        }
+                        allImages.add(img)
                     }
+                    cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
                 }
             }
         }
@@ -284,8 +302,9 @@ class AddEditMeterActivity : BaseActivity() {
                 if (meterItem != null) {
                     repo.updateMeter(meterItem!!.id, request)
                     for (uri in capturedUris) {
-                        val existing = db.meterDao().getById(meterItem!!.id)
-                        attachmentRepo.saveLocalAttachment(uri, meterItem!!.id, existing?.serverId, "METER")
+                        val entityServerId = db.meterDao().getByLocalOrServerId(meterItem!!.id)?.serverId
+                            ?: meterItem!!.id.takeIf { !it.startsWith("local_") }
+                        attachmentRepo.saveLocalAttachment(uri, meterItem!!.id, entityServerId, "METER")
                     }
                 } else {
                     val entity = repo.addMeter(reportId, request)

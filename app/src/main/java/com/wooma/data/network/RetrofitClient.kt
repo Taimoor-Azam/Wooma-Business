@@ -121,6 +121,7 @@ fun <T, R> Activity.makeApiRequest(
     apiServiceClass: Class<T>,
     context: Activity,
     showLoading: Boolean = true,
+    showNetworkError: Boolean = true,
     requestAction: (apiService: T) -> Call<R>,
     listener: ApiResponseListener<R>
 ) {
@@ -183,7 +184,7 @@ fun <T, R> Activity.makeApiRequest(
         override fun onFailure(call: Call<R>, t: Throwable) {
             if (showLoading && progressBar.isShowing) progressBar.dismiss()
             listener.onError(t)
-            showToast("Network error occurred. Please try again.")
+            if (showNetworkError) showToast("Network error occurred. Please try again.")
         }
     })
 }

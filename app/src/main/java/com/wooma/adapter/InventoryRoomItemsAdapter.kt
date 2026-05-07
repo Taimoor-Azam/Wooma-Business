@@ -2,22 +2,27 @@ package com.wooma.adapter
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import android.net.Uri
+import androidx.recyclerview.widget.ItemTouchHelper
 import com.wooma.activities.report.InventoryRoomItemActivity
 import com.wooma.R
+import com.wooma.data.local.entity.RatingEntity
 import com.wooma.data.network.ApiClient
 import com.wooma.model.ImageItem
 import com.wooma.model.RoomItem
 import com.wooma.model.PropertyReportType
 import com.wooma.model.enums.TenantReportStatus
-import java.util.Locale
 
 class InventoryRoomItemsAdapter(
     val context: Context,
@@ -26,10 +31,19 @@ class InventoryRoomItemsAdapter(
     val roomId: String,
     val reportStatus: String,
     val reportType: PropertyReportType? = null,
-    val showTimestamp: Boolean = true
+    val showTimestamp: Boolean = true,
+    private val onReorder: ((itemId: String, prevRank: String?, nextRank: String?) -> Unit)? = null
 ) : RecyclerView.Adapter<InventoryRoomItemsAdapter.ViewHolder>() {
 
+    var isEditMode = false
+        private set
+    private var canReorder = false
+    var itemTouchHelper: ItemTouchHelper? = null
+    private var dragFromPosition = -1
+
     private var filteredList = originalList.toMutableList()
+    private var conditionRatings = emptyList<RatingEntity>()
+    private var cleanlinessRatings = emptyList<RatingEntity>()
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvItemName: TextView = view.findViewById(R.id.tvItemName)
@@ -39,9 +53,11 @@ class InventoryRoomItemsAdapter(
         val tvCleanliness: TextView = view.findViewById(R.id.tvCleanliness)
         val tvNotesLabel: TextView = view.findViewById(R.id.tvNotesLabel)
         val tvNotes: TextView = view.findViewById(R.id.tvNotes)
-        val ivCleanliness: ImageView = view.findViewById(R.id.ivCleanliness)
-        val ivConditionIcon: ImageView = view.findViewById(R.id.ivConditionIcon)
+        val llConditionBadge: LinearLayout = view.findViewById(R.id.llConditionBadge)
+        val llCleanlinessBadge: LinearLayout = view.findViewById(R.id.llCleanlinessBadge)
         val rvImages: RecyclerView = view.findViewById(R.id.rvImages)
+        val ivSync: ImageView = view.findViewById(R.id.ivSync)
+        val ivDragHandle: ImageView = view.findViewById(R.id.ivDragHandle)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -56,6 +72,18 @@ class InventoryRoomItemsAdapter(
         val item = filteredList[position]
 
         holder.tvItemName.text = item.name
+        holder.ivSync.visibility = View.VISIBLE
+        holder.ivDragHandle.visibility = if (isEditMode && canReorder) View.VISIBLE else View.GONE
+        val syncIcon = when {
+            item.isPendingDeletion -> R.drawable.svg_unsyncing
+            item.isSyncing -> R.drawable.svg_syncing
+            else -> R.drawable.svg_synced
+        }
+        holder.ivSync.setImageResource(syncIcon)
+        holder.ivDragHandle.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) itemTouchHelper?.startDrag(holder)
+            false
+        }
         val description = item.description.orEmpty()
         holder.tvDescription.text = description
         holder.tvDescription.visibility = if (description.isBlank()) View.GONE else View.VISIBLE
@@ -69,13 +97,17 @@ class InventoryRoomItemsAdapter(
 
         val imageItems = item.attachments
             ?.mapNotNull { att ->
-                att.id?.let { id ->
-                    att.storageKey?.let { key ->
+                when {
+                    !att.storageKey.isNullOrEmpty() ->
                         ImageItem.Remote(
-                            id,
-                            "${ApiClient.IMAGE_BASE_URL}$key"
+                            att.id ?: "",
+                            "${ApiClient.IMAGE_BASE_URL}${att.storageKey}"
                         )
-                    }
+
+                    !att.url.isNullOrEmpty() ->
+                        ImageItem.Local(Uri.parse(att.url))
+
+                    else -> null
                 }
             }
             ?.toMutableList<ImageItem>() ?: mutableListOf()
@@ -85,68 +117,24 @@ class InventoryRoomItemsAdapter(
         holder.rvImages.adapter =
             ImageAdapter(imageItems, showDelete = false, title = item.name ?: "")
 
+        val conditionCode = item.general_condition
+        val conditionDisplay =
+            conditionRatings.firstOrNull { it.typeCode == conditionCode }?.displayName
+                ?: conditionCode?.replaceFirstChar { it.uppercaseChar() }
+                ?: "Excellent"
+        holder.tvCondition.text = conditionDisplay
+        applyBadgeStyle(holder.llConditionBadge, holder.tvCondition, conditionCode)
 
-        if (item.general_condition?.equals("poor") == true || item.general_condition?.equals("unacceptable") == true) {
-            holder.ivConditionIcon.setImageDrawable(
-                ContextCompat.getDrawable(
-                    context,
-                    R.drawable.svg_poor
-                )
-            )
-        } else if (item.general_condition?.equals("n/a") == true
-            || item.general_condition?.equals("N/A") == true
-        ) {
-            holder.ivConditionIcon.setImageDrawable(
-                ContextCompat.getDrawable(
-                    context,
-                    R.drawable.svg_n_a
-                )
-            )
-        } else {
-            holder.ivConditionIcon.setImageDrawable(
-                ContextCompat.getDrawable(
-                    context,
-                    R.drawable.svg_excellent
-                )
-            )
-        }
-
-        if (item.general_cleanliness?.equals("poor") == true || item.general_cleanliness?.equals("unacceptable") == true
-        ) {
-            holder.ivCleanliness.setImageDrawable(
-                ContextCompat.getDrawable(
-                    context,
-                    R.drawable.svg_poor
-                )
-            )
-        } else if (item.general_cleanliness?.equals("N/A") == true) {
-            holder.ivCleanliness.setImageDrawable(
-                ContextCompat.getDrawable(
-                    context,
-                    R.drawable.svg_n_a
-                )
-            )
-        } else {
-            holder.ivCleanliness.setImageDrawable(
-                ContextCompat.getDrawable(
-                    context,
-                    R.drawable.svg_excellent
-                )
-            )
-        }
-        holder.tvCleanliness.text = item.general_cleanliness?.replaceFirstChar {
-            if (it.isLowerCase()) it.titlecase(
-                Locale.ROOT
-            ) else it.toString()
-        } ?: "Excellent"
-
-        holder.tvCondition.text = item.general_condition?.replaceFirstChar {
-            if (it.isLowerCase()) it.titlecase(
-                Locale.ROOT
-            ) else it.toString()
-        } ?: "Excellent"
+        val cleanlinessCode = item.general_cleanliness
+        val cleanlinessDisplay =
+            cleanlinessRatings.firstOrNull { it.typeCode == cleanlinessCode }?.displayName
+                ?: cleanlinessCode?.replaceFirstChar { it.uppercaseChar() }
+                ?: "Excellent"
+        holder.tvCleanliness.text = cleanlinessDisplay
+        applyBadgeStyle(holder.llCleanlinessBadge, holder.tvCleanliness, cleanlinessCode)
 
         holder.itemView.setOnClickListener {
+            if (item.isPendingDeletion) return@setOnClickListener
             if (reportStatus == TenantReportStatus.IN_PROGRESS.value) {
                 context.startActivity(
                     Intent(context, InventoryRoomItemActivity::class.java).putExtra(
@@ -161,9 +149,73 @@ class InventoryRoomItemsAdapter(
         }
     }
 
+    private fun applyBadgeStyle(badge: LinearLayout, label: TextView, typeCode: String?) {
+        val bgColor: Int
+        val textColor: Int
+        when (typeCode?.lowercase()) {
+            "excellent", "good" -> {
+                bgColor = Color.parseColor("#dbf7de")
+                textColor = Color.parseColor("#00C802")
+            }
+
+            "poor" -> {
+                bgColor = Color.parseColor("#f3ece0")
+                textColor = Color.parseColor("#a38b6f")
+            }
+
+            "unacceptable" -> {
+                bgColor = Color.parseColor("#fce7e5")
+                textColor = Color.parseColor("#b26267")
+            }
+
+            else -> {
+                bgColor = Color.parseColor("#ebebeb")
+                textColor = Color.parseColor("#5b5b5b")
+            }
+        }
+        val strokeWidth = (context.resources.displayMetrics.density + 0.5f).toInt()
+        val drawable = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 50f
+            setColor(bgColor)
+            setStroke(strokeWidth, textColor)
+        }
+        badge.background = drawable
+        label.setTextColor(textColor)
+    }
+
+    fun setRatings(condition: List<RatingEntity>, cleanliness: List<RatingEntity>) {
+        conditionRatings = condition
+        cleanlinessRatings = cleanliness
+        notifyDataSetChanged()
+    }
+
     fun updateList(list: List<RoomItem>) {
         filteredList = list.toMutableList()
         notifyDataSetChanged()
+    }
+
+    fun setEditMode(editMode: Boolean, canReorder: Boolean = true) {
+        isEditMode = editMode
+        this.canReorder = canReorder
+        notifyDataSetChanged()
+    }
+
+    fun onItemMove(from: Int, to: Int) {
+        if (from !in filteredList.indices || to !in filteredList.indices) return
+        if (dragFromPosition == -1) dragFromPosition = from
+        java.util.Collections.swap(filteredList, from, to)
+        notifyItemMoved(from, to)
+    }
+
+    fun onDropCompleted(finalPosition: Int) {
+        if (dragFromPosition == -1 || finalPosition !in filteredList.indices) return
+        val moved = filteredList[finalPosition]
+        val prevRank = if (finalPosition > 0) filteredList[finalPosition - 1].display_order else null
+        val nextRank = if (finalPosition < filteredList.size - 1) filteredList[finalPosition + 1].display_order else null
+        val itemId = moved.id ?: ""
+        if (itemId.isNotEmpty()) onReorder?.invoke(itemId, prevRank, nextRank)
+        dragFromPosition = -1
     }
 
     fun filter(query: String) {

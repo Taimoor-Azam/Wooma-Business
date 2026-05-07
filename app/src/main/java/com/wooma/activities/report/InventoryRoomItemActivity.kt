@@ -23,21 +23,15 @@ import com.wooma.R
 import com.wooma.customs.Utils
 import com.wooma.data.local.WoomaDatabase
 import com.wooma.data.network.ApiClient
-import com.wooma.data.network.ApiResponseListener
-import com.wooma.data.network.MyApi
-import com.wooma.data.network.makeApiRequest
 import com.wooma.data.network.showToast
 import com.wooma.data.repository.AttachmentRepository
 import com.wooma.data.repository.InspectionRepository
 import com.wooma.data.repository.RoomItemRepository
 import com.wooma.databinding.ActivityInventoryRoomItemBinding
 import com.wooma.databinding.AddImageLayoutBinding
-import com.wooma.model.ApiResponse
-import com.wooma.model.ErrorResponse
 import com.wooma.model.ImageItem
 import com.wooma.model.PropertyReportType
 import com.wooma.model.RatingItem
-import com.wooma.model.RatingsResponse
 import com.wooma.model.RoomItem
 import com.wooma.model.UpdateRoomItemRequest
 import com.wooma.model.UpsertRoomInspectionRequest
@@ -60,6 +54,7 @@ class InventoryRoomItemActivity : BaseActivity() {
     var isIssue: Boolean = false
     var selectedPriority: String? = null
     private var hasChanges = false
+    private var currentDbLocalPaths = emptySet<String>()
     private var conditionRatings = listOf<RatingItem>()
     private var cleanlinessRatings = listOf<RatingItem>()
     private lateinit var noteSuggestionsAdapter: SuggestionsAdapter
@@ -288,28 +283,26 @@ class InventoryRoomItemActivity : BaseActivity() {
             binding.etDescription.setText(roomItems?.description ?: "")
             binding.etNote.setText(roomItems?.note ?: "")
 
-            // Load existing images from local DB (reactive — updates when DB changes after refresh)
             val entityId = roomItems?.id ?: return
             lifecycleScope.launch {
                 db.attachmentDao().observeByEntity(entityId, "ROOM_ITEM").collect { dbAttachments ->
+                    val newDbLocalPaths = dbAttachments.mapNotNull { it.localUri }.toSet()
+                    allImages.removeAll { img ->
+                        img is ImageItem.Remote ||
+                        (img is ImageItem.Local && img.uri.path in currentDbLocalPaths)
+                    }
+                    currentDbLocalPaths = newDbLocalPaths
                     dbAttachments.forEach { a ->
-                        val img: ImageItem? = when {
+                        val img: ImageItem = when {
+                            a.localUri != null ->
+                                ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!)))
                             a.isUploaded && a.storageKey != null ->
                                 ImageItem.Remote(a.serverId ?: a.id, "$S3_BASE_URL${a.storageKey}")
-                            !a.isUploaded && a.localUri != null ->
-                                ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!)))
-                            else -> null
+                            else -> return@forEach
                         }
-                        img ?: return@forEach
-                        val exists = allImages.any {
-                            (img is ImageItem.Remote && it is ImageItem.Remote && it.id == img.id) ||
-                            (img is ImageItem.Local && it is ImageItem.Local && it.uri == img.uri)
-                        }
-                        if (!exists) {
-                            allImages.add(img)
-                            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
-                        }
+                        allImages.add(img)
                     }
+                    cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
                 }
             }
 
@@ -320,7 +313,7 @@ class InventoryRoomItemActivity : BaseActivity() {
                 binding.spinnerCondition, conditionRatings, selectedConditionCode
             ) { selected ->
                 selectedConditionCode = selected.type_code
-                updateRatingSpinner(binding.ivConditionIcon, binding.tvConditionValue, binding.tvConditionSubtitle, selected)
+                updateRatingSpinner(binding.tvConditionValue, binding.tvConditionSubtitle, selected)
                 hasChanges = true
             }
         }
@@ -329,7 +322,7 @@ class InventoryRoomItemActivity : BaseActivity() {
                 binding.spinnerCleanliness, cleanlinessRatings, selectedCleanlinessCode
             ) { selected ->
                 selectedCleanlinessCode = selected.type_code
-                updateRatingSpinner(binding.ivCleanlinessIcon, binding.tvCleanlinessValue, binding.tvCleanlinessSubtitle, selected)
+                updateRatingSpinner(binding.tvCleanlinessValue, binding.tvCleanlinessSubtitle, selected)
                 hasChanges = true
             }
         }
@@ -375,7 +368,7 @@ class InventoryRoomItemActivity : BaseActivity() {
             }
         }
 
-        if (!isInspection) fetchRatings()
+        if (!isInspection) loadRatingsFromDb()
 
         binding.btnSave.setOnClickListener {
             if (isInspection) {
@@ -553,9 +546,27 @@ class InventoryRoomItemActivity : BaseActivity() {
         cameraBinding.rvRoomItems.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         cameraBinding.rvRoomItems.adapter =
-            ImageAdapter(allImages, title = roomItems?.name ?: "", onDelete = {
-                capturedUris.clear()
-                capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
+            ImageAdapter(allImages, title = roomItems?.name ?: "", onDeleteItem = { item, onSuccess ->
+                lifecycleScope.launch {
+                    val entityId = roomItems?.id
+                    when {
+                        item is ImageItem.Remote && entityId != null ->
+                            attachmentRepo.deleteAttachmentOffline(item, entityId, "ROOM_ITEM")
+                        item is ImageItem.Local && item.uri.path in currentDbLocalPaths && entityId != null ->
+                            attachmentRepo.deleteLocalAttachment(item, entityId, "ROOM_ITEM")
+                        item is ImageItem.Local -> {
+                            val idx = allImages.indexOf(item)
+                            if (idx != -1) {
+                                allImages.removeAt(idx)
+                                cameraBinding.rvRoomItems.adapter?.notifyItemRemoved(idx)
+                            }
+                            capturedUris.remove(item.uri)
+                        }
+                    }
+                    if (entityId != null && Utils.isOnline(this@InventoryRoomItemActivity))
+                        SyncScheduler.scheduleImmediateSync(this@InventoryRoomItemActivity)
+                    onSuccess()
+                }
             })
     }
 
@@ -563,17 +574,12 @@ class InventoryRoomItemActivity : BaseActivity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == RESULT_OK) {
             val newUris = CameraActivity.pendingUris.toList()
-
-            // Sync allImages based on what remains in CameraActivity.resultImages
-            allImages.clear()
-            allImages.addAll(CameraActivity.resultImages)
+            allImages.removeAll { img -> img is ImageItem.Local && img.uri.path !in currentDbLocalPaths }
+            allImages.addAll(newUris.map { ImageItem.Local(it) })
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
-
-            // Refresh capturedUris (local only)
+            if (newUris.isNotEmpty()) hasChanges = true
             capturedUris.clear()
-            capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
-
-            // New photos are queued for upload when the user saves (uploadPhotosIfNeeded)
+            capturedUris.addAll(newUris)
         }
     }
 
@@ -595,18 +601,19 @@ class InventoryRoomItemActivity : BaseActivity() {
 
     private fun uploadPhotosIfNeeded() {
         val itemId = roomItems?.id ?: return finish()
-        val serverId = itemId.takeIf { !it.startsWith("local_") }
         if (capturedUris.isEmpty()) {
             finish()
             return
         }
         lifecycleScope.launch {
             try {
+                val entityServerId = db.roomItemDao().getByLocalOrServerId(itemId)?.serverId
+                    ?: itemId.takeIf { !it.startsWith("local_") }
                 capturedUris.forEach { uri ->
                     attachmentRepo.saveLocalAttachment(
                         uri = uri,
                         entityLocalId = itemId,
-                        entityServerId = serverId,
+                        entityServerId = entityServerId,
                         entityType = "ROOM_ITEM"
                     )
                 }
@@ -679,49 +686,38 @@ class InventoryRoomItemActivity : BaseActivity() {
         }
     }
 
-    private fun fetchRatings() {
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { api -> api.getRatings() },
-            listener = object : ApiResponseListener<ApiResponse<RatingsResponse>> {
-                override fun onSuccess(response: ApiResponse<RatingsResponse>) {
-                    if (!response.success) return
-                    conditionRatings = response.data.condition
-                    cleanlinessRatings = response.data.cleanliness
+    private fun loadRatingsFromDb() {
+        lifecycleScope.launch {
+            val dbCondition = db.ratingDao().getByCategory("condition")
+            val dbCleanliness = db.ratingDao().getByCategory("cleanliness")
+            conditionRatings = dbCondition.map { it.toRatingItem() }
+            cleanlinessRatings = dbCleanliness.map { it.toRatingItem() }
 
-                    val existingCondition = roomItems?.general_condition
-                    val conditionItem = if (!existingCondition.isNullOrEmpty()) {
-                        conditionRatings.firstOrNull { it.type_code == existingCondition }
-                    } else {
-                        conditionRatings.firstOrNull { it.is_default }
-                    } ?: conditionRatings.firstOrNull()
-                    conditionItem?.let { item ->
-                        selectedConditionCode = item.type_code
-                        updateRatingSpinner(binding.ivConditionIcon, binding.tvConditionValue, binding.tvConditionSubtitle, item)
-                    }
-
-                    val existingCleanliness = roomItems?.general_cleanliness
-                    val cleanlinessItem = if (!existingCleanliness.isNullOrEmpty()) {
-                        cleanlinessRatings.firstOrNull { it.type_code == existingCleanliness }
-                    } else {
-                        cleanlinessRatings.firstOrNull { it.is_default }
-                    } ?: cleanlinessRatings.firstOrNull()
-                    cleanlinessItem?.let { item ->
-                        selectedCleanlinessCode = item.type_code
-                        updateRatingSpinner(binding.ivCleanlinessIcon, binding.tvCleanlinessValue, binding.tvCleanlinessSubtitle, item)
-                    }
-                }
-                override fun onFailure(errorMessage: ErrorResponse?) {}
-                override fun onError(throwable: Throwable) {}
+            val existingCondition = roomItems?.general_condition
+            val conditionItem = if (!existingCondition.isNullOrEmpty()) {
+                conditionRatings.firstOrNull { it.type_code == existingCondition }
+            } else {
+                conditionRatings.firstOrNull { it.is_default }
+            } ?: conditionRatings.firstOrNull()
+            conditionItem?.let { item ->
+                selectedConditionCode = item.type_code
+                updateRatingSpinner(binding.tvConditionValue, binding.tvConditionSubtitle, item)
             }
-        )
+
+            val existingCleanliness = roomItems?.general_cleanliness
+            val cleanlinessItem = if (!existingCleanliness.isNullOrEmpty()) {
+                cleanlinessRatings.firstOrNull { it.type_code == existingCleanliness }
+            } else {
+                cleanlinessRatings.firstOrNull { it.is_default }
+            } ?: cleanlinessRatings.firstOrNull()
+            cleanlinessItem?.let { item ->
+                selectedCleanlinessCode = item.type_code
+                updateRatingSpinner(binding.tvCleanlinessValue, binding.tvCleanlinessSubtitle, item)
+            }
+        }
     }
 
-    private fun updateRatingSpinner(icon: ImageView, value: TextView, subtitle: TextView, item: RatingItem) {
-        icon.setImageResource(iconForTypeCode(item.type_code))
-        icon.visibility = View.VISIBLE
+    private fun updateRatingSpinner(value: TextView, subtitle: TextView, item: RatingItem) {
         value.text = item.display_name
         value.setTextColor(ContextCompat.getColor(this, R.color.black))
         if (!item.description.isNullOrEmpty()) {
@@ -731,6 +727,14 @@ class InventoryRoomItemActivity : BaseActivity() {
             subtitle.visibility = View.GONE
         }
     }
+
+    private fun com.wooma.data.local.entity.RatingEntity.toRatingItem() = RatingItem(
+        type_code = typeCode,
+        display_name = displayName,
+        description = description,
+        is_default = isDefault,
+        display_order = displayOrder
+    )
 
     private fun showRatingDropdown(
         anchor: View,

@@ -1,6 +1,7 @@
 package com.wooma.data.local.mapper
 
 import com.wooma.data.local.entity.AssessorEntity
+import com.wooma.data.local.entity.AttachmentEntity
 import com.wooma.data.local.entity.ChecklistEntity
 import com.wooma.data.local.entity.ChecklistInfoFieldEntity
 import com.wooma.data.local.entity.ChecklistQuestionEntity
@@ -13,8 +14,10 @@ import com.wooma.data.local.entity.ReportTypeEntity
 import com.wooma.data.local.entity.RoomItemEntity
 import com.wooma.data.local.entity.SyncStatus
 import com.wooma.data.local.entity.TemplateEntity
+import com.wooma.model.AnswerAttachment
 import com.wooma.model.Assessor
 import com.wooma.model.AssessorUsers
+import com.wooma.model.Attachment
 import com.wooma.model.Checklist
 import com.wooma.model.DetectorItem
 import com.wooma.model.InfoField
@@ -250,6 +253,8 @@ fun RoomItemEntity.toRoomItem(): RoomItem = RoomItem(
     description = description,
     note = note,
     display_order = displayOrder,
+    isSyncing = syncStatus == SyncStatus.PENDING_CREATE || syncStatus == SyncStatus.PENDING_UPDATE,
+    isPendingDeletion = syncStatus == SyncStatus.PENDING_DELETE,
     attachments = emptyList()
 )
 
@@ -265,19 +270,56 @@ fun Checklist.toEntity(reportId: String): ChecklistEntity = ChecklistEntity(
 
 // ── ChecklistQuestionEntity → Question ────────────────────────────────────────
 
-fun ChecklistQuestionEntity.toQuestion(): Question = Question(
-    checklist_question_id = checklistQuestionId,
-    text = text,
-    type = type,
-    displayOrder = displayOrder,
-    is_required = isRequired,
-    checklist_question_answer_id = answerId,
-    answer_option = answerOption,
-    answer_text = answerText,
-    note = note,
-    original_note = note,
-    checklist_question_answer_attachment = null
-)
+private const val CHECKLIST_ANSWER_ATTACHMENT_TYPE = "CHECKLIST_ANSWER_ATTACHMENT"
+
+/** Maps Room attachment rows for checklist answers into API-shaped [Attachment] for the UI. */
+fun AttachmentEntity.toChecklistAnswerAttachmentModel(): Attachment? {
+    val modelId = (serverId ?: id).ifBlank { return null }
+    val showLocalFirst =
+        !localUri.isNullOrBlank() && (storageKey.isNullOrEmpty() || !isUploaded)
+    if (showLocalFirst) {
+        val path = localUri!!
+        val url = when {
+            path.startsWith("content:") || path.startsWith("file:") -> path
+            path.startsWith("/") -> "file://$path"
+            else -> path
+        }
+        return Attachment(id = modelId, url = url, storageKey = null)
+    }
+    if (!storageKey.isNullOrEmpty()) {
+        return Attachment(id = modelId, url = link, storageKey = storageKey)
+    }
+    if (!link.isNullOrBlank()) {
+        return Attachment(id = modelId, url = link, storageKey = null)
+    }
+    return null
+}
+
+fun ChecklistQuestionEntity.toQuestion(
+    checklistAnswerAttachments: List<AttachmentEntity> = emptyList()
+): Question {
+    val attachment = answerAttachmentId?.takeIf { it.isNotBlank() }?.let { containerId ->
+        val rows = checklistAnswerAttachments.filter {
+            it.entityId == containerId && it.entityType == CHECKLIST_ANSWER_ATTACHMENT_TYPE
+        }
+        val models = rows.mapNotNull { it.toChecklistAnswerAttachmentModel() }
+        if (models.isEmpty()) null
+        else AnswerAttachment(id = containerId, attachments = ArrayList(models))
+    }
+    return Question(
+        checklist_question_id = checklistQuestionId,
+        text = text,
+        type = type,
+        displayOrder = displayOrder,
+        is_required = isRequired,
+        checklist_question_answer_id = answerId,
+        answer_option = answerOption,
+        answer_text = answerText,
+        note = note,
+        original_note = note,
+        checklist_question_answer_attachment = attachment
+    )
+}
 
 // ── ChecklistInfoFieldEntity → InfoField ──────────────────────────────────────
 

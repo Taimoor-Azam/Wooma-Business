@@ -11,20 +11,21 @@ object SyncScheduler {
         .build()
 
     fun scheduleImmediateSync(context: Context) {
-        WorkManager.getInstance(context)
-            .beginUniqueWork(
-                "wooma_sync",
-                ExistingWorkPolicy.KEEP,
-                OneTimeWorkRequestBuilder<SyncWorker>()
-                    .setConstraints(CONNECTED_CONSTRAINT)
-                    .build()
-            )
-            .then(
-                OneTimeWorkRequestBuilder<ImageUploadWorker>()
-                    .setConstraints(CONNECTED_CONSTRAINT)
-                    .build()
-            )
-            .enqueue()
+        val wm = WorkManager.getInstance(context)
+        wm.enqueueUniqueWork(
+            "wooma_sync",
+            ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<SyncWorker>()
+                .setConstraints(CONNECTED_CONSTRAINT)
+                .build()
+        )
+        wm.enqueueUniqueWork(
+            "wooma_image_upload",
+            ExistingWorkPolicy.REPLACE,
+            OneTimeWorkRequestBuilder<ImageUploadWorker>()
+                .setConstraints(CONNECTED_CONSTRAINT)
+                .build()
+        )
     }
 
     fun schedulePeriodicSync(context: Context) {

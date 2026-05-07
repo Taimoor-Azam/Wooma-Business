@@ -9,8 +9,11 @@ import com.wooma.data.local.WoomaDatabase
 import com.wooma.data.local.entity.SyncStatus
 import com.wooma.data.network.RetrofitClient
 import com.wooma.model.*
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.RequestBody.Companion.toRequestBody
 
 class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
 
@@ -19,28 +22,43 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
     private val gson = Gson()
 
     override suspend fun doWork(): Result {
-        val pending = db.syncQueueDao().getPendingInOrder()
-        for (entry in pending) {
-            // Check parent dependency — skip until parent is DONE
-            if (entry.parentSyncId != null) {
-                val parent = db.syncQueueDao().getById(entry.parentSyncId)
-                if (parent?.status != "DONE") continue
-            }
+        var rounds = 0
+        while (rounds++ < 25) {
+            db.syncQueueDao().resetInProgressToPending()
+            db.syncQueueDao().pruneDuplicatePendingChecklistStatus()
+            val pending = db.syncQueueDao().getPendingInOrder()
+            if (pending.isEmpty()) break
 
-            db.syncQueueDao().updateStatus(entry.id, "IN_PROGRESS", null)
-            try {
-                processEntry(entry)
-                db.syncQueueDao().updateStatus(entry.id, "DONE", null)
-            } catch (e: Exception) {
-                Log.e("SyncWorker", "Failed to sync ${entry.entityType}/${entry.operationType}: ${e.message}")
-                if (entry.retryCount >= 4) {
-                    db.syncQueueDao().updateStatus(entry.id, "FAILED", e.message)
-                } else {
-                    db.syncQueueDao().requeueForRetry(entry.id)
+            var progressed = false
+            for (entry in pending) {
+                // Check parent dependency — skip until parent is DONE
+                if (entry.parentSyncId != null) {
+                    val parent = db.syncQueueDao().getById(entry.parentSyncId)
+                    if (parent?.status != "DONE") continue
+                }
+
+                db.syncQueueDao().updateStatus(entry.id, "IN_PROGRESS", null)
+                try {
+                    processEntry(entry)
+                    db.syncQueueDao().updateStatus(entry.id, "DONE", null)
+                    progressed = true
+                } catch (e: CancellationException) {
+                    db.syncQueueDao().updateStatus(entry.id, "PENDING", null)
+                    Log.d("SyncWorker", "Sync cancelled for ${entry.entityType}/${entry.operationType}")
+                    throw e
+                } catch (e: Exception) {
+                    Log.e("SyncWorker", "Failed to sync ${entry.entityType}/${entry.operationType}: ${e.message}")
+                    if (entry.retryCount >= 4) {
+                        db.syncQueueDao().updateStatus(entry.id, "FAILED", e.message)
+                    } else {
+                        db.syncQueueDao().requeueForRetry(entry.id)
+                    }
+                    progressed = true
                 }
             }
+            db.syncQueueDao().purgeDone()
+            if (!progressed) break
         }
-        db.syncQueueDao().purgeDone()
         return Result.success()
     }
 
@@ -75,7 +93,11 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 "CREATE" -> {
                     val req = gson.fromJson(entry.payload, AddMeterRequest::class.java)
                     val meterEntity = db.meterDao().getById(localId)
-                        ?: throw Exception("Meter $localId not found locally")
+                        ?: return@withContext // Entity was deleted before sync; discard
+                    if (meterEntity.isDeleted) {
+                        db.meterDao().deleteById(localId)
+                        return@withContext
+                    }
                     val reportServerId = db.reportDao().getById(meterEntity.reportId)?.serverId
                         ?: throw Exception("Report serverId not yet available for meter $localId")
 
@@ -108,7 +130,11 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 }
                 "DELETE" -> {
                     val meterEntity = db.meterDao().getById(localId) ?: return@withContext
-                    val serverId = meterEntity.serverId ?: return@withContext // Never synced; nothing to delete
+                    val serverId = meterEntity.serverId
+                    if (serverId == null) {
+                        db.meterDao().deleteById(localId)
+                        return@withContext
+                    }
                     val reportServerId = db.reportDao().getById(meterEntity.reportId)?.serverId
                         ?: throw Exception("Report serverId not found for meter $localId")
 
@@ -116,7 +142,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                     if (!resp.isSuccessful && resp.code() != 404) {
                         throw Exception("Meter DELETE failed: ${resp.code()}")
                     }
-                    db.meterDao().updateSyncStatus(localId, SyncStatus.SYNCED)
+                    db.meterDao().deleteById(localId)
                 }
             }
         }
@@ -130,7 +156,11 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 "CREATE" -> {
                     val req = gson.fromJson(entry.payload, AddKeyRequest::class.java)
                     val keyEntity = db.keyDao().getById(localId)
-                        ?: throw Exception("Key $localId not found locally")
+                        ?: return@withContext
+                    if (keyEntity.isDeleted) {
+                        db.keyDao().deleteById(localId)
+                        return@withContext
+                    }
                     val reportServerId = db.reportDao().getById(keyEntity.reportId)?.serverId
                         ?: throw Exception("Report serverId not yet available for key $localId")
 
@@ -162,7 +192,11 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 }
                 "DELETE" -> {
                     val keyEntity = db.keyDao().getById(localId) ?: return@withContext
-                    val serverId = keyEntity.serverId ?: return@withContext
+                    val serverId = keyEntity.serverId
+                    if (serverId == null) {
+                        db.keyDao().deleteById(localId)
+                        return@withContext
+                    }
                     val reportServerId = db.reportDao().getById(keyEntity.reportId)?.serverId
                         ?: throw Exception("Report serverId not found for key $localId")
 
@@ -170,7 +204,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                     if (!resp.isSuccessful && resp.code() != 404) {
                         throw Exception("Key DELETE failed: ${resp.code()}")
                     }
-                    db.keyDao().updateSyncStatus(localId, SyncStatus.SYNCED)
+                    db.keyDao().deleteById(localId)
                 }
             }
         }
@@ -184,7 +218,11 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 "CREATE" -> {
                     val req = gson.fromJson(entry.payload, AddDetectorRequest::class.java)
                     val detEntity = db.detectorDao().getById(localId)
-                        ?: throw Exception("Detector $localId not found locally")
+                        ?: return@withContext
+                    if (detEntity.isDeleted) {
+                        db.detectorDao().deleteById(localId)
+                        return@withContext
+                    }
                     val reportServerId = db.reportDao().getById(detEntity.reportId)?.serverId
                         ?: throw Exception("Report serverId not yet available for detector $localId")
 
@@ -216,7 +254,11 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 }
                 "DELETE" -> {
                     val detEntity = db.detectorDao().getById(localId) ?: return@withContext
-                    val serverId = detEntity.serverId ?: return@withContext
+                    val serverId = detEntity.serverId
+                    if (serverId == null) {
+                        db.detectorDao().deleteById(localId)
+                        return@withContext
+                    }
                     val reportServerId = db.reportDao().getById(detEntity.reportId)?.serverId
                         ?: throw Exception("Report serverId not found for detector $localId")
 
@@ -224,7 +266,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                     if (!resp.isSuccessful && resp.code() != 404) {
                         throw Exception("Detector DELETE failed: ${resp.code()}")
                     }
-                    db.detectorDao().updateSyncStatus(localId, SyncStatus.SYNCED)
+                    db.detectorDao().deleteById(localId)
                 }
             }
         }
@@ -302,6 +344,20 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                     val resp = api.reorderRoom(reportServerId, serverId, req).execute()
                     if (!resp.isSuccessful) throw Exception("Room REORDER failed: ${resp.code()}")
                     db.roomDao().updateSyncStatus(localId, SyncStatus.SYNCED)
+
+                    // Re-fetch all rooms to get server-assigned displayOrder values
+                    val roomsResp = api.getInspectionRoomById(
+                        report_id = reportServerId,
+                        include_items = false,
+                        include_room_inspections = false
+                    ).execute()
+                    val pendingIds = db.roomDao().getPendingSyncRooms().map { it.id }.toSet()
+                    roomsResp.body()?.data?.forEach { room ->
+                        val rId = room.id ?: return@forEach
+                        if (rId !in pendingIds) {
+                            db.roomDao().updateFromServer(rId, room.name ?: "", room.templateId, room.displayOrder)
+                        }
+                    }
                 }
             }
         }
@@ -313,7 +369,11 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 "CREATE" -> {
                     val req = gson.fromJson(entry.payload, AddNewRoomItemsRequest::class.java)
                     val itemEntity = db.roomItemDao().getById(localId)
-                        ?: throw Exception("Item $localId not found locally")
+                        ?: return@withContext // Hard-deleted before sync; discard
+                    if (itemEntity.isDeleted) {
+                        db.roomItemDao().deleteById(localId)
+                        return@withContext
+                    }
                     val roomServerId = db.roomDao().getById(itemEntity.roomId)?.serverId
                         ?: throw Exception("Room serverId not available for item $localId")
                     val reportServerId = db.reportDao().getById(db.roomDao().getById(itemEntity.roomId)!!.reportId)?.serverId
@@ -346,13 +406,17 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 }
                 "DELETE" -> {
                     val itemEntity = db.roomItemDao().getById(localId) ?: return@withContext
-                    val serverId = itemEntity.serverId ?: return@withContext
+                    val serverId = itemEntity.serverId
+                    if (serverId == null) {
+                        db.roomItemDao().deleteById(localId)
+                        return@withContext
+                    }
                     val roomServerId = db.roomDao().getById(itemEntity.roomId)?.serverId ?: return@withContext
                     val reportServerId = db.reportDao().getById(db.roomDao().getById(itemEntity.roomId)!!.reportId)?.serverId ?: return@withContext
 
                     val resp = api.deleteRoomItem(reportServerId, roomServerId, serverId).execute()
                     if (!resp.isSuccessful && resp.code() != 404) throw Exception("Item DELETE failed")
-                    db.roomItemDao().updateSyncStatus(localId, SyncStatus.SYNCED)
+                    db.roomItemDao().deleteById(localId)
                 }
             }
         }
@@ -427,12 +491,27 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             val serverId = resp.body()?.data?.id
                 ?: throw Exception("ChecklistAnswerAttachment returned null id")
             db.pendingUploadDao().updateEntityServerId(localId, "CHECKLIST_ANSWER_ATTACHMENT", serverId)
+            db.pendingUploadDao().migrateChecklistAnswerAttachmentEntityLocalId(localId, serverId)
+            db.attachmentDao().promoteChecklistAnswerAttachmentEntity(localId, serverId)
+            db.checklistQuestionDao().updateAnswerAttachmentId(
+                req.report_checklist_id,
+                req.checklist_question_id,
+                serverId
+            )
         }
 
     private suspend fun processReportCover(entry: com.wooma.data.local.entity.SyncQueueEntity) =
         withContext(Dispatchers.IO) {
-            // REPORT_COVER is handled primarily via ImageUploadWorker (it resolves the storageKey)
-            // This processEntry for cover is just a placeholder if we need PATCH update separately.
+            if (entry.operationType != "DELETE") return@withContext
+            val reportEntity = db.reportDao().getById(entry.localEntityId) ?: return@withContext
+            val serverId = reportEntity.serverId ?: return@withContext
+            val patchJson = """{"cover_image_storage_key":null}"""
+            val resp = api.updateReport(
+                serverId,
+                patchJson.toRequestBody("application/json".toMediaTypeOrNull())
+            ).execute()
+            if (!resp.isSuccessful) throw Exception("Cover DELETE PATCH failed: ${resp.code()}")
+            db.reportDao().updateCoverImage(entry.localEntityId, null)
         }
 
     // ─── PROPERTY ────────────────────────────────────────────────────────────
@@ -453,6 +532,11 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 "ARCHIVE" -> {
                     val resp = api.archiveProperty(serverId).execute()
                     if (!resp.isSuccessful && resp.code() != 404) throw Exception("Property ARCHIVE failed: ${resp.code()}")
+                    db.propertyDao().updateSyncStatus(localId, SyncStatus.SYNCED)
+                }
+                "RESTORE" -> {
+                    val resp = api.restoreProperty(serverId).execute()
+                    if (!resp.isSuccessful && resp.code() != 404) throw Exception("Property RESTORE failed: ${resp.code()}")
                     db.propertyDao().updateSyncStatus(localId, SyncStatus.SYNCED)
                 }
             }

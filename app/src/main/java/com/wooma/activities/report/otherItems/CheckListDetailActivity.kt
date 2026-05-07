@@ -12,13 +12,12 @@ import com.wooma.activities.BaseActivity
 import com.wooma.activities.report.CameraActivity
 import com.wooma.adapter.CheckListInfoAdapter
 import com.wooma.adapter.InventoryCheckListQuestionAdapter
-import com.wooma.data.local.WoomaDatabase
+import com.wooma.customs.Utils
 import com.wooma.data.local.mapper.toInfoField
-import com.wooma.data.local.mapper.toQuestion
+import com.wooma.data.network.showToast
 import com.wooma.data.repository.ChecklistRepository
 import com.wooma.databinding.ActivityCheckListDetailBinding
-import com.wooma.model.AnswerAttachment
-import com.wooma.model.Attachment
+import com.wooma.model.ImageItem
 import com.wooma.model.InfoField
 import com.wooma.model.Question
 import com.wooma.model.enums.TenantReportStatus
@@ -42,7 +41,6 @@ class CheckListDetailActivity : BaseActivity() {
     private var showTimestamp = true
 
     private lateinit var checklistRepo: ChecklistRepository
-    private val db by lazy { WoomaDatabase.getInstance(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -64,6 +62,14 @@ class CheckListDetailActivity : BaseActivity() {
         checklistRepo = ChecklistRepository(this)
 
         binding.tvChecklistTitle.text = checklistName
+
+        lifecycleScope.launch {
+            if (!Utils.isOnline(this@CheckListDetailActivity)) {
+                showToast("Please connect to internet to continue.")
+                finish()
+                return@launch
+            }
+        }
 
         infoAdapter = CheckListInfoAdapter(
             context = this,
@@ -104,7 +110,17 @@ class CheckListDetailActivity : BaseActivity() {
                         .putExtra("showTimestamp", showTimestamp),
                     CAMERA_REQUEST
                 )
-            }
+            },
+            onChecklistImageDelete = if (!isReadOnly) { questionId, item, onComplete ->
+                lifecycleScope.launch {
+                    try {
+                        checklistRepo.deleteQuestionAnswerAttachment(checklistId, questionId, item)
+                        onComplete()
+                    } catch (e: Exception) {
+                        showToast(e.message ?: "Failed to delete image")
+                    }
+                }
+            } else null
         )
 
         binding.rvInfo.adapter = infoAdapter
@@ -125,27 +141,9 @@ class CheckListDetailActivity : BaseActivity() {
                     }
                 }
                 launch {
-                    checklistRepo.observeChecklistQuestions(checklistId).collect { entities ->
-                        val questions = entities.map { it.toQuestion() }
-                        // Inject answer attachment URLs from local DB into question models
-                        val questionsWithAttachments = questions.mapIndexed { i, q ->
-                            val answerAttachmentId = entities.getOrNull(i)?.answerAttachmentId
-                                ?: return@mapIndexed q
-                            val attachments = db.attachmentDao()
-                                .getByEntity(answerAttachmentId, "CHECKLIST_ANSWER")
-                            if (attachments.isEmpty()) return@mapIndexed q
-                            q.copy(
-                                checklist_question_answer_attachment = AnswerAttachment(
-                                    id = answerAttachmentId,
-                                    attachments = ArrayList(attachments.mapNotNull { a ->
-                                        if (a.storageKey.isNullOrEmpty()) null
-                                        else Attachment(a.id, a.link, a.storageKey)
-                                    })
-                                )
-                            )
-                        }
+                    checklistRepo.observeChecklistQuestionsForUi(checklistId).collect { questions ->
                         checkListQuestionItems.clear()
-                        checkListQuestionItems.addAll(questionsWithAttachments)
+                        checkListQuestionItems.addAll(questions)
                         questionAdapter.updateList(checkListQuestionItems)
                         binding.tvQuestion.visibility = if (checkListQuestionItems.isNotEmpty()) View.VISIBLE else View.GONE
                         binding.rvQuestions.visibility = binding.tvQuestion.visibility
@@ -154,8 +152,10 @@ class CheckListDetailActivity : BaseActivity() {
             }
         }
 
-        lifecycleScope.launch {
-            try { checklistRepo.refreshChecklist(checklistId) } catch (_: Exception) {}
+        if (Utils.isOnline(this)) {
+            lifecycleScope.launch {
+                try { checklistRepo.refreshChecklist(checklistId, reportId) } catch (_: Exception) {}
+            }
         }
 
         val callback = object : OnBackPressedCallback(true) {
@@ -176,10 +176,14 @@ class CheckListDetailActivity : BaseActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == RESULT_OK) {
-            val uris = CameraActivity.Companion.pendingUris.toList()
-            if (uris.isNotEmpty() && pendingCameraQuestionId.isNotEmpty()) {
-                questionAdapter.deliverPhotos(pendingCameraQuestionId, uris)
-                saveAnswerAttachmentOffline(pendingCameraQuestionId, uris)
+            val uris = CameraActivity.Companion.pendingUris
+                .map { it }
+                .distinctBy { it.toString() }
+                .also { CameraActivity.Companion.pendingUris.clear() }
+            val qId = pendingCameraQuestionId
+            if (uris.isNotEmpty() && qId.isNotEmpty()) {
+                questionAdapter.deliverPhotos(qId, uris)
+                saveAnswerAttachmentOffline(qId, uris)
             }
         }
     }
@@ -210,6 +214,7 @@ class CheckListDetailActivity : BaseActivity() {
     private fun saveAnswerAttachmentOffline(questionId: String, uris: List<Uri>) {
         lifecycleScope.launch {
             checklistRepo.saveAnswerAttachmentOffline(checklistId, questionId, uris)
+            questionAdapter.clearLocalPhotos(questionId)
             SyncScheduler.scheduleImmediateSync(this@CheckListDetailActivity)
         }
     }

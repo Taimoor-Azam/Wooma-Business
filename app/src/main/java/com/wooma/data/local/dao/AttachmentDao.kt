@@ -34,12 +34,33 @@ interface AttachmentDao {
     @Query("UPDATE attachments SET serverId = :serverId, storageKey = :storageKey, isUploaded = 1 WHERE id = :localId")
     suspend fun markUploaded(localId: String, serverId: String, storageKey: String)
 
+    /**
+     * After S3 + createAttachment, move PK from local file id to server's attachment id (matches meter flow for DELETE/API).
+     */
+    @Query(
+        "UPDATE attachments SET id = :serverAttachmentId, serverId = :serverAttachmentId, " +
+            "storageKey = :storageKey, isUploaded = 1, localUri = NULL WHERE id = :localPk"
+    )
+    suspend fun rekeyUploadedAttachment(localPk: String, serverAttachmentId: String, storageKey: String)
+
     @Query("UPDATE attachments SET entityId = :newEntityId WHERE entityId = :oldEntityId")
     suspend fun reattachToNewEntityId(oldEntityId: String, newEntityId: String)
+
+    /** Reparent checklist answer images under the server answer id; keep [entityType] CHECKLIST_ANSWER_ATTACHMENT. */
+    @Query(
+        "UPDATE attachments SET entityId = :newId WHERE entityId = :oldId AND entityType = 'CHECKLIST_ANSWER_ATTACHMENT'"
+    )
+    suspend fun promoteChecklistAnswerAttachmentEntity(oldId: String, newId: String)
 
     @Query("SELECT * FROM attachments WHERE isUploaded = 0")
     suspend fun getPendingUploads(): List<AttachmentEntity>
 
+    @Query("SELECT localUri FROM attachments WHERE localUri IS NOT NULL")
+    suspend fun getAllLocalUris(): List<String>
+
     @Query("DELETE FROM attachments WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM attachments WHERE entityType = :entityType AND isUploaded = 1")
+    suspend fun deleteUploadedByEntityType(entityType: String)
 }

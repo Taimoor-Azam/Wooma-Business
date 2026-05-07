@@ -3,11 +3,13 @@ package com.wooma.data.repository
 import android.content.Context
 import com.google.gson.Gson
 import com.wooma.data.local.WoomaDatabase
+import com.wooma.data.local.mapper.toEntity
 import com.wooma.data.local.entity.RoomEntity
 import com.wooma.data.local.entity.SyncQueueEntity
 import com.wooma.data.local.entity.SyncStatus
 import com.wooma.data.network.RetrofitClient
 import com.wooma.model.AddNewRoomsRequest
+import com.wooma.model.ReportData
 import com.wooma.model.ReorderRoomRequest
 import com.wooma.model.RoomsResponse
 import com.wooma.model.UpdateRoomNameRequest
@@ -28,23 +30,88 @@ class RoomRepository(private val ctx: Context) {
             entities.filter { it.syncStatus != SyncStatus.PENDING_DELETE }.map { it.toResponse() }
         }
 
+    suspend fun hydrateRoomsAndItemsFromReport(reportData: ReportData, reportId: String) =
+        withContext(Dispatchers.IO) {
+            val rooms = reportData.rooms ?: return@withContext
+            mergeServerRoomsAndItems(reportId, rooms)
+        }
+
     suspend fun refreshRooms(reportId: String) = withContext(Dispatchers.IO) {
         val serverId = db.reportDao().getById(reportId)?.serverId ?: return@withContext
-        val resp = api.getInspectionRoomById(serverId, include_items = false, include_room_inspections = false).execute()
+        val resp = api.getInspectionRoomById(
+            report_id = serverId,
+            include_items = true,
+            include_room_inspections = false,
+            include_attachments = false
+        ).execute()
         resp.body()?.data?.let { rooms ->
-            val pendingRooms = db.roomDao().getPendingSyncRooms().map { it.id }.toSet()
-            val entities = rooms.map { room ->
-                RoomEntity(
-                    id = room.id ?: "",
-                    serverId = room.id,
-                    reportId = reportId,
-                    templateId = room.templateId,
-                    name = room.name ?: "",
-                    displayOrder = room.displayOrder,
-                    syncStatus = SyncStatus.SYNCED
-                )
-            }.filter { it.id !in pendingRooms }
-            db.roomDao().upsertAll(entities)
+            mergeServerRoomsAndItems(reportId, rooms)
+        }
+    }
+
+    private suspend fun mergeServerRoomsAndItems(reportId: String, rooms: List<RoomsResponse>) {
+        val pendingRoomIds = db.roomDao().getPendingSyncRooms().map { it.id }.toSet()
+        for (room in rooms) {
+            val serverRoomId = room.id ?: continue
+
+            val existingByServer = db.roomDao().getByServerId(serverRoomId)
+            val localRoomId = existingByServer?.id ?: serverRoomId
+
+            // Preserve local unsynced room rows (create/update/delete) and only refresh synced rows.
+            if (localRoomId !in pendingRoomIds) {
+                if (existingByServer != null) {
+                    db.roomDao().updateFromServerByServerId(
+                        serverId = serverRoomId,
+                        name = room.name ?: "",
+                        templateId = room.templateId,
+                        displayOrder = room.displayOrder
+                    )
+                } else {
+                    val updated = db.roomDao().updateFromServer(
+                        id = serverRoomId,
+                        name = room.name ?: "",
+                        templateId = room.templateId,
+                        displayOrder = room.displayOrder
+                    )
+                    if (updated == 0) {
+                        db.roomDao().insertIgnore(
+                            RoomEntity(
+                                id = serverRoomId,
+                                serverId = serverRoomId,
+                                reportId = reportId,
+                                templateId = room.templateId,
+                                name = room.name ?: "",
+                                displayOrder = room.displayOrder,
+                                syncStatus = SyncStatus.SYNCED
+                            )
+                        )
+                    }
+                }
+            }
+
+            mergeRoomItemsForRoom(localRoomId, room)
+        }
+    }
+
+    private suspend fun mergeRoomItemsForRoom(localRoomId: String, room: RoomsResponse) {
+        val incomingItems = room.items ?: return
+        val unsyncedServerItemIds = db.roomItemDao().getUnsyncedByRoom(localRoomId)
+            .mapNotNull { entity ->
+                entity.serverId ?: entity.id.takeIf { !it.startsWith("local_") }
+            }
+            .toSet()
+
+        val incomingEntities = incomingItems.map { it.toEntity(localRoomId) }
+        val entitiesToUpsert = incomingEntities.filter { it.id !in unsyncedServerItemIds }
+        if (entitiesToUpsert.isNotEmpty()) {
+            db.roomItemDao().upsertAll(entitiesToUpsert)
+        }
+
+        val serverItemIds = incomingEntities.map { it.id }
+        if (serverItemIds.isEmpty()) {
+            db.roomItemDao().deleteSyncedByRoom(localRoomId)
+        } else {
+            db.roomItemDao().deleteSyncedByRoomExcept(localRoomId, serverItemIds)
         }
     }
 
@@ -97,8 +164,7 @@ class RoomRepository(private val ctx: Context) {
 
     suspend fun reorderRoom(localId: String, prevRank: String?, nextRank: String?) {
         val existing = db.roomDao().getById(localId) ?: return
-        db.roomDao().updateOrder(localId, nextRank ?: prevRank ?: "")
-        
+
         if (existing.syncStatus == SyncStatus.SYNCED) {
             db.syncQueueDao().enqueue(
                 SyncQueueEntity(

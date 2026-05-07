@@ -34,42 +34,25 @@ class OtherItemsRepository(private val ctx: Context) {
         val serverId = db.reportDao().getById(reportId)?.serverId ?: return@withContext
         val resp = api.getReportMeters(serverId, include_attachments = true).execute()
         resp.body()?.data?.let { meters ->
-            val localEntities = db.meterDao().getByReport(reportId)
-            val pendingIds = localEntities
-                .filter { it.syncStatus != SyncStatus.SYNCED }
-                .map { it.id }
-                .toSet()
-            val existingIds = localEntities.map { it.id }.toSet()
-            val existingServerIds = localEntities.mapNotNull { it.serverId }.toSet()
-            val toUpsert = meters.map { it.toEntity(reportId) }
-                .filter { it.id !in pendingIds && (it.id in existingIds || it.id !in existingServerIds) }
-            db.meterDao().upsertAll(toUpsert)
-            val existingAtts = db.attachmentDao().getByEntityType("METER")
-            val existingAttIds = existingAtts.map { it.id }.toSet()
-            val existingAttServerIds = existingAtts.mapNotNull { it.serverId }.toSet()
-            val meterAttachments = meters
-                .filter { it.id !in pendingIds && (it.id in existingIds || it.id !in existingServerIds) }
-                .flatMap { meter ->
-                    meter.attachments
-                        .filter { att -> att.id in existingAttIds || att.id !in existingAttServerIds }
-                        .map { att ->
-                            AttachmentEntity(
-                                id = att.id,
-                                serverId = att.id,
-                                entityId = meter.id,
-                                entityType = "METER",
-                                originalName = att.originalName,
-                                storageKey = att.storageKey,
-                                link = att.link,
-                                mimeType = att.mimeType,
-                                fileSize = att.fileSize.toLongOrNull() ?: 0L,
-                                localUri = null,
-                                isUploaded = true
-                            )
-                        }
-                }
-            if (meterAttachments.isNotEmpty()) db.attachmentDao().upsertAll(meterAttachments)
+            replaceMetersFromServer(reportId, meters)
         }
+    }
+
+    suspend fun reorderMeter(localId: String, prevRank: String?, nextRank: String?) = withContext(Dispatchers.IO) {
+        val meter = db.meterDao().getByLocalOrServerId(localId) ?: return@withContext
+        if (meter.syncStatus != SyncStatus.SYNCED) return@withContext
+        val reportServerId = db.reportDao().getById(meter.reportId)?.serverId ?: return@withContext
+        val meterServerId = meter.serverId ?: return@withContext
+        val reorderResp = api.reorderMeter(
+            reportServerId,
+            meterServerId,
+            ReorderRoomRequest(prev_rank = prevRank, next_rank = nextRank)
+        ).execute()
+        if (!reorderResp.isSuccessful) throw Exception("Meter REORDER failed: ${reorderResp.code()}")
+
+        val refreshResp = api.getReportMeters(reportServerId, include_attachments = true).execute()
+        if (!refreshResp.isSuccessful) throw Exception("Meter REFRESH after reorder failed: ${refreshResp.code()}")
+        replaceMetersFromServer(meter.reportId, refreshResp.body()?.data ?: emptyList())
     }
 
     suspend fun addMeter(reportId: String, request: AddMeterRequest): MeterEntity {
@@ -95,8 +78,8 @@ class OtherItemsRepository(private val ctx: Context) {
         return entity
     }
 
-    suspend fun updateMeter(localId: String, request: AddMeterRequest) {
-        val existing = db.meterDao().getById(localId) ?: return
+    suspend fun updateMeter(id: String, request: AddMeterRequest) {
+        val existing = db.meterDao().getByLocalOrServerId(id) ?: return
         db.meterDao().upsert(
             existing.copy(
                 name = request.name,
@@ -107,29 +90,68 @@ class OtherItemsRepository(private val ctx: Context) {
             )
         )
         if (existing.syncStatus == SyncStatus.SYNCED) {
-            db.meterDao().updateSyncStatus(localId, SyncStatus.PENDING_UPDATE)
+            db.meterDao().updateSyncStatus(existing.id, SyncStatus.PENDING_UPDATE)
             db.syncQueueDao().enqueue(
                 SyncQueueEntity(
                     entityType = "METER", operationType = "UPDATE",
-                    localEntityId = localId, payload = gson.toJson(request)
+                    localEntityId = existing.id, payload = gson.toJson(request)
                 )
             )
         }
-        // If PENDING_CREATE: entity updated locally; the CREATE payload will reflect new values
     }
 
-    suspend fun deleteMeter(localId: String) {
-        val existing = db.meterDao().getById(localId) ?: return
-        db.meterDao().softDelete(localId)
+    suspend fun deleteMeter(id: String) {
+        val existing = db.meterDao().getByLocalOrServerId(id) ?: return
         db.reportDao().incrementMeterCount(existing.reportId, -1)
-        if (existing.syncStatus != SyncStatus.PENDING_CREATE) {
+        if (existing.syncStatus == SyncStatus.PENDING_CREATE) {
+            db.meterDao().deleteById(existing.id)
+            db.syncQueueDao().cancelPendingCreate(existing.id, "METER")
+        } else {
+            db.meterDao().softDelete(existing.id)
+            val serverId = existing.serverId
+            if (serverId != null && serverId != existing.id) {
+                db.meterDao().deleteById(serverId)
+            }
             db.syncQueueDao().enqueue(
                 SyncQueueEntity(
                     entityType = "METER", operationType = "DELETE",
-                    localEntityId = localId, payload = "{}"
+                    localEntityId = existing.id, payload = "{}"
                 )
             )
         }
+    }
+
+    private fun meterSortKey(rank: String?): String {
+        val value = rank?.trim().orEmpty()
+        return if (value.isEmpty()) "\uFFFF" else value
+    }
+
+    private suspend fun replaceMetersFromServer(reportId: String, meters: List<Meter>) {
+        val sortedMeters = meters.sortedWith(compareBy<Meter> { meterSortKey(it.display_order) }.thenBy { it.id })
+        val pendingLocals = db.meterDao().getAllByReport(reportId).filter { it.syncStatus != SyncStatus.SYNCED }
+        db.meterDao().deleteSyncedByReport(reportId)
+        db.attachmentDao().deleteUploadedByEntityType("METER")
+        db.meterDao().upsertAll(sortedMeters.map { it.toEntity(reportId) })
+        if (pendingLocals.isNotEmpty()) db.meterDao().upsertAll(pendingLocals)
+
+        val meterAttachments = sortedMeters.flatMap { meter ->
+            meter.attachments.map { att ->
+                AttachmentEntity(
+                    id = att.id,
+                    serverId = att.id,
+                    entityId = meter.id,
+                    entityType = "METER",
+                    originalName = att.originalName,
+                    storageKey = att.storageKey,
+                    link = att.link,
+                    mimeType = att.mimeType,
+                    fileSize = att.fileSize.toLongOrNull() ?: 0L,
+                    localUri = null,
+                    isUploaded = true
+                )
+            }
+        }
+        if (meterAttachments.isNotEmpty()) db.attachmentDao().upsertAll(meterAttachments)
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -144,42 +166,25 @@ class OtherItemsRepository(private val ctx: Context) {
         val serverId = db.reportDao().getById(reportId)?.serverId ?: return@withContext
         val resp = api.getReportKeys(serverId, include_attachments = true).execute()
         resp.body()?.data?.let { keys ->
-            val localEntities = db.keyDao().getByReport(reportId)
-            val pendingIds = localEntities
-                .filter { it.syncStatus != SyncStatus.SYNCED }
-                .map { it.id }
-                .toSet()
-            val existingIds = localEntities.map { it.id }.toSet()
-            val existingServerIds = localEntities.mapNotNull { it.serverId }.toSet()
-            val toUpsert = keys.map { it.toEntity(reportId) }
-                .filter { it.id !in pendingIds && (it.id in existingIds || it.id !in existingServerIds) }
-            db.keyDao().upsertAll(toUpsert)
-            val existingAtts = db.attachmentDao().getByEntityType("KEY")
-            val existingAttIds = existingAtts.map { it.id }.toSet()
-            val existingAttServerIds = existingAtts.mapNotNull { it.serverId }.toSet()
-            val keyAttachments = keys
-                .filter { it.id !in pendingIds && (it.id in existingIds || it.id !in existingServerIds) }
-                .flatMap { key ->
-                    key.attachments
-                        .filter { att -> att.id in existingAttIds || att.id !in existingAttServerIds }
-                        .map { att ->
-                            AttachmentEntity(
-                                id = att.id,
-                                serverId = att.id,
-                                entityId = key.id,
-                                entityType = "KEY",
-                                originalName = att.originalName,
-                                storageKey = att.storageKey,
-                                link = att.link,
-                                mimeType = att.mimeType,
-                                fileSize = att.fileSize.toLongOrNull() ?: 0L,
-                                localUri = null,
-                                isUploaded = true
-                            )
-                        }
-                }
-            if (keyAttachments.isNotEmpty()) db.attachmentDao().upsertAll(keyAttachments)
+            replaceKeysFromServer(reportId, keys)
         }
+    }
+
+    suspend fun reorderKey(localId: String, prevRank: String?, nextRank: String?) = withContext(Dispatchers.IO) {
+        val key = db.keyDao().getByLocalOrServerId(localId) ?: return@withContext
+        if (key.syncStatus != SyncStatus.SYNCED) return@withContext
+        val reportServerId = db.reportDao().getById(key.reportId)?.serverId ?: return@withContext
+        val keyServerId = key.serverId ?: return@withContext
+        val reorderResp = api.reorderKey(
+            reportServerId,
+            keyServerId,
+            ReorderRoomRequest(prev_rank = prevRank, next_rank = nextRank)
+        ).execute()
+        if (!reorderResp.isSuccessful) throw Exception("Key REORDER failed: ${reorderResp.code()}")
+
+        val refreshResp = api.getReportKeys(reportServerId, include_attachments = true).execute()
+        if (!refreshResp.isSuccessful) throw Exception("Key REFRESH after reorder failed: ${refreshResp.code()}")
+        replaceKeysFromServer(key.reportId, refreshResp.body()?.data ?: emptyList())
     }
 
     suspend fun addKey(reportId: String, request: AddKeyRequest): KeyEntity {
@@ -204,8 +209,8 @@ class OtherItemsRepository(private val ctx: Context) {
         return entity
     }
 
-    suspend fun updateKey(localId: String, request: AddKeyRequest) {
-        val existing = db.keyDao().getById(localId) ?: return
+    suspend fun updateKey(id: String, request: AddKeyRequest) {
+        val existing = db.keyDao().getByLocalOrServerId(id) ?: return
         db.keyDao().upsert(
             existing.copy(
                 name = request.name,
@@ -215,28 +220,68 @@ class OtherItemsRepository(private val ctx: Context) {
             )
         )
         if (existing.syncStatus == SyncStatus.SYNCED) {
-            db.keyDao().updateSyncStatus(localId, SyncStatus.PENDING_UPDATE)
+            db.keyDao().updateSyncStatus(existing.id, SyncStatus.PENDING_UPDATE)
             db.syncQueueDao().enqueue(
                 SyncQueueEntity(
                     entityType = "KEY", operationType = "UPDATE",
-                    localEntityId = localId, payload = gson.toJson(request)
+                    localEntityId = existing.id, payload = gson.toJson(request)
                 )
             )
         }
     }
 
-    suspend fun deleteKey(localId: String) {
-        val existing = db.keyDao().getById(localId) ?: return
-        db.keyDao().softDelete(localId)
+    suspend fun deleteKey(id: String) {
+        val existing = db.keyDao().getByLocalOrServerId(id) ?: return
         db.reportDao().incrementKeyCount(existing.reportId, -1)
-        if (existing.syncStatus != SyncStatus.PENDING_CREATE) {
+        if (existing.syncStatus == SyncStatus.PENDING_CREATE) {
+            db.keyDao().deleteById(existing.id)
+            db.syncQueueDao().cancelPendingCreate(existing.id, "KEY")
+        } else {
+            db.keyDao().softDelete(existing.id)
+            val serverId = existing.serverId
+            if (serverId != null && serverId != existing.id) {
+                db.keyDao().deleteById(serverId)
+            }
             db.syncQueueDao().enqueue(
                 SyncQueueEntity(
                     entityType = "KEY", operationType = "DELETE",
-                    localEntityId = localId, payload = "{}"
+                    localEntityId = existing.id, payload = "{}"
                 )
             )
         }
+    }
+
+    private suspend fun replaceKeysFromServer(reportId: String, keys: List<KeyItem>) {
+        val sortedKeys = keys.sortedWith(compareBy<KeyItem> { keySortKey(it.display_order) }.thenBy { it.id })
+        val pendingLocals = db.keyDao().getAllByReport(reportId).filter { it.syncStatus != SyncStatus.SYNCED }
+        db.keyDao().deleteSyncedByReport(reportId)
+        db.attachmentDao().deleteUploadedByEntityType("KEY")
+        db.keyDao().upsertAll(sortedKeys.map { it.toEntity(reportId) })
+        if (pendingLocals.isNotEmpty()) db.keyDao().upsertAll(pendingLocals)
+
+        val keyAttachments = sortedKeys.flatMap { key ->
+            key.attachments.map { att ->
+                AttachmentEntity(
+                    id = att.id,
+                    serverId = att.id,
+                    entityId = key.id,
+                    entityType = "KEY",
+                    originalName = att.originalName,
+                    storageKey = att.storageKey,
+                    link = att.link,
+                    mimeType = att.mimeType,
+                    fileSize = att.fileSize.toLongOrNull() ?: 0L,
+                    localUri = null,
+                    isUploaded = true
+                )
+            }
+        }
+        if (keyAttachments.isNotEmpty()) db.attachmentDao().upsertAll(keyAttachments)
+    }
+
+    private fun keySortKey(rank: String?): String {
+        val value = rank?.trim().orEmpty()
+        return if (value.isEmpty()) "\uFFFF" else value
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -251,42 +296,25 @@ class OtherItemsRepository(private val ctx: Context) {
         val serverId = db.reportDao().getById(reportId)?.serverId ?: return@withContext
         val resp = api.getReportDetector(serverId, include_attachments = true).execute()
         resp.body()?.data?.let { dets ->
-            val localEntities = db.detectorDao().getByReport(reportId)
-            val pendingIds = localEntities
-                .filter { it.syncStatus != SyncStatus.SYNCED }
-                .map { it.id }
-                .toSet()
-            val existingIds = localEntities.map { it.id }.toSet()
-            val existingServerIds = localEntities.mapNotNull { it.serverId }.toSet()
-            val toUpsert = dets.map { it.toEntity(reportId) }
-                .filter { it.id !in pendingIds && (it.id in existingIds || it.id !in existingServerIds) }
-            db.detectorDao().upsertAll(toUpsert)
-            val existingAtts = db.attachmentDao().getByEntityType("DETECTOR")
-            val existingAttIds = existingAtts.map { it.id }.toSet()
-            val existingAttServerIds = existingAtts.mapNotNull { it.serverId }.toSet()
-            val detectorAttachments = dets
-                .filter { it.id !in pendingIds && (it.id in existingIds || it.id !in existingServerIds) }
-                .flatMap { det ->
-                    det.attachments
-                        .filter { att -> att.id in existingAttIds || att.id !in existingAttServerIds }
-                        .map { att ->
-                            AttachmentEntity(
-                                id = att.id,
-                                serverId = att.id,
-                                entityId = det.id,
-                                entityType = "DETECTOR",
-                                originalName = att.originalName,
-                                storageKey = att.storageKey,
-                                link = att.link,
-                                mimeType = att.mimeType,
-                                fileSize = att.fileSize.toLongOrNull() ?: 0L,
-                                localUri = null,
-                                isUploaded = true
-                            )
-                        }
-                }
-            if (detectorAttachments.isNotEmpty()) db.attachmentDao().upsertAll(detectorAttachments)
+            replaceDetectorsFromServer(reportId, dets)
         }
+    }
+
+    suspend fun reorderDetector(localId: String, prevRank: String?, nextRank: String?) = withContext(Dispatchers.IO) {
+        val detector = db.detectorDao().getByLocalOrServerId(localId) ?: return@withContext
+        if (detector.syncStatus != SyncStatus.SYNCED) return@withContext
+        val reportServerId = db.reportDao().getById(detector.reportId)?.serverId ?: return@withContext
+        val detectorServerId = detector.serverId ?: return@withContext
+        val reorderResp = api.reorderDetector(
+            reportServerId,
+            detectorServerId,
+            ReorderRoomRequest(prev_rank = prevRank, next_rank = nextRank)
+        ).execute()
+        if (!reorderResp.isSuccessful) throw Exception("Detector REORDER failed: ${reorderResp.code()}")
+
+        val refreshResp = api.getReportDetector(reportServerId, include_attachments = true).execute()
+        if (!refreshResp.isSuccessful) throw Exception("Detector REFRESH after reorder failed: ${refreshResp.code()}")
+        replaceDetectorsFromServer(detector.reportId, refreshResp.body()?.data ?: emptyList())
     }
 
     suspend fun addDetector(reportId: String, request: AddDetectorRequest): DetectorEntity {
@@ -311,8 +339,8 @@ class OtherItemsRepository(private val ctx: Context) {
         return entity
     }
 
-    suspend fun updateDetector(localId: String, request: AddDetectorRequest) {
-        val existing = db.detectorDao().getById(localId) ?: return
+    suspend fun updateDetector(id: String, request: AddDetectorRequest) {
+        val existing = db.detectorDao().getByLocalOrServerId(id) ?: return
         db.detectorDao().upsert(
             existing.copy(
                 name = request.name,
@@ -322,27 +350,67 @@ class OtherItemsRepository(private val ctx: Context) {
             )
         )
         if (existing.syncStatus == SyncStatus.SYNCED) {
-            db.detectorDao().updateSyncStatus(localId, SyncStatus.PENDING_UPDATE)
+            db.detectorDao().updateSyncStatus(existing.id, SyncStatus.PENDING_UPDATE)
             db.syncQueueDao().enqueue(
                 SyncQueueEntity(
                     entityType = "DETECTOR", operationType = "UPDATE",
-                    localEntityId = localId, payload = gson.toJson(request)
+                    localEntityId = existing.id, payload = gson.toJson(request)
                 )
             )
         }
     }
 
-    suspend fun deleteDetector(localId: String) {
-        val existing = db.detectorDao().getById(localId) ?: return
-        db.detectorDao().softDelete(localId)
+    suspend fun deleteDetector(id: String) {
+        val existing = db.detectorDao().getByLocalOrServerId(id) ?: return
         db.reportDao().incrementDetectorCount(existing.reportId, -1)
-        if (existing.syncStatus != SyncStatus.PENDING_CREATE) {
+        if (existing.syncStatus == SyncStatus.PENDING_CREATE) {
+            db.detectorDao().deleteById(existing.id)
+            db.syncQueueDao().cancelPendingCreate(existing.id, "DETECTOR")
+        } else {
+            db.detectorDao().softDelete(existing.id)
+            val serverId = existing.serverId
+            if (serverId != null && serverId != existing.id) {
+                db.detectorDao().deleteById(serverId)
+            }
             db.syncQueueDao().enqueue(
                 SyncQueueEntity(
                     entityType = "DETECTOR", operationType = "DELETE",
-                    localEntityId = localId, payload = "{}"
+                    localEntityId = existing.id, payload = "{}"
                 )
             )
         }
+    }
+
+    private suspend fun replaceDetectorsFromServer(reportId: String, dets: List<DetectorItem>) {
+        val sortedDetectors = dets.sortedWith(compareBy<DetectorItem> { detectorSortKey(it.display_order) }.thenBy { it.id })
+        val pendingLocals = db.detectorDao().getAllByReport(reportId).filter { it.syncStatus != SyncStatus.SYNCED }
+        db.detectorDao().deleteSyncedByReport(reportId)
+        db.attachmentDao().deleteUploadedByEntityType("DETECTOR")
+        db.detectorDao().upsertAll(sortedDetectors.map { it.toEntity(reportId) })
+        if (pendingLocals.isNotEmpty()) db.detectorDao().upsertAll(pendingLocals)
+
+        val detectorAttachments = sortedDetectors.flatMap { det ->
+            det.attachments.map { att ->
+                AttachmentEntity(
+                    id = att.id,
+                    serverId = att.id,
+                    entityId = det.id,
+                    entityType = "DETECTOR",
+                    originalName = att.originalName,
+                    storageKey = att.storageKey,
+                    link = att.link,
+                    mimeType = att.mimeType,
+                    fileSize = att.fileSize.toLongOrNull() ?: 0L,
+                    localUri = null,
+                    isUploaded = true
+                )
+            }
+        }
+        if (detectorAttachments.isNotEmpty()) db.attachmentDao().upsertAll(detectorAttachments)
+    }
+
+    private fun detectorSortKey(rank: String?): String {
+        val value = rank?.trim().orEmpty()
+        return if (value.isEmpty()) "\uFFFF" else value
     }
 }

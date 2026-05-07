@@ -36,8 +36,10 @@ class InventoryRoomsAdapter(
 
     var isEditMode = false
         private set
+    private var canReorder = true
 
     private var filteredList = originalList.toMutableList()
+    private var pendingItemRoomIds: Set<String> = emptySet()
     private var dragFromPosition = -1
     var itemTouchHelper: ItemTouchHelper? = null
 
@@ -64,11 +66,16 @@ class InventoryRoomsAdapter(
         val room = filteredList[position]
         holder.tvAddress.text = room.name
 
-        holder.ivDragHandle.visibility = if (isEditMode) View.VISIBLE else View.GONE
+        holder.ivDragHandle.visibility = if (isEditMode && canReorder) View.VISIBLE else View.GONE
         holder.ivEdit.visibility = if (isEditMode) View.VISIBLE else View.GONE
         holder.ivDelete.visibility = if (isEditMode) View.VISIBLE else View.GONE
         holder.imgArrow.visibility = if (isEditMode) View.GONE else View.VISIBLE
         holder.ivSync.visibility = if (isEditMode) View.GONE else View.VISIBLE
+        val hasPendingItemSync = room.id?.let { pendingItemRoomIds.contains(it) } == true
+        val shouldShowSyncing = room.isSyncing || hasPendingItemSync
+        holder.ivSync.setImageResource(
+            if (shouldShowSyncing) R.drawable.svg_syncing else R.drawable.svg_synced
+        )
 
         holder.ivDragHandle.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_DOWN) {
@@ -114,8 +121,9 @@ class InventoryRoomsAdapter(
         }
     }
 
-    fun setEditMode(editMode: Boolean) {
+    fun setEditMode(editMode: Boolean, canReorder: Boolean = true) {
         isEditMode = editMode
+        this.canReorder = canReorder
         notifyDataSetChanged()
     }
 
@@ -136,6 +144,11 @@ class InventoryRoomsAdapter(
 
     fun updateList(list: List<RoomsResponse>) {
         filteredList = list.toMutableList()
+        notifyDataSetChanged()
+    }
+
+    fun updatePendingItemRoomIds(ids: Set<String>) {
+        pendingItemRoomIds = ids
         notifyDataSetChanged()
     }
 

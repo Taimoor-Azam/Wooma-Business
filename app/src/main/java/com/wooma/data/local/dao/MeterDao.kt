@@ -17,8 +17,17 @@ interface MeterDao {
     @Query("SELECT * FROM meters WHERE reportId = :reportId AND isDeleted = 0")
     suspend fun getByReport(reportId: String): List<MeterEntity>
 
+    @Query("SELECT * FROM meters WHERE reportId = :reportId")
+    suspend fun getAllByReport(reportId: String): List<MeterEntity>
+
     @Query("SELECT * FROM meters WHERE id = :id")
     suspend fun getById(id: String): MeterEntity?
+
+    @Query("SELECT * FROM meters WHERE id = :id OR serverId = :id ORDER BY CASE WHEN id LIKE 'local_%' THEN 0 ELSE 1 END LIMIT 1")
+    suspend fun getByLocalOrServerId(id: String): MeterEntity?
+
+    @Query("DELETE FROM meters WHERE id = :id")
+    suspend fun deleteById(id: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(meter: MeterEntity)
@@ -37,4 +46,10 @@ interface MeterDao {
 
     @Query("SELECT * FROM meters WHERE syncStatus != 'SYNCED'")
     suspend fun getPendingSync(): List<MeterEntity>
+
+    @Query("DELETE FROM meters WHERE reportId = :reportId AND syncStatus = 'SYNCED'")
+    suspend fun deleteSyncedByReport(reportId: String)
+
+    @Query("SELECT COUNT(*) FROM meters WHERE reportId = :reportId AND isDeleted = 0 AND syncStatus != 'SYNCED'")
+    fun observeUnsyncedCountByReport(reportId: String): Flow<Int>
 }

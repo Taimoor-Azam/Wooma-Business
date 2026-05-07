@@ -12,6 +12,14 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
+        <ImageView
+            android:id="@+id/ivDragHandle"
+            android:layout_width="@dimen/_16sdp"
+            android:layout_height="@dimen/_16sdp"
+            android:layout_marginEnd="@dimen/_8sdp"
+            android:src="@drawable/ic_reorder"
+            android:visibility="gone" />
+
         <TextView
             android:id="@+id/tvItemName"
             android:layout_width="0dp"
@@ -22,12 +30,6 @@
             android:textColor="@color/black"
             android:textSize="@dimen/_15ssp"
             android:textStyle="bold" />
-
-        <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:visibility="gone"
-            android:src="@drawable/svg_synced" />
     </LinearLayout>
 
     <TextView

@@ -3,19 +3,15 @@ package com.wooma.activities.report
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.activities.BaseActivity
 import com.wooma.adapter.SelectRoomItemAdapter
-import com.wooma.data.network.ApiResponseListener
-import com.wooma.data.network.MyApi
-import com.wooma.data.network.makeApiRequest
 import com.wooma.data.network.showToast
+import com.wooma.data.repository.RoomItemRepository
 import com.wooma.databinding.ActivitySelectRoomItemBinding
-import com.wooma.model.AddNewRoomItemsRequest
-import com.wooma.model.ApiResponse
-import com.wooma.model.ErrorResponse
-import com.wooma.model.ReportData
+import com.wooma.sync.SyncScheduler
+import kotlinx.coroutines.launch
 
 class SelectRoomItemActivity : BaseActivity() {
 
@@ -26,6 +22,7 @@ class SelectRoomItemActivity : BaseActivity() {
     private var roomId = ""
 
     private val checkedItems = mutableSetOf<String>()
+    private val repo by lazy { RoomItemRepository(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,36 +73,23 @@ class SelectRoomItemActivity : BaseActivity() {
                 showToast("Please select at least one item")
                 return@setOnClickListener
             }
-            addRoomItemsApi()
+            saveItems()
         }
     }
 
-    private fun addRoomItemsApi() {
-        val request = AddNewRoomItemsRequest(room_items = checkedItems.toList())
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { api -> api.addRoomItemsToReport(reportId, roomId, request) },
-            listener = object : ApiResponseListener<ApiResponse<ArrayList<ReportData>>> {
-                override fun onSuccess(response: ApiResponse<ArrayList<ReportData>>) {
-                    if (response.success) {
-                        showToast("Items added successfully")
-                        finish()
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "Failed to add items")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
+    private fun saveItems() {
+        showLoading("Saving...")
+        lifecycleScope.launch {
+            try {
+                repo.addItems(roomId, checkedItems.toList())
+                SyncScheduler.scheduleImmediateSync(this@SelectRoomItemActivity)
+                finish()
+            } catch (e: Exception) {
+                showToast("Failed to save: ${e.message}")
+            } finally {
+                hideLoading()
             }
-        )
+        }
     }
 
     companion object {

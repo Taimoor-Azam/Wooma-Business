@@ -1,6 +1,8 @@
 package com.wooma.activities.report
 
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import android.os.Bundle
 import android.text.Editable
@@ -278,9 +280,24 @@ class InspectionRoomActivity : BaseActivity() {
                 onDeleteItem = { item, onSuccess ->
                     val roomId = room?.id ?: return@ImageAdapter
                     lifecycleScope.launch {
-                        attachmentRepo.deleteAttachmentOffline(item, roomId, "ROOM")
-                        if (item is ImageItem.Remote) {
-                            SyncScheduler.scheduleImmediateSync(this@InspectionRoomActivity)
+                        when (item) {
+                            is ImageItem.Local -> {
+                                // Not yet on server — always safe to delete locally
+                                attachmentRepo.deleteLocalAttachment(item, roomId, "ROOM")
+                            }
+                            is ImageItem.Remote -> {
+                                if (isNetworkAvailable()) {
+                                    // Online: remove from DB now (image disappears immediately)
+                                    // and trigger background sync to delete from server
+                                    attachmentRepo.deleteRemoteAttachment(item, roomId, "ROOM")
+                                    SyncScheduler.scheduleImmediateSync(this@InspectionRoomActivity)
+                                } else {
+                                    // Offline: keep in DB so image stays visible, queue the
+                                    // server delete — saveServerAttachments removes it from DB
+                                    // once the server confirms deletion on next online refresh
+                                    attachmentRepo.scheduleRemoteAttachmentDelete(item.id)
+                                }
+                            }
                         }
                         onSuccess()
                     }
@@ -440,9 +457,15 @@ class InspectionRoomActivity : BaseActivity() {
         binding.btnDone.visibility = View.GONE
     }
 
+    private fun isNetworkAvailable(): Boolean {
+        val cm = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        val caps = cm.getNetworkCapabilities(cm.activeNetwork ?: return false) ?: return false
+        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
     private fun fetchRoomData() {
         val roomId = room?.id ?: return
-        // Populate existing inspection state from local Room (one-shot)
+        // Populate existing inspection state from local DB (one-shot)
         lifecycleScope.launch {
             val inspection = inspectionRepo.observeInspections(roomId).first().firstOrNull()
             if (inspection != null) {
@@ -463,10 +486,10 @@ class InspectionRoomActivity : BaseActivity() {
             db.attachmentDao().observeByEntity(roomId, "ROOM").collect { dbAttachments ->
                 val newImages = dbAttachments.mapNotNull { a ->
                     when {
+                        a.localUri != null ->
+                            ImageItem.Local(Uri.fromFile(File(a.localUri!!)))
                         a.isUploaded && a.storageKey != null ->
                             ImageItem.Remote(a.serverId ?: a.id, "${ApiClient.IMAGE_BASE_URL}${a.storageKey}")
-                        !a.isUploaded && a.localUri != null ->
-                            ImageItem.Local(Uri.fromFile(File(a.localUri!!)))
                         else -> null
                     }
                 }
@@ -480,6 +503,7 @@ class InspectionRoomActivity : BaseActivity() {
             apiServiceClass = MyApi::class.java,
             context = this,
             showLoading = false,
+            showNetworkError = false,
             requestAction = { api ->
                 api.getInspectionRoomById(
                     report_id = reportId,
@@ -501,9 +525,17 @@ class InspectionRoomActivity : BaseActivity() {
                         // Save inspection to DB and populate UI
                         val serverInspection = roomData.inspection?.firstOrNull()
                         if (serverInspection != null) {
-                            inspectionRepo.saveFromServer(roomId, serverInspection)
+                            try {
+                                inspectionRepo.saveFromServer(roomId, serverInspection)
+                            } catch (_: Exception) {}
                             populateInspection(serverInspection)
                             binding.root.post { hasChanges = false }
+                        } else {
+                            // No inspection on server yet — save a default SYNCED record so
+                            // offline visits load the form instead of showing "no data" error.
+                            try {
+                                inspectionRepo.saveDefaultIfAbsent(roomId)
+                            } catch (_: Exception) {}
                         }
                     }
                 }

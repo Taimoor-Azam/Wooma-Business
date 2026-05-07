@@ -6,6 +6,8 @@ import android.view.View
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.RecyclerView
 import com.wooma.R
 import com.wooma.activities.BaseActivity
 import com.wooma.adapter.InventoryKeysAdapter
@@ -14,6 +16,7 @@ import com.wooma.data.repository.OtherItemsRepository
 import com.wooma.databinding.ActivityInventoryKeysListBinding
 import com.wooma.model.OtherItemsAttachment
 import com.wooma.model.enums.TenantReportStatus
+import com.wooma.sync.ConnectivityObserver
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
@@ -24,8 +27,11 @@ class KeysListingActivity : BaseActivity() {
     var reportId = ""
     var reportStatus = ""
     var showTimestamp = true
+    private var isNetworkAvailable = false
+    private var areAllKeysSynced = false
 
     private val repo by lazy { OtherItemsRepository(this) }
+    private val db by lazy { WoomaDatabase.getInstance(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -38,9 +44,28 @@ class KeysListingActivity : BaseActivity() {
         reportStatus = intent.getStringExtra("reportStatus") ?: ""
         showTimestamp = intent.getBooleanExtra("showTimestamp", true)
 
-        adapter = InventoryKeysAdapter(this, keysList, reportId, reportStatus, showTimestamp)
+        adapter = InventoryKeysAdapter(
+            this,
+            keysList,
+            reportId,
+            reportStatus,
+            showTimestamp,
+            onReorder = { keyId, prevRank, nextRank ->
+                lifecycleScope.launch {
+                    val canReorderNow = isNetworkAvailable &&
+                        reportStatus == TenantReportStatus.IN_PROGRESS.value &&
+                        areAllKeysSynced
+                    if (!canReorderNow) {
+                        adapter.updateList(keysList)
+                        return@launch
+                    }
+                    repo.reorderKey(keyId, prevRank, nextRank)
+                }
+            }
+        )
         binding.rvMeters.adapter = adapter
         binding.ivBack.setOnClickListener { finish() }
+        adapter.setEditMode(true, canReorder = false)
 
         if (reportStatus != TenantReportStatus.IN_PROGRESS.value) binding.ivAdd.visibility = View.GONE
 
@@ -51,8 +76,6 @@ class KeysListingActivity : BaseActivity() {
                     .putExtra("showTimestamp", showTimestamp)
             )
         }
-
-        val db = WoomaDatabase.getInstance(this)
 
         // Observe keys from Room — instant, works offline
         lifecycleScope.launch {
@@ -75,7 +98,8 @@ class KeysListingActivity : BaseActivity() {
                                     entityType = att.entityType,
                                     originalName = att.originalName,
                                     storageKey = att.storageKey ?: "",
-                                    link = att.link,
+                                    link = att.localUri?.let { "file://$it" }
+                                        ?: if (att.isUploaded) att.link else null,
                                     mimeType = att.mimeType,
                                     fileSize = att.fileSize.toString()
                                 )
@@ -101,6 +125,79 @@ class KeysListingActivity : BaseActivity() {
                 }
             }
         }
+
+        val touchCallback = object : ItemTouchHelper.Callback() {
+            private val edgeScrollThresholdPx by lazy { (72 * resources.displayMetrics.density).toInt() }
+            private val edgeScrollStepPx by lazy { (16 * resources.displayMetrics.density).toInt() }
+
+            override fun getMovementFlags(rv: RecyclerView, vh: RecyclerView.ViewHolder): Int {
+                val canMove = adapter.isEditMode && isNetworkAvailable && areAllKeysSynced
+                return if (canMove) makeMovementFlags(ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0)
+                else makeMovementFlags(0, 0)
+            }
+
+            override fun onMove(
+                rv: RecyclerView,
+                vh: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean {
+                adapter.onItemMove(vh.adapterPosition, target.adapterPosition)
+                return true
+            }
+
+            override fun onSwiped(vh: RecyclerView.ViewHolder, direction: Int) {}
+            override fun isLongPressDragEnabled() = false
+
+            override fun clearView(rv: RecyclerView, vh: RecyclerView.ViewHolder) {
+                super.clearView(rv, vh)
+                adapter.onDropCompleted(vh.adapterPosition)
+            }
+
+            override fun onChildDraw(
+                c: android.graphics.Canvas,
+                rv: RecyclerView,
+                vh: RecyclerView.ViewHolder,
+                dX: Float,
+                dY: Float,
+                actionState: Int,
+                isCurrentlyActive: Boolean
+            ) {
+                super.onChildDraw(c, rv, vh, dX, dY, actionState, isCurrentlyActive)
+                if (actionState != ItemTouchHelper.ACTION_STATE_DRAG || !isCurrentlyActive) return
+
+                val itemTop = vh.itemView.top + dY
+                val itemBottom = vh.itemView.bottom + dY
+                val topEdge = rv.paddingTop + edgeScrollThresholdPx
+                val bottomEdge = rv.height - rv.paddingBottom - edgeScrollThresholdPx
+                when {
+                    itemTop < topEdge -> rv.scrollBy(0, -edgeScrollStepPx)
+                    itemBottom > bottomEdge -> rv.scrollBy(0, edgeScrollStepPx)
+                }
+            }
+        }
+        val itemTouchHelper = ItemTouchHelper(touchCallback)
+        itemTouchHelper.attachToRecyclerView(binding.rvMeters)
+        adapter.itemTouchHelper = itemTouchHelper
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                ConnectivityObserver(this@KeysListingActivity)
+                    .observeConnectivity()
+                    .collect { connected ->
+                        isNetworkAvailable = connected
+                        updateReorderAvailability()
+                    }
+            }
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                db.keyDao().observeUnsyncedCountByReport(reportId).collect { unsyncedCount ->
+                    areAllKeysSynced = unsyncedCount == 0
+                    updateReorderAvailability()
+                }
+            }
+        }
     }
 
     override fun onResume() {
@@ -108,5 +205,12 @@ class KeysListingActivity : BaseActivity() {
         lifecycleScope.launch {
             try { repo.refreshKeys(reportId) } catch (_: Exception) {}
         }
+    }
+
+    private fun updateReorderAvailability() {
+        val canReorder = isNetworkAvailable &&
+            reportStatus == TenantReportStatus.IN_PROGRESS.value &&
+            areAllKeysSynced
+        adapter.setEditMode(true, canReorder = canReorder)
     }
 }

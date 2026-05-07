@@ -1,7 +1,6 @@
 package com.wooma.activities.property
 
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -10,15 +9,11 @@ import com.wooma.activities.BaseActivity
 import com.wooma.adapter.ArchivePropertyAdapter
 import com.wooma.customs.Utils
 import com.wooma.data.local.mapper.toProperty
-import com.wooma.data.network.ApiResponseListener
-import com.wooma.data.network.MyApi
-import com.wooma.data.network.makeApiRequest
 import com.wooma.data.network.showToast
 import com.wooma.data.repository.PropertyRepository
 import com.wooma.databinding.ActivityArchivePropertiesListingBinding
-import com.wooma.model.ApiResponse
-import com.wooma.model.ErrorResponse
 import com.wooma.model.Property
+import com.wooma.sync.SyncScheduler
 import kotlinx.coroutines.launch
 
 class ArchivePropertiesActivity : BaseActivity() {
@@ -47,7 +42,7 @@ class ArchivePropertiesActivity : BaseActivity() {
                         "Restore Property",
                         "Are you sure you want to restore ${item.address}, ${item.city}, ${item.postcode} to your active properties?"
                     ) {
-                        unarchivePropertyApi(item.id ?: "")
+                        restoreProperty(item.id ?: "")
                     }
                 }
             }
@@ -84,36 +79,14 @@ class ArchivePropertiesActivity : BaseActivity() {
         }
     }
 
-    private fun unarchivePropertyApi(id: String) {
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { apiService -> apiService.restoreProperty(id) },
-            listener = object : ApiResponseListener<ApiResponse<Property>> {
-                override fun onSuccess(response: ApiResponse<Property>) {
-                    if (response.success) {
-                        lifecycleScope.launch {
-                            try {
-                                propertyRepo.upsertFromServer(response.data)
-                            } catch (_: Exception) {}
-                            try {
-                                propertyRepo.refreshArchivedProperties()
-                            } catch (_: Exception) {}
-                        }
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
+    private fun restoreProperty(id: String) {
+        lifecycleScope.launch {
+            try {
+                propertyRepo.restoreProperty(id)
+                SyncScheduler.scheduleImmediateSync(this@ArchivePropertiesActivity)
+            } catch (e: Exception) {
+                showToast("Failed to restore: ${e.message}")
             }
-        )
+        }
     }
 }

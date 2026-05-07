@@ -30,21 +30,20 @@ class InventoryCheckListQuestionAdapter(
     private val isReadOnly: Boolean = false,
     private val onAnswerSelected: (question: Question, answerOption: String) -> Unit,
     private val onNoteChanged: (question: Question, note: String, showLoading: Boolean) -> Unit,
-    private val onCameraClick: (questionId: String) -> Unit
+    private val onCameraClick: (questionId: String) -> Unit,
+    /** When set, deletes update Room + server; required so images do not reappear after delete. */
+    private val onChecklistImageDelete: ((questionId: String, item: ImageItem, onComplete: () -> Unit) -> Unit)? = null
 ) : RecyclerView.Adapter<InventoryCheckListQuestionAdapter.ViewHolder>() {
     private var isHandlingEnter = false
 
     private var filteredList = originalList.toMutableList()
-    private val expandedStates = mutableMapOf<String, Boolean>()
     private val localPhotos = mutableMapOf<String, MutableList<Uri>>()
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvQuestion: TextView = view.findViewById(R.id.tvQuestion)
-        val ivChevron: ImageView = view.findViewById(R.id.ivChevron)
         val btnYes: TextView = view.findViewById(R.id.btnYes)
         val btnNo: TextView = view.findViewById(R.id.btnNo)
         val btnNA: TextView = view.findViewById(R.id.btnNA)
-        val expandedLayout: LinearLayout = view.findViewById(R.id.expandedLayout)
         val ivAddImage: ImageView = view.findViewById(R.id.ivAddImage)
         val rvImages: RecyclerView = view.findViewById(R.id.rvImages)
         val etNote: EditText = view.findViewById(R.id.etNote)
@@ -65,20 +64,6 @@ class InventoryCheckListQuestionAdapter(
 
         holder.tvQuestion.text = item.text
         updateAnswerButtons(holder, item.answer_option)
-
-        val isExpanded = expandedStates[questionId] ?: false
-        holder.expandedLayout.visibility = if (isExpanded) View.VISIBLE else View.GONE
-        holder.ivChevron.rotation = if (isExpanded) 270f else 90f
-
-        holder.ivChevron.setOnClickListener {
-            val pos = holder.adapterPosition.takeIf { it != RecyclerView.NO_ID.toInt() }
-                ?: return@setOnClickListener
-            val qId =
-                filteredList.getOrNull(pos)?.checklist_question_id ?: return@setOnClickListener
-            val expanded = !(expandedStates[qId] ?: false)
-            expandedStates[qId] = expanded
-            notifyItemChanged(pos)
-        }
 
         if (!isReadOnly) {
             holder.btnYes.setOnClickListener {
@@ -226,12 +211,26 @@ class InventoryCheckListQuestionAdapter(
 
         holder.rvImages.layoutManager =
             LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+        val qid = questionId
         holder.rvImages.adapter =
-            ImageAdapter(photoList, showDelete = !isReadOnly, title = item.text)
+            ImageAdapter(
+                photoList,
+                showDelete = !isReadOnly,
+                title = item.text,
+                onDeleteItem = if (!isReadOnly && onChecklistImageDelete != null && qid != null) { del, onDone ->
+                    onChecklistImageDelete.invoke(qid, del, onDone)
+                } else null
+            )
     }
 
     fun deliverPhotos(questionId: String, uris: List<Uri>) {
         localPhotos.getOrPut(questionId) { mutableListOf() }.addAll(uris)
+        val position = filteredList.indexOfFirst { it.checklist_question_id == questionId }
+        if (position != -1) notifyItemChanged(position)
+    }
+
+    fun clearLocalPhotos(questionId: String) {
+        localPhotos.remove(questionId)
         val position = filteredList.indexOfFirst { it.checklist_question_id == questionId }
         if (position != -1) notifyItemChanged(position)
     }
