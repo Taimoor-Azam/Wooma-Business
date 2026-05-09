@@ -124,11 +124,21 @@
 
         </LinearLayout>
 
+        <TextView
+            android:id="@+id/tvChecklistTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/_10sdp"
+            android:fontFamily="@font/sofiasans_medium"
+            android:text="@string/notes_optional"
+            android:textColor="@color/black"
+            android:textSize="@dimen/_12ssp" />
+
         <!-- Note input -->
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="@dimen/_10sdp"
+            android:layout_marginTop="@dimen/_5sdp"
             android:background="@drawable/bg_edittext">
 
             <EditText
