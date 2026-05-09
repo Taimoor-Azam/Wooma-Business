@@ -168,6 +168,11 @@ class InventoryRoomsAdapter(
         notifyDataSetChanged()
     }
 
+    fun updatePendingItemRoomIds(ids: Set<String>) {
+        pendingItemRoomIds = ids
+        notifyDataSetChanged()
+    }
+
     fun filter(query: String) {
         filteredList = if (query.isEmpty()) {
             originalList.toMutableList()

@@ -122,4 +122,18 @@ class PropertyRepository(private val context: Context) {
             )
         }
     }
+
+    suspend fun restoreProperty(localId: String) = withContext(Dispatchers.IO) {
+        val existing = dao.getById(localId) ?: return@withContext
+        dao.upsert(existing.copy(isActive = true, syncStatus = SyncStatus.PENDING_UPDATE))
+        db.reportDao().restoreByProperty(localId)
+        if (existing.serverId != null) {
+            db.syncQueueDao().enqueue(
+                SyncQueueEntity(
+                    entityType = "PROPERTY", operationType = "RESTORE",
+                    localEntityId = localId, payload = "{}"
+                )
+            )
+        }
+    }
 }
