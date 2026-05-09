@@ -23,8 +23,29 @@ interface PropertyDao {
     @Query("SELECT * FROM properties WHERE id = :id")
     suspend fun getById(id: String): PropertyEntity?
 
+    @Query("SELECT * FROM properties WHERE serverId = :serverId LIMIT 1")
+    suspend fun getByServerId(serverId: String): PropertyEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(property: PropertyEntity)
+
+    @Query(
+        "UPDATE properties SET " +
+            "address = :address, " +
+            "addressLine2 = :addressLine2, " +
+            "city = :city, " +
+            "postcode = :postcode, " +
+            "syncStatus = :syncStatus " +
+            "WHERE id = :id"
+    )
+    suspend fun updateEditableFields(
+        id: String,
+        address: String,
+        addressLine2: String?,
+        city: String,
+        postcode: String,
+        syncStatus: SyncStatus
+    )
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(properties: List<PropertyEntity>)
@@ -79,6 +100,23 @@ interface PropertyDao {
         isActive: Boolean,
         noOfReports: Int,
         lastActivity: String?,
+        updatedAt: String
+    ): Int
+
+    @Query("""UPDATE properties SET
+        address = :address, addressLine2 = :addressLine2, city = :city,
+        postcode = :postcode, country = :country, propertyType = :propertyType,
+        isActive = :isActive, updatedAt = :updatedAt
+        WHERE id = :id AND syncStatus = 'SYNCED'""")
+    suspend fun updateFieldsFromListServer(
+        id: String,
+        address: String,
+        addressLine2: String?,
+        city: String,
+        postcode: String,
+        country: String?,
+        propertyType: String?,
+        isActive: Boolean,
         updatedAt: String
     ): Int
 }

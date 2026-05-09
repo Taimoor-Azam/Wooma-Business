@@ -37,11 +37,15 @@ class CheckListAdapter(
         holder.ivArrow.visibility = if (item.is_active) View.VISIBLE else View.GONE
 
         // Set switch without triggering listener
+        holder.switchButton.tag = true
         holder.switchButton.setOnCheckedChangeListener(null)
         holder.switchButton.isChecked = item.is_active
         holder.switchButton.isEnabled = !isReadOnly
+        holder.switchButton.tag = false
 
         holder.switchButton.setOnCheckedChangeListener { _, isChecked ->
+            if (holder.switchButton.tag as? Boolean == true) return@setOnCheckedChangeListener
+            if (isChecked == item.is_active) return@setOnCheckedChangeListener
             onToggle(item.id, isChecked)
         }
 
@@ -54,8 +58,30 @@ class CheckListAdapter(
     }
 
     fun updateList(newList: List<Checklist>) {
+        if (list.isEmpty()) {
+            list = newList.toMutableList()
+            notifyDataSetChanged()
+            return
+        }
+
+        // Keep UI stable: only notify rows that actually changed.
+        val oldById = list.associateBy { it.id }
+        val newById = newList.associateBy { it.id }
+
+        // Fallback to full refresh if structure changed (add/remove/reorder).
+        if (list.size != newList.size || list.map { it.id } != newList.map { it.id }) {
+            list = newList.toMutableList()
+            notifyDataSetChanged()
+            return
+        }
+
         list = newList.toMutableList()
-        notifyDataSetChanged()
+        newList.forEachIndexed { index, item ->
+            val old = oldById[item.id]
+            if (old == null || old.is_active != item.is_active || old.name != item.name) {
+                notifyItemChanged(index)
+            }
+        }
     }
 
     fun updateItem(id: String, isActive: Boolean) {

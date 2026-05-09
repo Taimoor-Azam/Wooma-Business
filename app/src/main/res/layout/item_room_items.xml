@@ -24,9 +24,19 @@
             android:textStyle="bold" />
 
         <ImageView
+            android:id="@+id/ivSync"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:src="@drawable/svg_synced" />
+
+        <ImageView
+            android:id="@+id/ivDragHandle"
+            android:layout_width="@dimen/_16sdp"
+            android:layout_height="@dimen/_16sdp"
+            android:layout_gravity="center_vertical"
+            android:layout_marginStart="@dimen/_8sdp"
+            android:src="@drawable/ic_reorder"
+            android:visibility="gone" />
     </LinearLayout>
 
     <TextView
@@ -68,28 +78,30 @@
                 android:fontFamily="@font/sofiasans_regular"
                 android:text="Condition"
                 android:textColor="@color/black"
-
                 android:textSize="@dimen/_11ssp" />
 
             <LinearLayout
+                android:id="@+id/llConditionBadge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/_3sdp"
-                android:background="@drawable/bg_border_info"
+                android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="@dimen/_8sdp">
+                android:paddingStart="@dimen/_8sdp"
+                android:paddingTop="@dimen/_4sdp"
+                android:paddingEnd="@dimen/_8sdp"
+                android:paddingBottom="@dimen/_4sdp">
 
-                <ImageView
-                    android:id="@+id/ivConditionIcon"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:src="@drawable/svg_excellent" />
+                <View
+                    android:id="@+id/vConditionDot"
+                    android:layout_width="@dimen/_6sdp"
+                    android:layout_height="@dimen/_6sdp"
+                    android:layout_marginEnd="@dimen/_5sdp" />
 
                 <TextView
                     android:id="@+id/tvCondition"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="@dimen/_3sdp"
                     android:fontFamily="@font/sofiasans_regular"
                     android:text="Excellent"
                     android:textColor="@color/black"
@@ -113,24 +125,27 @@
                 android:textSize="@dimen/_11ssp" />
 
             <LinearLayout
+                android:id="@+id/llCleanlinessBadge"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/_3sdp"
-                android:background="@drawable/bg_border_info"
+                android:gravity="center_vertical"
                 android:orientation="horizontal"
-                android:padding="@dimen/_8sdp">
+                android:paddingStart="@dimen/_8sdp"
+                android:paddingTop="@dimen/_4sdp"
+                android:paddingEnd="@dimen/_8sdp"
+                android:paddingBottom="@dimen/_4sdp">
 
-                <ImageView
-                    android:id="@+id/ivCleanliness"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:src="@drawable/svg_excellent" />
+                <View
+                    android:id="@+id/vCleanlinessDot"
+                    android:layout_width="@dimen/_6sdp"
+                    android:layout_height="@dimen/_6sdp"
+                    android:layout_marginEnd="@dimen/_5sdp" />
 
                 <TextView
                     android:id="@+id/tvCleanliness"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_marginStart="@dimen/_3sdp"
                     android:fontFamily="@font/sofiasans_regular"
                     android:text="Excellent"
                     android:textColor="@color/black"

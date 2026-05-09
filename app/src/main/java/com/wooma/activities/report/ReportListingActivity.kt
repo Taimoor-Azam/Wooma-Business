@@ -127,7 +127,13 @@ class ReportListingActivity : BaseActivity() {
                 launch {
                     propertyRepo.observeById(targetPropertyId).collect { prop ->
                         prop ?: return@collect
-                        binding.tvTitle.text = prop.address
+                        val address1 = prop.address.trim()
+                        val address2 = prop.addressLine2?.trim().orEmpty()
+                        binding.tvTitle.text = if (address2.isNotEmpty()) {
+                            "$address1, $address2"
+                        } else {
+                            address1
+                        }
                         binding.ivReportEdit.setOnClickListener {
                             startActivity(
                                 Intent(this@ReportListingActivity, EditPropertyActivity::class.java)

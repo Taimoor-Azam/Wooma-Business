@@ -110,8 +110,8 @@ class CompleteReportActivity : BaseActivity() {
         val connectivity = ConnectivityObserver(this)
         lifecycleScope.launch {
             combine(
-                db.syncQueueDao().countPending(),
-                db.pendingUploadDao().countPending(),
+                db.syncQueueDao().observePendingCountByReport(reportId),
+                db.pendingUploadDao().observePendingCountByReport(reportId),
                 connectivity.observeConnectivity()
             ) { pendingSync, pendingUploads, isOnline ->
                 Triple(pendingSync, pendingUploads, isOnline)

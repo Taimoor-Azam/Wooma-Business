@@ -41,6 +41,20 @@ class InspectionRepository(private val ctx: Context) {
         }
     }
 
+    suspend fun saveDefaultIfAbsent(roomId: String) = withContext(Dispatchers.IO) {
+        val existing = db.roomInspectionDao().getByRoom(roomId).firstOrNull()
+        if (existing == null) {
+            db.roomInspectionDao().upsert(
+                RoomInspectionEntity(
+                    id = "local_${UUID.randomUUID().toString().replace("-", "")}",
+                    roomId = roomId,
+                    isIssue = false,
+                    syncStatus = SyncStatus.SYNCED
+                )
+            )
+        }
+    }
+
     suspend fun upsertInspection(reportId: String, roomId: String, request: UpsertRoomInspectionRequest) = withContext(Dispatchers.IO) {
         val existing = db.roomInspectionDao().getByRoom(roomId).firstOrNull()
         

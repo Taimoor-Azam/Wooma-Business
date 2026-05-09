@@ -35,6 +35,16 @@ interface ChecklistInfoFieldDao {
     @Query("SELECT * FROM checklist_info_fields WHERE syncStatus != 'SYNCED'")
     suspend fun getPendingSync(): List<ChecklistInfoFieldEntity>
 
+    @Query("SELECT * FROM checklist_info_fields WHERE reportChecklistId = :checklistId AND syncStatus != 'SYNCED'")
+    suspend fun getPendingByChecklist(checklistId: String): List<ChecklistInfoFieldEntity>
+
+    @Query(
+        "SELECT COUNT(*) FROM checklist_info_fields f " +
+            "INNER JOIN checklists c ON c.id = f.reportChecklistId " +
+            "WHERE c.reportId = :reportId AND f.syncStatus != 'SYNCED'"
+    )
+    fun observePendingCountByReport(reportId: String): Flow<Int>
+
     @Query("DELETE FROM checklist_info_fields WHERE reportChecklistId = :checklistId")
     suspend fun deleteByChecklist(checklistId: String)
 }

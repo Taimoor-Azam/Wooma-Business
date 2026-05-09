@@ -3,9 +3,12 @@ package com.wooma.adapter
 import android.content.Context
 import android.content.Intent
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.wooma.activities.report.otherItems.AddEditDetectorActivity
@@ -20,13 +23,22 @@ class InventoryDetectorAdapter(
     private val originalList: MutableList<DetectorItem>,
     val reportId: String,
     val reportStatus: String = "",
-    val showTimestamp: Boolean = true
+    val showTimestamp: Boolean = true,
+    private val onReorder: ((detectorId: String, prevRank: String?, nextRank: String?) -> Unit)? = null
 ) : RecyclerView.Adapter<InventoryDetectorAdapter.ViewHolder>() {
+
+    var isEditMode = false
+        private set
+    private var canReorder = false
+    var itemTouchHelper: ItemTouchHelper? = null
+    private var dragFromPosition = -1
 
     private var filteredList = originalList.toMutableList()
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val tvItemName: TextView = view.findViewById(R.id.tvItemName)
+        val ivSync: ImageView = view.findViewById(R.id.ivSync)
+        val ivDragHandle: ImageView = view.findViewById(R.id.ivDragHandle)
         val tvLocation: TextView = view.findViewById(R.id.tvLocation)
         val tvLocationLabel: TextView = view.findViewById(R.id.tvLocationLabel)
         val tvResultLabel: TextView = view.findViewById(R.id.tvResultLabel)
@@ -44,6 +56,15 @@ class InventoryDetectorAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = filteredList[position]
+        holder.ivDragHandle.visibility = if (isEditMode && canReorder) View.VISIBLE else View.GONE
+        holder.ivSync.visibility = if (isEditMode) View.GONE else View.VISIBLE
+        if (!isEditMode) {
+            holder.ivSync.setImageResource(if (item.isSyncing) R.drawable.svg_syncing else R.drawable.svg_synced)
+        }
+        holder.ivDragHandle.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) itemTouchHelper?.startDrag(holder)
+            false
+        }
 
         holder.tvItemName.text = item.name
 
@@ -83,6 +104,28 @@ class InventoryDetectorAdapter(
     fun updateList(list: List<DetectorItem>) {
         filteredList = list.toMutableList()
         notifyDataSetChanged()
+    }
+
+    fun setEditMode(editMode: Boolean, canReorder: Boolean = true) {
+        isEditMode = editMode
+        this.canReorder = canReorder
+        notifyDataSetChanged()
+    }
+
+    fun onItemMove(from: Int, to: Int) {
+        if (from !in filteredList.indices || to !in filteredList.indices) return
+        if (dragFromPosition == -1) dragFromPosition = from
+        java.util.Collections.swap(filteredList, from, to)
+        notifyItemMoved(from, to)
+    }
+
+    fun onDropCompleted(finalPosition: Int) {
+        if (dragFromPosition == -1 || finalPosition !in filteredList.indices) return
+        val moved = filteredList[finalPosition]
+        val prevRank = if (finalPosition > 0) filteredList[finalPosition - 1].display_order else null
+        val nextRank = if (finalPosition < filteredList.size - 1) filteredList[finalPosition + 1].display_order else null
+        onReorder?.invoke(moved.id, prevRank, nextRank)
+        dragFromPosition = -1
     }
 
     fun filter(query: String) {

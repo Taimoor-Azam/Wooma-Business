@@ -29,6 +29,7 @@ class InventoryOtherItemsAdapter(
         val tvName: TextView = view.findViewById(R.id.tvName)
         val tvSub: TextView = view.findViewById(R.id.tvSub)
         val ivIcon: ImageView = view.findViewById(R.id.ivIcon)
+        val ivSync: ImageView = view.findViewById(R.id.ivSync)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -42,6 +43,7 @@ class InventoryOtherItemsAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         holder.tvName.text = filteredList[position].label
         holder.tvSub.text = "${filteredList[position].value} recorded"
+        val item = filteredList[position]
 
         holder.itemView.setOnClickListener {
             val intent = when (filteredList[position].label) {
@@ -60,7 +62,7 @@ class InventoryOtherItemsAdapter(
         holder.ivIcon.setImageDrawable(
             ContextCompat.getDrawable(
                 context,
-                when (filteredList[position].label) {
+                when (item.label) {
                     "Meters" -> R.drawable.svg_meter
                     "Keys" -> R.drawable.svg_keys
                     "Detectors" -> R.drawable.svg_detector
@@ -68,6 +70,15 @@ class InventoryOtherItemsAdapter(
                 }
             )
         )
+
+        if (item.label == "Meters" || item.label == "Keys" || item.label == "Detectors" || item.label == "Checklist") {
+            holder.ivSync.visibility = View.VISIBLE
+            holder.ivSync.setImageResource(
+                if (item.isSyncing) R.drawable.svg_syncing else R.drawable.svg_synced
+            )
+        } else {
+            holder.ivSync.visibility = View.GONE
+        }
     }
 
     fun updateList(list: List<CountItem>) {

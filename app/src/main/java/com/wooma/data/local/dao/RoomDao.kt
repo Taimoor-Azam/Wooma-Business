@@ -11,10 +11,16 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface RoomDao {
 
-    @Query("SELECT * FROM rooms WHERE reportId = :reportId ORDER BY displayOrder ASC")
+    @Query(
+        "SELECT * FROM rooms WHERE reportId = :reportId " +
+            "ORDER BY CASE WHEN displayOrder IS NULL OR displayOrder = '' THEN 1 ELSE 0 END, displayOrder ASC"
+    )
     fun observeByReport(reportId: String): Flow<List<RoomEntity>>
 
-    @Query("SELECT * FROM rooms WHERE reportId = :reportId ORDER BY displayOrder ASC")
+    @Query(
+        "SELECT * FROM rooms WHERE reportId = :reportId " +
+            "ORDER BY CASE WHEN displayOrder IS NULL OR displayOrder = '' THEN 1 ELSE 0 END, displayOrder ASC"
+    )
     suspend fun getByReport(reportId: String): List<RoomEntity>
 
     @Query("SELECT * FROM rooms WHERE id = :id")
@@ -28,6 +34,15 @@ interface RoomDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rooms: List<RoomEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIgnore(room: RoomEntity): Long
+
+    @Query("UPDATE rooms SET name = :name, templateId = :templateId, displayOrder = :displayOrder, syncStatus = 'SYNCED' WHERE id = :id AND syncStatus = 'SYNCED'")
+    suspend fun updateFromServer(id: String, name: String, templateId: String?, displayOrder: String?): Int
+
+    @Query("UPDATE rooms SET name = :name, templateId = :templateId, displayOrder = :displayOrder WHERE serverId = :serverId AND syncStatus = 'SYNCED'")
+    suspend fun updateFromServerByServerId(serverId: String, name: String, templateId: String?, displayOrder: String?): Int
 
     @Query("UPDATE rooms SET serverId = :serverId, syncStatus = 'SYNCED' WHERE id = :localId")
     suspend fun promoteLocalId(localId: String, serverId: String)

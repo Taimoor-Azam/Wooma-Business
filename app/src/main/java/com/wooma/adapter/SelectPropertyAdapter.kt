@@ -26,20 +26,25 @@ class SelectPropertyAdapter(
     }
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val address: TextView = view.findViewById(R.id.tvAddress)
+        val tvAddress: TextView = view.findViewById(R.id.tvAddress)
+        val tvAddressTwo: TextView = view.findViewById(R.id.tvAddressTwo)
+        val tvTotalReports: TextView = view.findViewById(R.id.tvTotalReports)
         val propertyMainLayout: ConstraintLayout = view.findViewById(R.id.propertyMainLayout)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_select_property, parent, false)
+            .inflate(R.layout.item_property, parent, false)
         return ViewHolder(view)
     }
 
     override fun getItemCount() = filteredList.size
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.address.text = filteredList[position].address
+        val item = filteredList[position]
+        holder.tvAddress.text = item.address + " " + if (!item.addressLine2.isNullOrEmpty()) ", " + item.addressLine2 else ""
+        holder.tvAddressTwo.text = item.city + ", " + item.postcode
+        holder.tvTotalReports.visibility = View.GONE
 
         holder.propertyMainLayout.setOnClickListener {
             if (isFromProperty) {
@@ -48,7 +53,7 @@ class SelectPropertyAdapter(
                   Intent(
                       context,
                       SelectReportTypeActivity::class.java
-                  ).putExtra("propertyId", filteredList[position].id)
+                  ).putExtra("propertyId", item.id)
               )
                 /*context.startActivity(
                     Intent(
@@ -57,7 +62,7 @@ class SelectPropertyAdapter(
                     ).putExtra("propertyId", filteredList[position].id)
                 )*/
             } else {
-                itemClick?.onPropertyClick(filteredList[position])
+                itemClick?.onPropertyClick(item)
 
             }
         }

@@ -35,8 +35,19 @@ class PostalAddressAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = filteredList[position]
-        holder.tvAddress.text =
-            item.line_1 + ", " + if (item.line_2 != null) item.line_2 + ", " else "" + item.post_town + ", " + item.postcode
+        val firstLine = item.line_1.trim().orEmpty()
+        val secondLineParts = mutableListOf<String>()
+        item.line_2?.trim()?.takeIf { it.isNotEmpty() }?.let { secondLineParts.add(it) }
+        secondLineParts.add(item.post_town.trim().orEmpty())
+        secondLineParts.add(item.postcode.trim().orEmpty())
+        val secondLine = secondLineParts.joinToString(", ")
+
+        holder.tvAddress.text = when {
+            firstLine.isNotEmpty() && secondLine.isNotEmpty() -> "$firstLine $secondLine"
+            firstLine.isNotEmpty() -> firstLine
+            secondLine.isNotEmpty() -> secondLine
+            else -> ""
+        }
 
         holder.tvAddress.setOnClickListener {
             itemClick.onItemClick(item)

@@ -15,6 +15,7 @@ data class Meter(
     val location: String?,
     val serial_number: String?,
     val display_order: String,
+    val isSyncing: Boolean = false,
     val attachments: List<OtherItemsAttachment>
 ) : Parcelable {
 
@@ -30,7 +31,8 @@ data class Meter(
         location = parcel.readString(),
         serial_number = parcel.readString(),
         display_order = parcel.readString() ?: "",
-        attachments = parcel.createTypedArrayList(OtherItemsAttachment.CREATOR) ?: emptyList()
+        attachments = parcel.createTypedArrayList(OtherItemsAttachment.CREATOR) ?: emptyList(),
+        isSyncing = if (parcel.dataAvail() > 0) parcel.readByte() != 0.toByte() else false
     )
 
     override fun describeContents(): Int = 0
@@ -48,6 +50,7 @@ data class Meter(
         parcel.writeString(serial_number)
         parcel.writeString(display_order)
         parcel.writeTypedList(attachments)
+        parcel.writeByte(if (isSyncing) 1 else 0)
     }
 
     companion object CREATOR : Parcelable.Creator<Meter> {
@@ -140,6 +143,7 @@ data class KeyItem(
     val is_deleted: Boolean,
     val created_at: String,
     val updated_at: String,
+    val isSyncing: Boolean = false,
     val attachments: List<OtherItemsAttachment>
 ) : Parcelable {
 
@@ -153,7 +157,8 @@ data class KeyItem(
         is_deleted = parcel.readByte() != 0.toByte(),
         created_at = parcel.readString() ?: "",
         updated_at = parcel.readString() ?: "",
-        attachments = parcel.createTypedArrayList(OtherItemsAttachment.CREATOR) ?: emptyList()
+        attachments = parcel.createTypedArrayList(OtherItemsAttachment.CREATOR) ?: emptyList(),
+        isSyncing = if (parcel.dataAvail() > 0) parcel.readByte() != 0.toByte() else false
     )
 
     override fun describeContents(): Int = 0
@@ -169,6 +174,7 @@ data class KeyItem(
         parcel.writeString(created_at)
         parcel.writeString(updated_at)
         parcel.writeTypedList(attachments)
+        parcel.writeByte(if (isSyncing) 1 else 0)
     }
 
     companion object CREATOR : Parcelable.Creator<KeyItem> {
@@ -188,6 +194,7 @@ data class DetectorItem(
     val is_deleted: Boolean,
     val created_at: String,
     val updated_at: String,
+    val isSyncing: Boolean = false,
     val attachments: List<OtherItemsAttachment>
 ) : Parcelable {
 
@@ -201,7 +208,8 @@ data class DetectorItem(
         is_deleted = parcel.readByte() != 0.toByte(),
         created_at = parcel.readString() ?: "",
         updated_at = parcel.readString() ?: "",
-        attachments = parcel.createTypedArrayList(OtherItemsAttachment.CREATOR) ?: emptyList()
+        attachments = parcel.createTypedArrayList(OtherItemsAttachment.CREATOR) ?: emptyList(),
+        isSyncing = if (parcel.dataAvail() > 0) parcel.readByte() != 0.toByte() else false
     )
 
     override fun describeContents(): Int = 0
@@ -217,6 +225,7 @@ data class DetectorItem(
         parcel.writeString(created_at)
         parcel.writeString(updated_at)
         parcel.writeTypedList(attachments)
+        parcel.writeByte(if (isSyncing) 1 else 0)
     }
 
     companion object CREATOR : Parcelable.Creator<DetectorItem> {

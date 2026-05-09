@@ -29,7 +29,8 @@
             android:layout_height="@dimen/_15sdp"
             android:layout_marginStart="@dimen/_8sdp"
             android:rotation="90"
-            android:src="@drawable/svg_right_arrow" />
+            android:src="@drawable/svg_right_arrow"
+            android:visibility="gone" />
 
     </LinearLayout>
 
@@ -93,7 +94,7 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="@dimen/_12sdp"
         android:orientation="vertical"
-        android:visibility="gone">
+        android:visibility="visible">
 
         <!-- Photo row: camera button + captured photos -->
         <LinearLayout

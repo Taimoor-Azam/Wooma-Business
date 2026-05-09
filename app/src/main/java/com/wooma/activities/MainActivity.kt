@@ -7,7 +7,11 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import com.wooma.R
+import com.wooma.data.local.WoomaDatabase
+import com.wooma.data.local.entity.RatingEntity
+import com.wooma.data.network.RetrofitClient
 import com.wooma.databinding.ActivityMainBinding
 import com.wooma.fragment.MessagesFragment
 import com.wooma.fragment.PropertiesFragment
@@ -15,6 +19,9 @@ import com.wooma.fragment.SettingsFragment
 import com.wooma.storage.Prefs
 import im.crisp.client.external.ChatActivity
 import im.crisp.client.external.Crisp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : BaseActivity() {
 
@@ -33,6 +40,8 @@ class MainActivity : BaseActivity() {
                 .commit()
         }
 
+        fetchAndCacheRatings()
+
         binding.bottomNavigation.setOnItemSelectedListener {
             when (it.itemId) {
                 R.id.nav_home -> loadFragment(PropertiesFragment())
@@ -42,6 +51,21 @@ class MainActivity : BaseActivity() {
             true
         }
 
+    }
+
+    private fun fetchAndCacheRatings() {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val response = RetrofitClient.getApi(this@MainActivity).getRatings().execute()
+                val data = response.body()?.data ?: return@launch
+                val entities = data.condition.map { r ->
+                    RatingEntity("condition_${r.type_code}", "condition", r.type_code, r.display_name, r.description, r.is_default, r.display_order)
+                } + data.cleanliness.map { r ->
+                    RatingEntity("cleanliness_${r.type_code}", "cleanliness", r.type_code, r.display_name, r.description, r.is_default, r.display_order)
+                }
+                WoomaDatabase.getInstance(this@MainActivity).ratingDao().upsertAll(entities)
+            } catch (_: Exception) {}
+        }
     }
 
     fun openSupportChat() {

@@ -278,6 +278,13 @@ interface MyApi {
         @Body request: AddMeterRequest
     ): Call<ApiResponse<ReportData>>
 
+    @PATCH("/api/v1/tenant-report/{report_id}/meters/{meter_id}/reorder")
+    fun reorderMeter(
+        @Path("report_id") reportId: String,
+        @Path("meter_id") meterId: String,
+        @Body request: ReorderRoomRequest
+    ): Call<ApiResponse<Any>>
+
     @PUT("/api/v1/tenant-report/{report_id}/keys/{id}")
     fun updateKey(
         @Path("report_id") report_id: String,
@@ -285,12 +292,26 @@ interface MyApi {
         @Body request: AddKeyRequest
     ): Call<ApiResponse<ReportData>>
 
+    @PATCH("/api/v1/tenant-report/{report_id}/keys/{key_id}/reorder")
+    fun reorderKey(
+        @Path("report_id") reportId: String,
+        @Path("key_id") keyId: String,
+        @Body request: ReorderRoomRequest
+    ): Call<ApiResponse<Any>>
+
     @PUT("/api/v1/tenant-report/{report_id}/detector/{id}")
     fun updateDetector(
         @Path("report_id") report_id: String,
         @Path("id") id: String,
         @Body request: AddDetectorRequest
     ): Call<ApiResponse<ReportData>>
+
+    @PATCH("/api/v1/tenant-report/{report_id}/detector/{detector_id}/reorder")
+    fun reorderDetector(
+        @Path("report_id") reportId: String,
+        @Path("detector_id") detectorId: String,
+        @Body request: ReorderRoomRequest
+    ): Call<ApiResponse<Any>>
 
     @DELETE("/api/v1/tenant-report/{report_id}/meters/{id}")
     fun deleteMeter(
@@ -331,6 +352,14 @@ interface MyApi {
         @Path("id") id: String,
         @Body request: UpdateRoomItemRequest
     ): Call<ApiResponse<ReportData>>
+
+    @PATCH("/api/v1/tenant-report/{report_id}/room/{room_id}/room-items/{item_id}/reorder")
+    fun reorderRoomItem(
+        @Path("report_id") reportId: String,
+        @Path("room_id") roomId: String,
+        @Path("item_id") itemId: String,
+        @Body request: ReorderRoomRequest
+    ): Call<ApiResponse<Any>>
 
     @POST("/api/v1/tenant-report/{id}/room/{roomId}/room-items/bulk")
     fun addItemToRoom(

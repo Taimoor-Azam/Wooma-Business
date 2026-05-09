@@ -4,19 +4,16 @@ import android.content.Intent
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
-import android.util.Log
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.activities.BaseActivity
 import com.wooma.adapter.SelectRoomItemAdapter
-import com.wooma.data.network.ApiResponseListener
-import com.wooma.data.network.MyApi
-import com.wooma.data.network.makeApiRequest
+import com.wooma.customs.Utils
 import com.wooma.data.network.showToast
+import com.wooma.data.repository.RoomRepository
 import com.wooma.databinding.ActivitySelectRoomItemBinding
-import com.wooma.model.AddNewRoomsRequest
-import com.wooma.model.ApiResponse
-import com.wooma.model.ErrorResponse
-import com.wooma.model.ReportData
+import com.wooma.sync.SyncScheduler
+import kotlinx.coroutines.launch
+import androidx.lifecycle.lifecycleScope
 
 class SelectRoomActivity : BaseActivity() {
 
@@ -25,6 +22,7 @@ class SelectRoomActivity : BaseActivity() {
 
     private var reportId = ""
     private val checkedItems = mutableSetOf<String>()
+    private val roomRepo by lazy { RoomRepository(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -81,37 +79,22 @@ class SelectRoomActivity : BaseActivity() {
                 setResult(RESULT_OK, result)
                 finish()
             } else {
-                addRoomsApi()
+                addRoomsOfflineFirst()
             }
         }
     }
 
-    private fun addRoomsApi() {
-        val request = AddNewRoomsRequest(rooms = checkedItems.toList())
-        makeApiRequest(
-            apiServiceClass = MyApi::class.java,
-            context = this,
-            showLoading = true,
-            requestAction = { api -> api.addRomToReport(reportId, request) },
-            listener = object : ApiResponseListener<ApiResponse<ArrayList<ReportData>>> {
-                override fun onSuccess(response: ApiResponse<ArrayList<ReportData>>) {
-                    if (response.success) {
-                        showToast("Rooms added successfully")
-                        finish()
-                    }
-                }
-
-                override fun onFailure(errorMessage: ErrorResponse?) {
-                    Log.e("API", errorMessage?.error?.message ?: "")
-                    showToast(errorMessage?.error?.message ?: "Failed to add rooms")
-                }
-
-                override fun onError(throwable: Throwable) {
-                    Log.e("API", "Error: ${throwable.message}")
-                    showToast("Error: ${throwable.message}")
-                }
+    private fun addRoomsOfflineFirst() {
+        lifecycleScope.launch {
+            for (roomName in checkedItems) {
+                roomRepo.addRoom(reportId, roomName)
             }
-        )
+            if (Utils.isOnline(this@SelectRoomActivity)) {
+                SyncScheduler.scheduleImmediateSync(this@SelectRoomActivity)
+            }
+            showToast("Rooms added successfully")
+            finish()
+        }
     }
 
     companion object {

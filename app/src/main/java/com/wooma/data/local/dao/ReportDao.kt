@@ -56,6 +56,12 @@ interface ReportDao {
     @Query("UPDATE reports SET coverImageStorageKey = :key WHERE id = :reportId")
     suspend fun updateCoverImage(reportId: String, key: String?)
 
+    @Query("UPDATE reports SET pdfUrl = :pdfUrl, status = :status, blankSpacesCount = :blankSpacesCount WHERE id = :reportId")
+    suspend fun updateCompletedInfo(reportId: String, pdfUrl: String?, status: String, blankSpacesCount: Int)
+
+    @Query("UPDATE reports SET tenantReviewExpiry = :tenantReviewExpiry, extendReviewExpiry = :extendReviewExpiry, status = :status WHERE id = :reportId")
+    suspend fun updateExpiryDates(reportId: String, tenantReviewExpiry: String?, extendReviewExpiry: String?, status: String)
+
     @Query("SELECT * FROM reports WHERE syncStatus != 'SYNCED'")
     suspend fun getPendingSyncReports(): List<ReportEntity>
 
@@ -83,6 +89,9 @@ interface ReportDao {
     @Query("UPDATE reports SET isDeleted = 1, syncStatus = 'PENDING_UPDATE' WHERE id = :reportId")
     suspend fun archiveLocal(reportId: String)
 
+    @Query("UPDATE reports SET isDeleted = 0, isActive = 1 WHERE propertyId = :propertyId AND isDeleted = 1")
+    suspend fun restoreByProperty(propertyId: String)
+
     @Query("""UPDATE reports SET
         reportTypeId = :reportTypeId,
         reportTypeCode = :reportTypeCode,
@@ -93,6 +102,7 @@ interface ReportDao {
         assessorLastName = :assessorLastName,
         assessorEmail = :assessorEmail,
         completionDate = :completionDate,
+        coverImageStorageKey = :coverImageStorageKey,
         isActive = :isActive,
         isDeleted = :isDeleted,
         updatedAt = :updatedAt
@@ -108,6 +118,7 @@ interface ReportDao {
         assessorLastName: String?,
         assessorEmail: String?,
         completionDate: String,
+        coverImageStorageKey: String?,
         isActive: Boolean,
         isDeleted: Boolean,
         updatedAt: String

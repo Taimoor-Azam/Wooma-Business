@@ -24,9 +24,21 @@
             android:textStyle="bold" />
 
         <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:src="@drawable/svg_synced"
+            android:id="@+id/ivSync"
+            android:layout_width="@dimen/_16sdp"
+            android:layout_height="@dimen/_16sdp"
+            android:layout_gravity="center_vertical"
+            android:layout_marginStart="@dimen/_8sdp"
+            android:contentDescription="Sync status"
+            android:src="@drawable/svg_synced" />
+
+        <ImageView
+            android:id="@+id/ivDragHandle"
+            android:layout_width="@dimen/_16sdp"
+            android:layout_height="@dimen/_16sdp"
+            android:layout_gravity="center_vertical"
+            android:layout_marginStart="@dimen/_8sdp"
+            android:src="@drawable/ic_reorder"
             android:visibility="gone" />
     </LinearLayout>
 

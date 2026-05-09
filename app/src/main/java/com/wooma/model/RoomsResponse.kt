@@ -40,6 +40,7 @@ data class RoomsResponse(
     @SerializedName("display_order")
     val displayOrder: String? = null,
     var isSelected: Boolean = true,
+    val isSyncing: Boolean = false,
     val items: ArrayList<RoomItem>? = null,
     val inspection: ArrayList<RoomInspection>? = null,
     val attachments: ArrayList<OtherItemsAttachment>? = null
@@ -51,6 +52,7 @@ data class RoomsResponse(
         name = parcel.readString(),
         displayOrder = parcel.readString(),
         isSelected = parcel.readByte() != 0.toByte(),
+        isSyncing = parcel.readByte() != 0.toByte(),
         items = parcel.createTypedArrayList(RoomItem.CREATOR),
         inspection = parcel.createTypedArrayList(RoomInspection.CREATOR),
         attachments = parcel.createTypedArrayList(OtherItemsAttachment.CREATOR)
@@ -64,6 +66,7 @@ data class RoomsResponse(
         parcel.writeString(name)
         parcel.writeString(displayOrder)
         parcel.writeByte(if (isSelected) 1 else 0)
+        parcel.writeByte(if (isSyncing) 1 else 0)
         parcel.writeTypedList(items)
         parcel.writeTypedList(inspection)
         parcel.writeTypedList(attachments)
@@ -125,6 +128,9 @@ data class RoomItem(
     val description: String? = null,
     val note: String? = null,
     val display_order: String? = null,
+    val isSyncing: Boolean = false,
+    /** True when delete is queued / in flight (shown with unsyncing icon until row is removed). */
+    val isPendingDeletion: Boolean = false,
     val attachments: List<Attachment>? = null
 ) : Parcelable {
 
@@ -141,7 +147,9 @@ data class RoomItem(
         description = parcel.readString(),
         note = parcel.readString(),
         display_order = parcel.readString(),
-        attachments = parcel.createTypedArrayList(Attachment.CREATOR)
+        isSyncing = parcel.readByte() != 0.toByte(),
+        attachments = parcel.createTypedArrayList(Attachment.CREATOR),
+        isPendingDeletion = if (parcel.dataAvail() > 0) parcel.readByte() != 0.toByte() else false
     )
 
     override fun describeContents(): Int = 0
@@ -159,7 +167,9 @@ data class RoomItem(
         parcel.writeString(description)
         parcel.writeString(note)
         parcel.writeString(display_order)
+        parcel.writeByte(if (isSyncing) 1 else 0)
         parcel.writeTypedList(attachments)
+        parcel.writeByte(if (isPendingDeletion) 1 else 0)
     }
 
     companion object CREATOR : Parcelable.Creator<RoomItem> {
@@ -220,7 +230,8 @@ data class ConditionDAO(
 
 data class CountItem(
     val label: String,
-    val value: Int
+    val value: Int,
+    val isSyncing: Boolean = false
 )
 
 data class Counts(

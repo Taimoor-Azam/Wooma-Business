@@ -40,30 +40,32 @@
         app:layout_constraintTop_toTopOf="@id/ivBack"
         app:tint="@color/black" />
 
-    <!-- Scroll Content -->
-    <androidx.core.widget.NestedScrollView
+    <TextView
+        android:id="@+id/tvEdit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="@dimen/_8sdp"
+        android:fontFamily="@font/sofiasans_bold"
+        android:text="Edit"
+        android:textColor="@color/green"
+        android:textSize="@dimen/_13ssp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@id/btnAddItem"
+        app:layout_constraintEnd_toStartOf="@id/btnAddItem"
+        app:layout_constraintTop_toTopOf="@id/btnAddItem" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvRoomItems"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:paddingStart="@dimen/_16sdp"
+        android:paddingTop="@dimen/_16sdp"
+        android:paddingEnd="@dimen/_16sdp"
+        android:paddingBottom="@dimen/_16sdp"
+        android:clipToPadding="false"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/ivBack">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="@dimen/_16sdp">
-
-            <!-- SECTION CARD -->
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvRoomItems"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:orientation="vertical"
-                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
-
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+        app:layout_constraintTop_toBottomOf="@id/ivBack"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 </androidx.constraintlayout.widget.ConstraintLayout>

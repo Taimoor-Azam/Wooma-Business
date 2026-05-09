@@ -11,14 +11,26 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface DetectorDao {
 
-    @Query("SELECT * FROM detectors WHERE reportId = :reportId AND isDeleted = 0 ORDER BY displayOrder ASC")
+    @Query(
+        "SELECT * FROM detectors WHERE reportId = :reportId AND isDeleted = 0 " +
+            "ORDER BY CASE WHEN displayOrder IS NULL OR displayOrder = '' THEN 1 ELSE 0 END, displayOrder ASC"
+    )
     fun observeByReport(reportId: String): Flow<List<DetectorEntity>>
 
     @Query("SELECT * FROM detectors WHERE reportId = :reportId AND isDeleted = 0")
     suspend fun getByReport(reportId: String): List<DetectorEntity>
 
+    @Query("SELECT * FROM detectors WHERE reportId = :reportId")
+    suspend fun getAllByReport(reportId: String): List<DetectorEntity>
+
     @Query("SELECT * FROM detectors WHERE id = :id")
     suspend fun getById(id: String): DetectorEntity?
+
+    @Query("SELECT * FROM detectors WHERE id = :id OR serverId = :id ORDER BY CASE WHEN id LIKE 'local_%' THEN 0 ELSE 1 END LIMIT 1")
+    suspend fun getByLocalOrServerId(id: String): DetectorEntity?
+
+    @Query("DELETE FROM detectors WHERE id = :id")
+    suspend fun deleteById(id: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(detector: DetectorEntity)
@@ -37,4 +49,10 @@ interface DetectorDao {
 
     @Query("SELECT * FROM detectors WHERE syncStatus != 'SYNCED'")
     suspend fun getPendingSync(): List<DetectorEntity>
+
+    @Query("DELETE FROM detectors WHERE reportId = :reportId AND syncStatus = 'SYNCED'")
+    suspend fun deleteSyncedByReport(reportId: String)
+
+    @Query("SELECT COUNT(*) FROM detectors WHERE reportId = :reportId AND isDeleted = 0 AND syncStatus != 'SYNCED'")
+    fun observeUnsyncedCountByReport(reportId: String): Flow<Int>
 }

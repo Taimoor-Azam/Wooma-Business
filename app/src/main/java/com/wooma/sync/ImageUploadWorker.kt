@@ -6,7 +6,9 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.wooma.data.local.WoomaDatabase
 import com.wooma.data.network.RetrofitClient
+import com.wooma.data.repository.AttachmentRepository
 import com.wooma.model.CreateAttachmentRequest
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -19,16 +21,28 @@ class ImageUploadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorke
 
     private val db = WoomaDatabase.getInstance(ctx)
     private val api = RetrofitClient.getApi(ctx)
+    private val attachmentRepo = AttachmentRepository(ctx)
 
     // Plain OkHttpClient without auth interceptor — S3 presigned URLs reject extra headers
     private val plainHttp = OkHttpClient()
 
     override suspend fun doWork(): Result {
+        db.pendingUploadDao().resetUploadingToPending()
         val pending = db.pendingUploadDao().getPending()
         for (upload in pending) {
+            if (upload.entityType == "REPORT_COVER") {
+                // Cover add/delete must be routed through patchCoverImageApi() from InventoryListingActivity.
+                continue
+            }
             // Resolve entity server ID if not yet set
-            val entityServerId = upload.entityServerId
+            var entityServerId = upload.entityServerId
                 ?: resolveEntityServerId(upload.entityLocalId, upload.entityType)
+            if (entityServerId == null && upload.entityType == "CHECKLIST_ANSWER_ATTACHMENT") {
+                // After sync, rows may only have entityLocalId set to the server answer id
+                if (!upload.entityLocalId.contains("_local_")) {
+                    entityServerId = upload.entityLocalId
+                }
+            }
 
             if (entityServerId == null) {
                 // Entity hasn't synced yet; skip this upload — SyncWorker will update entityServerId
@@ -93,9 +107,13 @@ class ImageUploadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorke
                 db.pendingUploadDao().markDone(upload.id, storageKey, attachmentId)
                 // Attachment local ID is the filename without its extension
                 val attachmentLocalId = upload.fileName.substringBeforeLast('.')
-                db.attachmentDao().markUploaded(attachmentLocalId, attachmentId, storageKey)
+                db.attachmentDao().rekeyUploadedAttachment(attachmentLocalId, attachmentId, storageKey)
 
                 Log.d("ImageUploadWorker", "Uploaded ${upload.fileName} → $storageKey")
+            } catch (e: CancellationException) {
+                db.pendingUploadDao().updateStatus(upload.id, "PENDING")
+                Log.d("ImageUploadWorker", "Upload cancelled for ${upload.fileName}")
+                throw e
             } catch (e: Exception) {
                 Log.e("ImageUploadWorker", "Upload failed for ${upload.fileName}: ${e.message}")
                 if (upload.retryCount >= 4) {
@@ -106,16 +124,27 @@ class ImageUploadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorke
             }
         }
         db.pendingUploadDao().purgeDone()
+        try {
+            val deleted = attachmentRepo.cleanupOrphanAttachmentFiles()
+            if (deleted > 0) {
+                Log.d("ImageUploadWorker", "Cleaned up $deleted orphan attachment files")
+            }
+        } catch (e: Exception) {
+            Log.w("ImageUploadWorker", "Attachment cleanup skipped: ${e.message}")
+        }
         return Result.success()
     }
 
     private suspend fun resolveEntityServerId(localId: String, type: String): String? = when (type) {
-        "METER"        -> db.meterDao().getById(localId)?.serverId
-        "KEY"          -> db.keyDao().getById(localId)?.serverId
-        "DETECTOR"     -> db.detectorDao().getById(localId)?.serverId
+        "METER"        -> db.meterDao().getByLocalOrServerId(localId)?.serverId
+        "KEY"          -> db.keyDao().getByLocalOrServerId(localId)?.serverId
+        "DETECTOR"     -> db.detectorDao().getByLocalOrServerId(localId)?.serverId
         "ROOM"         -> db.roomDao().getById(localId)?.serverId
         "ROOM_ITEM"    -> db.roomItemDao().getById(localId)?.serverId
-        "REPORT_COVER" -> db.reportDao().getById(localId)?.serverId
+        "REPORT_COVER" -> {
+            val report = db.reportDao().getById(localId)
+            report?.serverId ?: localId.takeIf { !it.startsWith("local_") }
+        }
         else           -> null
     }
 }

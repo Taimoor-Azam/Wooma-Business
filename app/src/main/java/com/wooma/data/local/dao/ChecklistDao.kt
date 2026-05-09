@@ -17,6 +17,9 @@ interface ChecklistDao {
     @Query("SELECT * FROM checklists WHERE reportId = :reportId")
     suspend fun getByReport(reportId: String): List<ChecklistEntity>
 
+    @Query("SELECT * FROM checklists WHERE reportId = :reportId AND syncStatus != 'SYNCED'")
+    suspend fun getPendingSyncByReport(reportId: String): List<ChecklistEntity>
+
     @Query("SELECT * FROM checklists WHERE id = :id")
     suspend fun getById(id: String): ChecklistEntity?
 

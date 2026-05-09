@@ -30,10 +30,12 @@ import com.wooma.adapter.InventoryOtherItemsAdapter
 import com.wooma.adapter.InventoryRoomsAdapter
 import com.wooma.adapter.ReportTenantsAdapter
 import com.wooma.R
+import com.wooma.customs.AttachmentUploadHelper
 import com.wooma.customs.GridSpacingItemDecoration
 import com.wooma.customs.Utils
 import com.wooma.data.local.WoomaDatabase
 import com.wooma.data.local.entity.SyncStatus
+import com.wooma.data.local.entity.TenantReviewEntity
 import com.wooma.data.network.ApiClient
 import com.wooma.data.network.ApiResponseListener
 import com.wooma.data.network.MyApi
@@ -57,6 +59,7 @@ import com.wooma.model.ImageItem
 import com.wooma.sync.SyncScheduler
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -64,6 +67,40 @@ import java.text.SimpleDateFormat
 import java.util.Locale
 
 class InventoryListingActivity : BaseActivity() {
+    private data class Quadruple<A, B, C, D>(
+        val first: A,
+        val second: B,
+        val third: C,
+        val fourth: D
+    )
+
+    private data class Quintuple<A, B, C, D, E>(
+        val first: A,
+        val second: B,
+        val third: C,
+        val fourth: D,
+        val fifth: E
+    )
+
+    private data class NineTuple<A, B, C, D, E, F, G, H, I>(
+        val first: A,
+        val second: B,
+        val third: C,
+        val fourth: D,
+        val fifth: E,
+        val sixth: F,
+        val seventh: G,
+        val eighth: H,
+        val ninth: I
+    )
+
+    private data class ChecklistPendingCounts(
+        val questions: Int,
+        val fields: Int,
+        val queueOps: Int,
+        val uploads: Int
+    )
+
     private lateinit var adapter: InventoryRoomsAdapter
     private val roomsList = mutableListOf<RoomsResponse>()
     private lateinit var binding: ActivityInventoryListingBinding
@@ -73,7 +110,10 @@ class InventoryListingActivity : BaseActivity() {
     var reportType: PropertyReportType? = null
     var reportData: ReportData? = null
     private var coverImageStorageKey: String? = null
+    private var pendingCoverLocalUri: String? = null
+    private var isSyncingPendingCover = false
     private var pdfUrl: String? = null
+    private var isNetworkAvailable = false
     private val CAMERA_REQUEST = 1001
 
     private val db by lazy { WoomaDatabase.getInstance(this) }
@@ -88,7 +128,7 @@ class InventoryListingActivity : BaseActivity() {
         }
         if (requestCode == CAMERA_REQUEST && resultCode == RESULT_OK) {
             val uri = CameraActivity.pendingUris.firstOrNull() ?: return
-            handleCoverImageOffline(uri)
+            handleCoverImagePicked(uri)
         }
     }
 
@@ -123,14 +163,26 @@ class InventoryListingActivity : BaseActivity() {
                     "Delete Room",
                     "Are you sure you want to remove this room?"
                 ) {
-                    lifecycleScope.launch { roomRepo.deleteRoom(roomId ?: "") }
+                    lifecycleScope.launch {
+                        roomRepo.deleteRoom(roomId ?: "")
+                        if (Utils.isOnline(this@InventoryListingActivity))
+                            SyncScheduler.scheduleImmediateSync(this@InventoryListingActivity)
+                    }
                 }
             },
             onReorder = { roomId, prevRank, nextRank ->
-                lifecycleScope.launch { roomRepo.reorderRoom(roomId, prevRank, nextRank) }
+                lifecycleScope.launch {
+                    roomRepo.reorderRoom(roomId, prevRank, nextRank)
+                    if (Utils.isOnline(this@InventoryListingActivity))
+                        SyncScheduler.scheduleImmediateSync(this@InventoryListingActivity)
+                }
             },
             onUpdateRoom = { roomId, newName ->
-                lifecycleScope.launch { roomRepo.updateRoomName(roomId, newName) }
+                lifecycleScope.launch {
+                    roomRepo.updateRoomName(roomId, newName)
+                    if (Utils.isOnline(this@InventoryListingActivity))
+                        SyncScheduler.scheduleImmediateSync(this@InventoryListingActivity)
+                }
             }
         )
         binding.rvRooms.adapter = adapter
@@ -171,7 +223,7 @@ class InventoryListingActivity : BaseActivity() {
 
         binding.tvEditRooms.setOnClickListener {
             val editMode = !adapter.isEditMode
-            adapter.setEditMode(editMode)
+            adapter.setEditMode(editMode, canReorder = editMode && Utils.isOnline(this))
             binding.tvEditRooms.text = if (editMode) "Done" else "Edit"
         }
 
@@ -210,11 +262,12 @@ class InventoryListingActivity : BaseActivity() {
                 return@setOnClickListener
             }
             if (reportStatus != TenantReportStatus.IN_PROGRESS.value) return@setOnClickListener
-            if (coverImageStorageKey.isNullOrEmpty()) {
+            val hasImage = !coverImageStorageKey.isNullOrEmpty() || !pendingCoverLocalUri.isNullOrEmpty()
+            if (!hasImage) {
                 CameraActivity.pendingUris.clear()
                 startActivityForResult(Intent(this, CameraActivity::class.java).apply {
                     putExtra("isCoverImage", true)
-                    putExtra("showTimestamp", reportData?.showTimestamp ?: true)
+                    putExtra("showTimestamp", false)
                 }, CAMERA_REQUEST)
             } else {
                 showCoverImagePopup(it)
@@ -264,7 +317,32 @@ class InventoryListingActivity : BaseActivity() {
     private fun observeData() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                roomRepo.observeRooms(reportId).collectLatest { rooms ->
+                combine(
+                    db.roomDao().observeByReport(reportId),
+                    db.roomItemDao().observePendingRoomIdsByReport(reportId),
+                    db.roomInspectionDao().observePendingRoomIdsByReport(reportId)
+                ) { roomEntities, pendingItemRoomIds, pendingInspectionRoomIds ->
+                    val pendingItemIdsSet = pendingItemRoomIds.toSet()
+                    val pendingInspectionIdsSet = pendingInspectionRoomIds.toSet()
+                    adapter.updatePendingItemRoomIds(pendingItemIdsSet)
+                    roomEntities
+                        .filter { it.syncStatus != SyncStatus.PENDING_DELETE }
+                        .map { roomEntity ->
+                            RoomsResponse(
+                                id = roomEntity.id,
+                                templateId = roomEntity.templateId,
+                                name = roomEntity.name,
+                                displayOrder = roomEntity.displayOrder,
+                                isSelected = true,
+                                isSyncing = roomEntity.syncStatus != SyncStatus.SYNCED ||
+                                    pendingItemIdsSet.contains(roomEntity.id) ||
+                                    pendingInspectionIdsSet.contains(roomEntity.id),
+                                items = ArrayList(),
+                                inspection = ArrayList(),
+                                attachments = ArrayList()
+                            )
+                        }
+                }.collectLatest { rooms ->
                     roomsList.clear()
                     roomsList.addAll(rooms)
                     adapter.updateList(roomsList)
@@ -274,15 +352,117 @@ class InventoryListingActivity : BaseActivity() {
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                db.reportDao().observeById(reportId).collectLatest { entity ->
+                combine(
+                    db.reportDao().observeById(reportId),
+                    db.tenantReviewDao().observeByReport(reportId)
+                ) { entity, tenants -> entity to tenants }
+                .collectLatest { (entity, tenants) ->
                     entity ?: return@collectLatest
+                    if (entity.status == TenantReportStatus.TENANT_REVIEW.value && tenants.isNotEmpty()) {
+                        val expiryDate = entity.extendReviewExpiry ?: entity.tenantReviewExpiry
+                        val tenantReviews = ArrayList(tenants.map { t ->
+                            TenantReview(
+                                id = t.id, report_id = reportId,
+                                first_name = t.firstName, last_name = t.lastName,
+                                email_address = t.emailAddress, mobile_number = t.mobileNumber,
+                                is_submitted = t.isSubmitted, submitted_at = t.submittedAt,
+                                is_active = t.isActive, is_deleted = t.isDeleted,
+                                created_at = t.createdAt, updated_at = t.updatedAt,
+                                token = "", lookup_key = "", is_used = false,
+                                metadata = null, full_name = null,
+                                room_answers = emptyList(), keys_answers = emptyList(),
+                                detecter_answers = emptyList(), checklist_answers = emptyList(),
+                                meter_answers = emptyList()
+                            )
+                        })
+                        @Suppress("NewApi")
+                        updateViewForTenantReview(tenantReviews, expiryDate)
+                    }
+                }
+            }
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                db.attachmentDao().observeByEntity(reportId, "REPORT_COVER").collectLatest { attachments ->
+                    pendingCoverLocalUri = attachments.firstOrNull { !it.isUploaded }?.localUri
+                    updateCoverImageView()
+                }
+            }
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                val coreItemsFlow = combine(
+                    db.reportDao().observeById(reportId),
+                    db.meterDao().observeByReport(reportId),
+                    db.keyDao().observeByReport(reportId),
+                    db.detectorDao().observeByReport(reportId),
+                    db.checklistDao().observeByReport(reportId)
+                ) { entity, meters, keys, detectors, checklists ->
+                    Quintuple(entity, meters, keys, detectors, checklists)
+                }
+                val otherItemsAttachmentFlow = combine(
+                    db.attachmentDao().observeByEntityType("METER"),
+                    db.attachmentDao().observeByEntityType("KEY"),
+                    db.attachmentDao().observeByEntityType("DETECTOR")
+                ) { meterAttachments, keyAttachments, detectorAttachments ->
+                    Triple(meterAttachments, keyAttachments, detectorAttachments)
+                }
+                val checklistPendingFlow = combine(
+                    db.checklistQuestionDao().observePendingCountByReport(reportId),
+                    db.checklistInfoFieldDao().observePendingCountByReport(reportId),
+                    db.syncQueueDao().observePendingChecklistOpsCountByReport(reportId),
+                    db.pendingUploadDao().observePendingChecklistAttachmentUploadsCountByReport(reportId)
+                ) { pendingChecklistQuestions, pendingChecklistFields, pendingChecklistQueueOps, pendingChecklistUploads ->
+                    ChecklistPendingCounts(
+                        questions = pendingChecklistQuestions,
+                        fields = pendingChecklistFields,
+                        queueOps = pendingChecklistQueueOps,
+                        uploads = pendingChecklistUploads
+                    )
+                }
+
+                combine(coreItemsFlow, checklistPendingFlow, otherItemsAttachmentFlow) { core, pending, attachments ->
+                    Triple(core, pending, attachments)
+                }.collectLatest { (core, pending, attachments) ->
+                    val (entity, meters, keys, detectors, checklists) = core
+                    val (meterAttachments, keyAttachments, detectorAttachments) = attachments
+                    entity ?: return@collectLatest
+                    val meterIds = meters.map { it.id }.toSet()
+                    val keyIds = keys.map { it.id }.toSet()
+                    val detectorIds = detectors.map { it.id }.toSet()
+                    val hasPendingMeterUploads = meterAttachments.any { !it.isUploaded && it.entityId in meterIds }
+                    val hasPendingKeyUploads = keyAttachments.any { !it.isUploaded && it.entityId in keyIds }
+                    val hasPendingDetectorUploads = detectorAttachments.any { !it.isUploaded && it.entityId in detectorIds }
+                    val hasPendingMeterSync = meters.any { it.syncStatus != SyncStatus.SYNCED } || hasPendingMeterUploads
+                    val hasPendingKeySync = keys.any { it.syncStatus != SyncStatus.SYNCED } || hasPendingKeyUploads
+                    val hasPendingDetectorSync = detectors.any { it.syncStatus != SyncStatus.SYNCED } || hasPendingDetectorUploads
+                    val hasPendingChecklistSync =
+                        checklists.any { it.syncStatus != SyncStatus.SYNCED } ||
+                            pending.questions > 0 ||
+                            pending.fields > 0 ||
+                            pending.queueOps > 0 ||
+                            pending.uploads > 0
                     coverImageStorageKey = entity.coverImageStorageKey
                     updateCoverImageView()
+                    if (entity.completionDate.isNotEmpty()) {
+                        try {
+                            val inSdf = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+                            val outSdf = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
+                            inSdf.parse(entity.completionDate)?.let { binding.tvDate.text = outSdf.format(it) }
+                        } catch (_: Exception) {}
+                    }
+                    val checklistCount = if (checklists.isNotEmpty()) {
+                        checklists.size
+                    } else {
+                        entity.countChecklists
+                    }
                     val allItems = arrayListOf(
-                        CountItem("Meters", entity.countMeters),
-                        CountItem("Keys", entity.countKeys),
-                        CountItem("Detectors", entity.countDetectors),
-                        CountItem("Checklist", entity.countChecklists)
+                        CountItem("Meters", entity.countMeters, hasPendingMeterSync),
+                        CountItem("Keys", entity.countKeys, hasPendingKeySync),
+                        CountItem("Detectors", entity.countDetectors, hasPendingDetectorSync),
+                        CountItem("Checklist", checklistCount, hasPendingChecklistSync)
                     )
                     val isInspection = entity.reportTypeCode == ReportTypes.INSPECTION.value
                     val otherItems =
@@ -294,8 +474,18 @@ class InventoryListingActivity : BaseActivity() {
                         ArrayList(otherItems),
                         reportId,
                         entity.status,
-                        true
+                        reportData?.showTimestamp ?: true
                     )
+
+                    if (entity.status == TenantReportStatus.COMPLETED.value) {
+                        pdfUrl = entity.pdfUrl?.let { "${ApiClient.IMAGE_BASE_URL}$it" }
+                        updateViewForCompletedReport()
+                        val blankCount = entity.blankSpacesCount
+                        if (blankCount != 0 && entity.reportTypeCode != ReportTypes.CHECK_OUT.value) {
+                            binding.tvBlankSpaces.visibility = View.VISIBLE
+                            binding.tvBlankSpaces.text = "Completed with $blankCount blank signature spaces"
+                        }
+                    }
                 }
             }
         }
@@ -319,18 +509,67 @@ class InventoryListingActivity : BaseActivity() {
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                db.syncQueueDao().countPending().collect { count ->
-                    binding.ivSyncStatus.setImageResource(if (count > 0) R.drawable.svg_syncing else R.drawable.svg_synced)
-                }
+                com.wooma.sync.ConnectivityObserver(this@InventoryListingActivity)
+                    .observeConnectivity()
+                    .collect { isConnected ->
+                        isNetworkAvailable = isConnected
+                        if (isConnected) syncPendingCoverChangesIfOnline()
+                        if (adapter.isEditMode) {
+                            adapter.setEditMode(true, canReorder = isConnected)
+                        }
+                        updateOnlineOnlyButtons(isConnected)
+                    }
             }
         }
+    }
+
+    private fun updateOnlineOnlyButtons(isConnected: Boolean) {
+        val alpha = if (isConnected) 1f else 0.4f
+        binding.tvExtendTime.isEnabled = isConnected
+        binding.tvExtendTime.alpha = alpha
+        binding.tvCancelSignatureRequest.isEnabled = isConnected
+        binding.tvCancelSignatureRequest.alpha = alpha
+        binding.addAnotherTenantLayout.isEnabled = isConnected
+        binding.addAnotherTenantLayout.alpha = alpha
+    }
+
+    private fun handleCoverImagePicked(uri: Uri) {
+        if (Utils.isOnline(this)) {
+            lifecycleScope.launch {
+                try {
+                    clearLocalCoverRows()
+                    val report = db.reportDao().getById(reportId)
+                    val serverId = report?.serverId ?: report?.id?.takeIf { !it.startsWith("local_") }
+                    val localPreview = attachmentRepo.saveLocalAttachment(uri, reportId, serverId, "REPORT_COVER")
+                    // Online add goes through patchCoverImageApi; keep local file as offline fallback, no queued upload needed.
+                    localPreview.localUri?.let { db.pendingUploadDao().deleteByLocalUri(it) }
+                    pendingCoverLocalUri = localPreview.localUri
+                    updateCoverImageView()
+                    AttachmentUploadHelper.uploadForStorageKey(
+                        activity = this@InventoryListingActivity,
+                        uri = uri,
+                        onSuccess = { storageKey ->
+                            patchCoverImageApi(storageKey, clearLocalRows = false)
+                        },
+                        onError = { message ->
+                            showToast(message)
+                        }
+                    )
+                } catch (e: Exception) {
+                    showToast("Failed to save cover preview: ${e.message}")
+                }
+            }
+            return
+        }
+        handleCoverImageOffline(uri)
     }
 
     private fun handleCoverImageOffline(uri: Uri) {
         lifecycleScope.launch {
             try {
                 val report = db.reportDao().getById(reportId)
-                attachmentRepo.saveLocalAttachment(uri, reportId, report?.serverId, "REPORT_COVER")
+                val serverId = report?.serverId ?: report?.id?.takeIf { !it.startsWith("local_") }
+                attachmentRepo.saveLocalAttachment(uri, reportId, serverId, "REPORT_COVER")
                 SyncScheduler.scheduleImmediateSync(this@InventoryListingActivity)
             } catch (e: Exception) {
                 showToast("Failed to save cover image: ${e.message}")
@@ -368,6 +607,7 @@ class InventoryListingActivity : BaseActivity() {
             lifecycleScope.launch {
                 try { roomRepo.refreshRooms(reportId) } catch (_: Exception) {}
             }
+            syncPendingCoverChangesIfOnline()
         } else {
             lifecycleScope.launch {
                 val hasRooms = db.roomDao().getByReport(reportId).isNotEmpty()
@@ -376,6 +616,58 @@ class InventoryListingActivity : BaseActivity() {
                     finish()
                 }
             }
+        }
+    }
+
+    private fun syncPendingCoverChangesIfOnline() {
+        if (!Utils.isOnline(this) || isSyncingPendingCover) return
+        lifecycleScope.launch {
+            if (db.syncQueueDao().hasPendingReportCoverDelete(reportId)) {
+                isSyncingPendingCover = true
+                patchCoverImageApi(
+                    storageKey = null,
+                    clearLocalRows = true,
+                    onPatched = {
+                        lifecycleScope.launch {
+                            db.syncQueueDao().deletePendingByEntityOperation(
+                                entityType = "REPORT_COVER",
+                                operationType = "DELETE",
+                                localEntityId = reportId
+                            )
+                            isSyncingPendingCover = false
+                        }
+                    },
+                    onPatchFailed = { isSyncingPendingCover = false }
+                )
+                return@launch
+            }
+
+            val pendingCoverUpload = db.pendingUploadDao().getPendingReportCoverUpload(reportId)
+                ?: return@launch
+            val localPath = pendingCoverUpload.localUri
+            val localUri = Uri.fromFile(java.io.File(localPath))
+            isSyncingPendingCover = true
+            AttachmentUploadHelper.uploadForStorageKey(
+                activity = this@InventoryListingActivity,
+                uri = localUri,
+                onSuccess = { storageKey ->
+                    patchCoverImageApi(
+                        storageKey = storageKey,
+                        clearLocalRows = false,
+                        onPatched = {
+                            lifecycleScope.launch {
+                                db.pendingUploadDao().deleteByLocalUri(localPath)
+                                isSyncingPendingCover = false
+                            }
+                        },
+                        onPatchFailed = { isSyncingPendingCover = false }
+                    )
+                },
+                onError = { message ->
+                    isSyncingPendingCover = false
+                    showToast(message)
+                }
+            )
         }
     }
 
@@ -389,6 +681,12 @@ class InventoryListingActivity : BaseActivity() {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
                         reportData = response.data
+                        lifecycleScope.launch {
+                            try {
+                                roomRepo.hydrateRoomsAndItemsFromReport(response.data, reportId)
+                            } catch (_: Exception) {
+                            }
+                        }
                         lifecycleScope.launch {
                             db.reportDao().updateCounts(
                                 reportId,
@@ -414,6 +712,25 @@ class InventoryListingActivity : BaseActivity() {
 
                         coverImageStorageKey = response.data.coverImageStorageKey
                         updateCoverImageView()
+
+                        lifecycleScope.launch {
+                            db.reportDao().updateCoverImage(
+                                reportId,
+                                response.data.coverImageStorageKey
+                            )
+                            db.reportDao().updateCompletedInfo(
+                                reportId,
+                                response.data.pdfUrl,
+                                response.data.status,
+                                response.data.blankSpacesCount
+                            )
+                            db.reportDao().updateExpiryDates(
+                                reportId,
+                                response.data.tenantReviewExpiry,
+                                response.data.extendReviewExpiry,
+                                response.data.status
+                            )
+                        }
 
                         adapter.showTimestamp = response.data.showTimestamp
 
@@ -466,6 +783,18 @@ class InventoryListingActivity : BaseActivity() {
                 @RequiresApi(Build.VERSION_CODES.O)
                 override fun onSuccess(response: ApiResponse<ArrayList<TenantReview>>) {
                     if (response.success) {
+                        lifecycleScope.launch {
+                            db.tenantReviewDao().upsertAll(response.data.map { t ->
+                                TenantReviewEntity(
+                                    id = t.id, reportId = reportId,
+                                    firstName = t.first_name, lastName = t.last_name,
+                                    emailAddress = t.email_address, mobileNumber = t.mobile_number,
+                                    isSubmitted = t.is_submitted, submittedAt = t.submitted_at,
+                                    isActive = t.is_active, isDeleted = t.is_deleted,
+                                    createdAt = t.created_at, updatedAt = t.updated_at
+                                )
+                            })
+                        }
                         if (reportStatus == TenantReportStatus.COMPLETED.value) updateCompletedWithTenants(
                             response.data
                         )
@@ -513,7 +842,7 @@ class InventoryListingActivity : BaseActivity() {
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
-    private fun updateViewForTenantReview(data: ArrayList<TenantReview>) {
+    private fun updateViewForTenantReview(data: ArrayList<TenantReview>, expiryDate: String? = null) {
         binding.tenantReviewLayout.visibility = View.VISIBLE
         binding.rvTenants.adapter = ReportTenantsAdapter(
             this,
@@ -521,7 +850,7 @@ class InventoryListingActivity : BaseActivity() {
             reportId = reportId,
             reportStatus = TenantReportStatus.TENANT_REVIEW.value,
             onTenantClick = { tenant ->
-                startActivityForResult(Intent(this, EditTenantActivity::class.java).apply {
+                if (isNetworkAvailable) startActivityForResult(Intent(this, EditTenantActivity::class.java).apply {
                     putExtra("isEditMode", true)
                     putExtra("reportId", reportId)
                     putExtra("tenantReviewId", tenant.id)
@@ -532,8 +861,8 @@ class InventoryListingActivity : BaseActivity() {
                     putExtra("tenantCount", data.size)
                 }, TENANT_REQUEST_CODE)
             })
-        val expiryDate = reportData?.extendReviewExpiry ?: reportData?.tenantReviewExpiry
-        binding.daysRemaining.text = "${Utils.getDaysDifference(expiryDate ?: "")} days remaining"
+        val resolvedExpiry = expiryDate ?: (reportData?.extendReviewExpiry ?: reportData?.tenantReviewExpiry)
+        binding.daysRemaining.text = "${Utils.getDaysDifference(resolvedExpiry ?: "")} days remaining"
         val count = data.count { it.is_submitted }
         binding.signProgress.max = data.size
         binding.signProgress.progress = count
@@ -546,6 +875,7 @@ class InventoryListingActivity : BaseActivity() {
                 "Are you sure you want to cancel?"
             ) { cancelSignatureRequestApi() }
         }
+        updateOnlineOnlyButtons(isNetworkAvailable)
     }
 
     private fun cancelSignatureRequestApi() {
@@ -611,21 +941,26 @@ class InventoryListingActivity : BaseActivity() {
     private fun updateCoverImageView() {
         val isReviewOrComplete =
             reportStatus == TenantReportStatus.TENANT_REVIEW.value || reportStatus == TenantReportStatus.COMPLETED.value
-        if (isReviewOrComplete && coverImageStorageKey.isNullOrEmpty()) {
+        val hasImage = !coverImageStorageKey.isNullOrEmpty() || !pendingCoverLocalUri.isNullOrEmpty()
+        if (isReviewOrComplete && !hasImage) {
             binding.coverImageSection.visibility = View.GONE
             return
         }
         binding.coverImageSection.visibility = View.VISIBLE
-        if (!coverImageStorageKey.isNullOrEmpty()) {
-            Glide.with(this).load("${ApiClient.IMAGE_BASE_URL}$coverImageStorageKey").centerCrop()
-                .into(binding.ivCoverImage)
-        } else {
-            binding.ivCoverImage.setImageDrawable(
-                ContextCompat.getDrawable(
-                    this,
-                    R.drawable.svg_img_placeholder
+        when {
+            !coverImageStorageKey.isNullOrEmpty() -> {
+                Glide.with(this).load("${ApiClient.IMAGE_BASE_URL}$coverImageStorageKey").centerCrop()
+                    .into(binding.ivCoverImage)
+            }
+            !pendingCoverLocalUri.isNullOrEmpty() -> {
+                Glide.with(this).load(java.io.File(pendingCoverLocalUri!!)).centerCrop()
+                    .into(binding.ivCoverImage)
+            }
+            else -> {
+                binding.ivCoverImage.setImageDrawable(
+                    ContextCompat.getDrawable(this, R.drawable.svg_img_placeholder)
                 )
-            )
+            }
         }
     }
 
@@ -648,20 +983,19 @@ class InventoryListingActivity : BaseActivity() {
             CameraActivity.pendingUris.clear()
             startActivityForResult(Intent(this, CameraActivity::class.java).apply {
                 putExtra("isCoverImage", true)
-                putExtra("showTimestamp", reportData?.showTimestamp ?: true)
+                putExtra("showTimestamp", false)
             }, CAMERA_REQUEST)
         }
         popupBinding.tvDelete.setOnClickListener {
             popup.dismiss()
-            if (coverImageStorageKey.isNullOrEmpty()) return@setOnClickListener
+            val hasImage = !coverImageStorageKey.isNullOrEmpty() || !pendingCoverLocalUri.isNullOrEmpty()
+            if (!hasImage) return@setOnClickListener
             Utils.showDialogBox(this, "Delete Cover Image", "Are you sure?") {
-                if (!com.wooma.sync.ConnectivityObserver(this@InventoryListingActivity)
-                        .isConnected()
-                ) {
-                    showToast("Internet connection required to delete cover image")
-                    return@showDialogBox
+                if (Utils.isOnline(this@InventoryListingActivity)) {
+                    patchCoverImageApi(null, clearLocalRows = true)
+                } else {
+                    deleteCoverImageOffline()
                 }
-                patchCoverImageApi(null)
             }
         }
         popup.showAsDropDown(
@@ -672,13 +1006,22 @@ class InventoryListingActivity : BaseActivity() {
     }
 
     private fun viewCoverImage() {
-        val url =
-            "${ApiClient.IMAGE_BASE_URL}$coverImageStorageKey".takeIf { !coverImageStorageKey.isNullOrEmpty() }
-                ?: return
-        Utils.showFullScreenImage(this, listOf(ImageItem.Remote("", url)), 0, "", null)
+        val image: ImageItem = when {
+            !coverImageStorageKey.isNullOrEmpty() ->
+                ImageItem.Remote("", "${ApiClient.IMAGE_BASE_URL}$coverImageStorageKey")
+            !pendingCoverLocalUri.isNullOrEmpty() ->
+                ImageItem.Local(android.net.Uri.fromFile(java.io.File(pendingCoverLocalUri!!)))
+            else -> return
+        }
+        Utils.showFullScreenImage(this, listOf(image), 0, "", null)
     }
 
-    private fun patchCoverImageApi(storageKey: String?) {
+    private fun patchCoverImageApi(
+        storageKey: String?,
+        clearLocalRows: Boolean = true,
+        onPatched: (() -> Unit)? = null,
+        onPatchFailed: (() -> Unit)? = null
+    ) {
         makeApiRequest(
             apiServiceClass = MyApi::class.java,
             context = this,
@@ -690,19 +1033,62 @@ class InventoryListingActivity : BaseActivity() {
             },
             listener = object : ApiResponseListener<ApiResponse<ReportData>> {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
-                    coverImageStorageKey = storageKey
-                    updateCoverImageView()
+                    lifecycleScope.launch {
+                        if (clearLocalRows) clearLocalCoverRows()
+                        db.reportDao().updateCoverImage(reportId, storageKey)
+                        coverImageStorageKey = storageKey
+                        pendingCoverLocalUri = if (clearLocalRows) null else pendingCoverLocalUri
+                        updateCoverImageView()
+                        onPatched?.invoke()
+                    }
                 }
 
                 override fun onFailure(errorMessage: ErrorResponse?) {
+                    onPatchFailed?.invoke()
                     showToast(errorMessage?.error?.message ?: "Failed")
                 }
 
                 override fun onError(throwable: Throwable) {
+                    onPatchFailed?.invoke()
                     showToast("Error: ${throwable.message}")
                 }
             }
         )
+    }
+
+    private suspend fun clearLocalCoverRows() {
+        val attachments = db.attachmentDao().getByEntity(reportId, "REPORT_COVER")
+        for (att in attachments) {
+            att.localUri?.let { db.pendingUploadDao().deleteByLocalUri(it) }
+            att.localUri?.let { java.io.File(it).delete() }
+            db.attachmentDao().deleteById(att.id)
+        }
+    }
+
+    private fun deleteCoverImageOffline() {
+        lifecycleScope.launch {
+            try {
+                clearLocalCoverRows()
+                // Only schedule a server DELETE if the image was already uploaded (storageKey exists).
+                // If still pending, cancelling the pending upload above is sufficient.
+                if (!coverImageStorageKey.isNullOrEmpty()) {
+                    val serverId = db.reportDao().getById(reportId)?.serverId
+                    if (serverId != null) {
+                        db.syncQueueDao().enqueue(
+                            com.wooma.data.local.entity.SyncQueueEntity(
+                                entityType = "REPORT_COVER",
+                                operationType = "DELETE",
+                                localEntityId = reportId
+                            )
+                        )
+                        SyncScheduler.scheduleImmediateSync(this@InventoryListingActivity)
+                    }
+                }
+                db.reportDao().updateCoverImage(reportId, null)
+            } catch (e: Exception) {
+                showToast("Failed to delete cover image: ${e.message}")
+            }
+        }
     }
 
     companion object {

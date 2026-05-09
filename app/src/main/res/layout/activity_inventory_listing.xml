@@ -83,7 +83,8 @@
             android:layout_gravity="center"
             android:layout_marginEnd="@dimen/_8sdp"
             android:src="@drawable/svg_synced"
-            android:contentDescription="Sync Status" />
+            android:contentDescription="Sync Status"
+            android:visibility="gone" />
 
         <ImageView
             android:id="@+id/ivSettings"

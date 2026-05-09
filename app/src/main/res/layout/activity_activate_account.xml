@@ -112,7 +112,7 @@
                 app:ccp_contentColor="@color/black"
                 app:ccp_defaultNameCode="GB"
                 app:ccp_showArrow="true"
-                app:ccp_showFlag="false"
+                app:ccp_showFlag="true"
                 app:ccp_showNameCode="true"
                 app:ccp_showPhoneCode="true"
                 app:ccp_textSize="@dimen/_12ssp" />

@@ -34,4 +34,11 @@ interface RoomInspectionDao {
 
     @Query("DELETE FROM room_inspections WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    @Query(
+        "SELECT DISTINCT ri.roomId FROM room_inspections ri " +
+            "INNER JOIN rooms r ON r.id = ri.roomId " +
+            "WHERE r.reportId = :reportId AND ri.syncStatus != 'SYNCED'"
+    )
+    fun observePendingRoomIdsByReport(reportId: String): Flow<List<String>>
 }

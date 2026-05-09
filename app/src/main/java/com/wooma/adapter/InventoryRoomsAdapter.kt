@@ -36,9 +36,12 @@ class InventoryRoomsAdapter(
 
     var isEditMode = false
         private set
+    private var canReorder = true
 
     private var filteredList = originalList.toMutableList()
+    private var pendingItemRoomIds: Set<String> = emptySet()
     private var dragFromPosition = -1
+    private var localOrderOverrideIds: List<String>? = null
     var itemTouchHelper: ItemTouchHelper? = null
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -64,11 +67,16 @@ class InventoryRoomsAdapter(
         val room = filteredList[position]
         holder.tvAddress.text = room.name
 
-        holder.ivDragHandle.visibility = if (isEditMode) View.VISIBLE else View.GONE
+        holder.ivDragHandle.visibility = if (isEditMode && canReorder) View.VISIBLE else View.GONE
         holder.ivEdit.visibility = if (isEditMode) View.VISIBLE else View.GONE
         holder.ivDelete.visibility = if (isEditMode) View.VISIBLE else View.GONE
         holder.imgArrow.visibility = if (isEditMode) View.GONE else View.VISIBLE
         holder.ivSync.visibility = if (isEditMode) View.GONE else View.VISIBLE
+        val hasPendingItemSync = room.id?.let { pendingItemRoomIds.contains(it) } == true
+        val shouldShowSyncing = room.isSyncing || hasPendingItemSync
+        holder.ivSync.setImageResource(
+            if (shouldShowSyncing) R.drawable.svg_syncing else R.drawable.svg_synced
+        )
 
         holder.ivDragHandle.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_DOWN) {
@@ -114,8 +122,9 @@ class InventoryRoomsAdapter(
         }
     }
 
-    fun setEditMode(editMode: Boolean) {
+    fun setEditMode(editMode: Boolean, canReorder: Boolean = true) {
         isEditMode = editMode
+        this.canReorder = canReorder
         notifyDataSetChanged()
     }
 
@@ -130,12 +139,32 @@ class InventoryRoomsAdapter(
         val movedRoom = filteredList[finalPosition]
         val prevRank = if (finalPosition > 0) filteredList[finalPosition - 1].displayOrder else null
         val nextRank = if (finalPosition < filteredList.size - 1) filteredList[finalPosition + 1].displayOrder else null
+        localOrderOverrideIds = filteredList.mapNotNull { it.id }
         onReorder?.invoke(movedRoom.id ?: "", prevRank, nextRank)
         dragFromPosition = -1
     }
 
     fun updateList(list: List<RoomsResponse>) {
-        filteredList = list.toMutableList()
+        val incoming = list.toMutableList()
+        val overrideIds = localOrderOverrideIds
+        if (overrideIds != null) {
+            val incomingIds = incoming.mapNotNull { it.id }
+            if (incomingIds.toSet() == overrideIds.toSet() && incomingIds.size == overrideIds.size) {
+                val byId = incoming.associateBy { it.id }
+                filteredList = overrideIds.mapNotNull { byId[it] }.toMutableList()
+            } else {
+                // Structural list change (add/remove): drop override and follow source order.
+                localOrderOverrideIds = null
+                filteredList = incoming
+            }
+        } else {
+            filteredList = incoming
+        }
+        notifyDataSetChanged()
+    }
+
+    fun updatePendingItemRoomIds(ids: Set<String>) {
+        pendingItemRoomIds = ids
         notifyDataSetChanged()
     }
 

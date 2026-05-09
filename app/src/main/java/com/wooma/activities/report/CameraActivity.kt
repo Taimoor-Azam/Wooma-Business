@@ -2,6 +2,7 @@ package com.wooma.activities.report
 
 import android.Manifest
 import androidx.core.content.res.ResourcesCompat
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioManager
 import android.graphics.Bitmap
@@ -15,6 +16,8 @@ import androidx.exifinterface.media.ExifInterface
 import android.media.MediaActionSound
 import android.net.Uri
 import android.os.Bundle
+import android.os.Build
+import android.provider.MediaStore
 import android.view.OrientationEventListener
 import android.view.Surface
 import android.view.View
@@ -36,9 +39,14 @@ import com.wooma.model.ImageItem
 import com.wooma.data.network.showToast
 import com.wooma.databinding.ActivityCameraBinding
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -379,48 +387,78 @@ class CameraActivity : BaseActivity() {
     private val multiGalleryLauncher =
         registerForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(imageLimit)) { uris ->
             if (uris.isNullOrEmpty()) return@registerForActivityResult
-            
-            val remainingSlots = imageLimit - images.size
-            if (remainingSlots <= 0) {
-                showToast("Limit reached")
-                return@registerForActivityResult
-            }
-            
-            val limitedUris = uris.take(remainingSlots)
-            
-            binding.progressBar.visibility = View.VISIBLE
-            lifecycleScope.launch(Dispatchers.IO) {
-                try {
-                    for (uri in limitedUris) {
-                        val file = fixOrientationToPortrait(copyUriToFile(uri))
-                        val stampedFile = if (showTimestamp) stampDateTimeOnImage(file) else file
-                        val localItem = ImageItem.Local(Uri.fromFile(stampedFile))
+            processPickedGalleryUris(uris)
+        }
 
-                        withContext(Dispatchers.Main) {
-                            images.add(localItem)
-                            sessionLocalUris.add(localItem.uri)
-                            adapter.notifyItemInserted(images.size - 1)
-                            updateCounter()
-                            binding.recyclerImages.scrollToPosition(images.size - 1)
+    private val dynamicGalleryPickerLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode != RESULT_OK) return@registerForActivityResult
+            val data = result.data ?: return@registerForActivityResult
+            val picked = mutableListOf<Uri>()
+            data.clipData?.let { clip ->
+                for (i in 0 until clip.itemCount) {
+                    clip.getItemAt(i).uri?.let { picked.add(it) }
+                }
+            }
+            data.data?.let { picked.add(it) }
+            if (picked.isNotEmpty()) {
+                processPickedGalleryUris(picked.distinctBy { it.toString() })
+            }
+        }
+
+    private fun processPickedGalleryUris(uris: List<Uri>) {
+        val remainingSlots = imageLimit - images.size
+        if (remainingSlots <= 0) {
+            showToast("Limit reached")
+            return
+        }
+
+        val limitedUris = uris.take(remainingSlots)
+        binding.progressBar.visibility = View.VISIBLE
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                // Process gallery images in parallel (bounded) to reduce 40+ image import time.
+                val processedUris = coroutineScope {
+                    val limiter = Semaphore(4)
+                    limitedUris.map { uri ->
+                        async(Dispatchers.IO) {
+                            limiter.withPermit {
+                                val file = fixOrientationToPortrait(copyUriToFile(uri))
+                                val finalFile = if (showTimestamp) stampDateTimeOnImage(file) else file
+                                Uri.fromFile(finalFile)
+                            }
                         }
+                    }.awaitAll()
+                }
+
+                withContext(Dispatchers.Main) {
+                    val startIndex = images.size
+                    val newItems = processedUris.map { ImageItem.Local(it) }
+                    images.addAll(newItems)
+                    sessionLocalUris.addAll(processedUris)
+                    adapter.notifyItemRangeInserted(startIndex, newItems.size)
+                    updateCounter()
+                    if (images.isNotEmpty()) {
+                        binding.recyclerImages.scrollToPosition(images.size - 1)
                     }
-                    
-                    if (uris.size > remainingSlots) {
-                        withContext(Dispatchers.Main) {
-                            showToast("Only $remainingSlots images were added (Limit: $imageLimit)")
-                        }
-                    }
-                } catch (e: Exception) {
+                }
+
+                if (uris.size > remainingSlots) {
                     withContext(Dispatchers.Main) {
-                        showToast("Failed to process some images")
+                        showToast("Only $remainingSlots images were added (Limit: $imageLimit)")
                     }
-                } finally {
-                    withContext(Dispatchers.Main) {
-                        binding.progressBar.visibility = View.GONE
-                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    showToast("Failed to process some images")
+                }
+            } finally {
+                withContext(Dispatchers.Main) {
+                    binding.progressBar.visibility = View.GONE
                 }
             }
         }
+    }
 
     private fun openGallery() {
         if (isCoverImage) coverGalleryLauncher.launch("image/*")
@@ -430,7 +468,14 @@ class CameraActivity : BaseActivity() {
                 showToast("Limit reached")
                 return
             }
-            multiGalleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val intent = Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                    putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX, remaining)
+                }
+                dynamicGalleryPickerLauncher.launch(intent)
+            } else {
+                multiGalleryLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            }
         }
     }
 

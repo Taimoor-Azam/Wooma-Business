@@ -71,6 +71,7 @@ class AddEditKeysActivity : BaseActivity() {
 
     var isEdit = false
     private var hasChanges = false
+    private var currentDbLocalPaths = emptySet<String>()
 
     private val repo by lazy { OtherItemsRepository(this) }
     private val attachmentRepo by lazy { AttachmentRepository(this) }
@@ -193,8 +194,9 @@ class AddEditKeysActivity : BaseActivity() {
                 if (keyItem != null) {
                     repo.updateKey(keyItem!!.id, request)
                     for (uri in capturedUris) {
-                        val existing = db.keyDao().getById(keyItem!!.id)
-                        attachmentRepo.saveLocalAttachment(uri, keyItem!!.id, existing?.serverId, "KEY")
+                        val entityServerId = db.keyDao().getByLocalOrServerId(keyItem!!.id)?.serverId
+                            ?: keyItem!!.id.takeIf { !it.startsWith("local_") }
+                        attachmentRepo.saveLocalAttachment(uri, keyItem!!.id, entityServerId, "KEY")
                     }
                 } else {
                     val entity = repo.addKey(reportId, request)
@@ -240,23 +242,47 @@ class AddEditKeysActivity : BaseActivity() {
         cameraBinding.rvRoomItems.layoutManager =
             LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         cameraBinding.rvRoomItems.adapter =
-            ImageAdapter(allImages, title = keyItem?.name ?: "", onDelete = {
-                capturedUris.clear()
-                capturedUris.addAll(allImages.filterIsInstance<ImageItem.Local>().map { it.uri })
-                hasChanges = true
+            ImageAdapter(allImages, title = keyItem?.name ?: "", onDeleteItem = { item, onSuccess ->
+                lifecycleScope.launch {
+                    val entityId = keyItem?.id
+                    when {
+                        item is ImageItem.Remote && entityId != null ->
+                            attachmentRepo.deleteAttachmentOffline(item, entityId, "KEY")
+                        item is ImageItem.Local && item.uri.path in currentDbLocalPaths && entityId != null ->
+                            attachmentRepo.deleteLocalAttachment(item, entityId, "KEY")
+                        item is ImageItem.Local -> {
+                            val idx = allImages.indexOf(item)
+                            if (idx != -1) {
+                                allImages.removeAt(idx)
+                                cameraBinding.rvRoomItems.adapter?.notifyItemRemoved(idx)
+                            }
+                            capturedUris.remove(item.uri)
+                        }
+                    }
+                    if (entityId != null && Utils.isOnline(this@AddEditKeysActivity))
+                        SyncScheduler.scheduleImmediateSync(this@AddEditKeysActivity)
+                    onSuccess()
+                }
             })
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == RESULT_OK) {
-            val newUris = CameraActivity.Companion.pendingUris.toList()
-            allImages.removeAll { it is ImageItem.Local }
-            allImages.addAll(newUris.map { ImageItem.Local(it) })
+            val latestSessionImages = CameraActivity.Companion.resultImages.toList()
+            allImages.clear()
+            allImages.addAll(latestSessionImages)
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
-            if (newUris.isNotEmpty()) hasChanges = true
+
             capturedUris.clear()
-            capturedUris.addAll(newUris)
+            capturedUris.addAll(
+                allImages
+                    .filterIsInstance<ImageItem.Local>()
+                    .map { it.uri }
+                    .filterNot { uri -> uri.path in currentDbLocalPaths }
+                    .distinctBy { it.toString() }
+            )
+            if (capturedUris.isNotEmpty()) hasChanges = true
         }
     }
 
@@ -269,24 +295,23 @@ class AddEditKeysActivity : BaseActivity() {
 
             lifecycleScope.launch {
                 db.attachmentDao().observeByEntity(keyItem!!.id, "KEY").collect { dbAttachments ->
+                    val newDbLocalPaths = dbAttachments.mapNotNull { it.localUri }.toSet()
+                    allImages.removeAll { img ->
+                        img is ImageItem.Remote ||
+                        (img is ImageItem.Local && img.uri.path in currentDbLocalPaths)
+                    }
+                    currentDbLocalPaths = newDbLocalPaths
                     dbAttachments.forEach { a ->
-                        val img: ImageItem? = when {
+                        val img: ImageItem = when {
+                            a.localUri != null ->
+                                ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!)))
                             a.isUploaded && a.storageKey != null ->
                                 ImageItem.Remote(a.serverId ?: a.id, "${ApiClient.IMAGE_BASE_URL}${a.storageKey}")
-                            !a.isUploaded && a.localUri != null ->
-                                ImageItem.Local(android.net.Uri.fromFile(java.io.File(a.localUri!!)))
-                            else -> null
+                            else -> return@forEach
                         }
-                        img ?: return@forEach
-                        val exists = allImages.any {
-                            (img is ImageItem.Remote && it is ImageItem.Remote && it.id == img.id) ||
-                            (img is ImageItem.Local && it is ImageItem.Local && it.uri == img.uri)
-                        }
-                        if (!exists) {
-                            allImages.add(img)
-                            cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
-                        }
+                        allImages.add(img)
                     }
+                    cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
                 }
             }
         }

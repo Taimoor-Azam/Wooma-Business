@@ -2,6 +2,7 @@ package com.wooma.storage
 
 import android.content.Context
 import com.google.gson.Gson
+import com.wooma.data.local.WoomaDatabase
 import com.wooma.model.User
 
 object Prefs {
@@ -32,5 +33,6 @@ object Prefs {
     fun clearUser(context: Context) {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
         prefs.edit().remove(KEY_USER).apply()
+        WoomaDatabase.clearAllDataAsync(context.applicationContext)
     }
 }

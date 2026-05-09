@@ -11,14 +11,26 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface KeyDao {
 
-    @Query("SELECT * FROM `keys` WHERE reportId = :reportId AND isDeleted = 0 ORDER BY displayOrder ASC")
+    @Query(
+        "SELECT * FROM `keys` WHERE reportId = :reportId AND isDeleted = 0 " +
+            "ORDER BY CASE WHEN displayOrder IS NULL OR displayOrder = '' THEN 1 ELSE 0 END, displayOrder ASC"
+    )
     fun observeByReport(reportId: String): Flow<List<KeyEntity>>
 
     @Query("SELECT * FROM `keys` WHERE reportId = :reportId AND isDeleted = 0")
     suspend fun getByReport(reportId: String): List<KeyEntity>
 
+    @Query("SELECT * FROM `keys` WHERE reportId = :reportId")
+    suspend fun getAllByReport(reportId: String): List<KeyEntity>
+
     @Query("SELECT * FROM `keys` WHERE id = :id")
     suspend fun getById(id: String): KeyEntity?
+
+    @Query("SELECT * FROM `keys` WHERE id = :id OR serverId = :id ORDER BY CASE WHEN id LIKE 'local_%' THEN 0 ELSE 1 END LIMIT 1")
+    suspend fun getByLocalOrServerId(id: String): KeyEntity?
+
+    @Query("DELETE FROM `keys` WHERE id = :id")
+    suspend fun deleteById(id: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(key: KeyEntity)
@@ -37,4 +49,10 @@ interface KeyDao {
 
     @Query("SELECT * FROM `keys` WHERE syncStatus != 'SYNCED'")
     suspend fun getPendingSync(): List<KeyEntity>
+
+    @Query("DELETE FROM `keys` WHERE reportId = :reportId AND syncStatus = 'SYNCED'")
+    suspend fun deleteSyncedByReport(reportId: String)
+
+    @Query("SELECT COUNT(*) FROM `keys` WHERE reportId = :reportId AND isDeleted = 0 AND syncStatus != 'SYNCED'")
+    fun observeUnsyncedCountByReport(reportId: String): Flow<Int>
 }

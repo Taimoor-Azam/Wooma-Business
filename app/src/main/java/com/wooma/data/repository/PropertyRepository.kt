@@ -45,7 +45,7 @@ class PropertyRepository(private val context: Context) {
                 ?.filter { (it.id ?: "").isNotEmpty() && it.id !in pendingIds }
                 ?.forEach { prop ->
                     val entity = prop.toEntity()
-                    val updated = dao.updateFromListServer(
+                    val updated = dao.updateFieldsFromListServer(
                         id = entity.id,
                         address = entity.address,
                         addressLine2 = entity.addressLine2,
@@ -54,8 +54,6 @@ class PropertyRepository(private val context: Context) {
                         country = entity.country,
                         propertyType = entity.propertyType,
                         isActive = entity.isActive,
-                        noOfReports = entity.noOfReports,
-                        lastActivity = entity.lastActivity,
                         updatedAt = entity.updatedAt
                     )
                     if (updated == 0) dao.insertIgnore(entity)
@@ -77,32 +75,49 @@ class PropertyRepository(private val context: Context) {
     }
 
     suspend fun updateProperty(localId: String, request: PropertiesRequest) = withContext(Dispatchers.IO) {
-        val existing = dao.getById(localId) ?: return@withContext
-        dao.upsert(existing.copy(
+        val existing = dao.getById(localId) ?: dao.getByServerId(localId) ?: return@withContext
+        val targetLocalId = existing.id
+        val nextSyncStatus = SyncStatus.PENDING_UPDATE
+        dao.updateEditableFields(
+            id = targetLocalId,
             address = request.address,
             addressLine2 = request.address_line_2,
             city = request.city,
             postcode = request.postcode,
-            syncStatus = if (existing.syncStatus == SyncStatus.SYNCED) SyncStatus.PENDING_UPDATE else existing.syncStatus
-        ))
-        if (existing.syncStatus == SyncStatus.SYNCED) {
+            syncStatus = nextSyncStatus
+        )
+        if (!db.syncQueueDao().hasPendingForEntity("PROPERTY", targetLocalId)) {
             db.syncQueueDao().enqueue(
                 SyncQueueEntity(
                     entityType = "PROPERTY", operationType = "UPDATE",
-                    localEntityId = localId, payload = gson.toJson(request)
+                    localEntityId = targetLocalId, payload = gson.toJson(request)
                 )
             )
         }
     }
 
     suspend fun archiveProperty(localId: String) = withContext(Dispatchers.IO) {
-        val existing = dao.getById(localId) ?: return@withContext
+        val existing = dao.getById(localId) ?: dao.getByServerId(localId) ?: return@withContext
         dao.upsert(existing.copy(isActive = false, syncStatus = SyncStatus.PENDING_UPDATE))
         if (existing.serverId != null) {
             db.syncQueueDao().enqueue(
                 SyncQueueEntity(
                     entityType = "PROPERTY", operationType = "ARCHIVE",
-                    localEntityId = localId, payload = "{}"
+                    localEntityId = existing.id, payload = "{}"
+                )
+            )
+        }
+    }
+
+    suspend fun restoreProperty(localId: String) = withContext(Dispatchers.IO) {
+        val existing = dao.getById(localId) ?: dao.getByServerId(localId) ?: return@withContext
+        dao.upsert(existing.copy(isActive = true, syncStatus = SyncStatus.PENDING_UPDATE))
+        db.reportDao().restoreByProperty(existing.id)
+        if (existing.serverId != null) {
+            db.syncQueueDao().enqueue(
+                SyncQueueEntity(
+                    entityType = "PROPERTY", operationType = "RESTORE",
+                    localEntityId = existing.id, payload = "{}"
                 )
             )
         }

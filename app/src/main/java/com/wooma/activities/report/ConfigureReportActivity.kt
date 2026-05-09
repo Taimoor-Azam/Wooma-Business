@@ -39,11 +39,11 @@ import com.wooma.model.SendRequestRoom
 import com.wooma.model.Template
 import com.wooma.model.TemplateData
 import com.wooma.sync.ConnectivityObserver
-import java.util.Collections
 import kotlinx.coroutines.launch
 
 class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListener {
     private lateinit var binding: ActivityConfigureReportBinding
+    private var roomsItemTouchHelper: ItemTouchHelper? = null
 
     companion object {
         var reportCreated = false
@@ -73,6 +73,7 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
 
         adapter = ReportRoomsAdapter(this, roomsList)
         binding.rvRooms.adapter = adapter
+        moveRooms()
 
         if (isCheckout) binding.configureLayout.visibility = View.GONE
 
@@ -120,19 +121,21 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
         if (requestCode == REQUEST_ADD_ROOM && resultCode == RESULT_OK) {
             val rooms = data?.getStringArrayListExtra(SelectRoomActivity.RESULT_ROOMS) ?: return
             rooms.forEach { name ->
-                roomsList.add(0, Room("", "", name, "", true, ArrayList()))
+                roomsList.add(Room("", "", name, "", true, ArrayList()))
             }
             adapter.updateList(roomsList)
         }
     }
 
     private fun moveRooms() {
-        val callback = DragManageAdapter(this, adapter, roomsList) { from, to ->
+        if (roomsItemTouchHelper != null) return
+        val callback = DragManageAdapter(adapter) { from, to ->
 //            Toast.makeText(this, "Item moved from $from to $to", Toast.LENGTH_SHORT).show()
             // Optionally save new order to DB / SharedPreferences
         }
-        val itemTouchHelper = ItemTouchHelper(callback)
-        itemTouchHelper.attachToRecyclerView(binding.rvRooms)
+        roomsItemTouchHelper = ItemTouchHelper(callback).also {
+            it.attachToRecyclerView(binding.rvRooms)
+        }
     }
 
     private fun addReportServerApi(
@@ -333,7 +336,6 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
 
     private fun updateRoomsFromTemplate() {
         adapter.updateList(roomsList)
-        moveRooms()
     }
 
     override fun onItemSelected(
@@ -349,9 +351,7 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
     }
 
     class DragManageAdapter(
-        val context: Context,
         private val adapter: RecyclerView.Adapter<*>,
-        private val data: MutableList<Room>,
         private val onItemDropped: ((fromPosition: Int, toPosition: Int) -> Unit)? = null
     ) : ItemTouchHelper.Callback() {
 
@@ -372,6 +372,7 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
         ): Boolean {
             val from = viewHolder.adapterPosition
             val to = target.adapterPosition
+            if (from == RecyclerView.NO_POSITION || to == RecyclerView.NO_POSITION) return false
 
             // Track start position only on first move
             if (dragStartPosition == -1) dragStartPosition = from
@@ -389,6 +390,10 @@ class ConfigureReportActivity : BaseActivity(), AdapterView.OnItemSelectedListen
             super.clearView(recyclerView, viewHolder)
 
             val finalPosition = viewHolder.adapterPosition
+            if (finalPosition == RecyclerView.NO_POSITION) {
+                dragStartPosition = -1
+                return
+            }
 
             if (dragStartPosition != -1 && dragStartPosition != finalPosition) {
                 onItemDropped?.invoke(dragStartPosition, finalPosition)

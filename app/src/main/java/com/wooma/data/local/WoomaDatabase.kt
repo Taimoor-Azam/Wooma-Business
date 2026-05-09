@@ -7,6 +7,7 @@ import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 import com.wooma.data.local.dao.*
 import com.wooma.data.local.entity.*
+import java.util.concurrent.Executors
 
 @Database(
     entities = [
@@ -29,9 +30,10 @@ import com.wooma.data.local.entity.*
         TemplateRoomEntity::class,
         TemplateItemEntity::class,
         SyncQueueEntity::class,
-        PendingUploadEntity::class
+        PendingUploadEntity::class,
+        RatingEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -55,10 +57,12 @@ abstract class WoomaDatabase : RoomDatabase() {
     abstract fun templateDao(): TemplateDao
     abstract fun syncQueueDao(): SyncQueueDao
     abstract fun pendingUploadDao(): PendingUploadDao
+    abstract fun ratingDao(): RatingDao
 
     companion object {
         @Volatile
         private var INSTANCE: WoomaDatabase? = null
+        private val dbIoExecutor = Executors.newSingleThreadExecutor()
 
         fun getInstance(context: Context): WoomaDatabase {
             return INSTANCE ?: synchronized(this) {
@@ -67,6 +71,15 @@ abstract class WoomaDatabase : RoomDatabase() {
                     WoomaDatabase::class.java,
                     "wooma_db"
                 ).fallbackToDestructiveMigration().build().also { INSTANCE = it }
+            }
+        }
+
+        fun clearAllDataAsync(context: Context) {
+            dbIoExecutor.execute {
+                kotlin.runCatching {
+                    val db = getInstance(context)
+                    db.clearAllTables()
+                }
             }
         }
     }

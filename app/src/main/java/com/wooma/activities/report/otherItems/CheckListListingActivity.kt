@@ -7,6 +7,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.wooma.activities.BaseActivity
 import com.wooma.adapter.CheckListAdapter
+import com.wooma.customs.Utils
 import com.wooma.data.repository.ChecklistRepository
 import com.wooma.databinding.ActivityCheckListListingBinding
 import com.wooma.model.Checklist
@@ -46,9 +47,10 @@ class CheckListListingActivity : BaseActivity() {
             isReadOnly = isReadOnly,
             onToggle = { id, isActive ->
                 lifecycleScope.launch {
-                    checklistRepo.updateChecklistStatus(id, isActive)
-                    SyncScheduler.scheduleImmediateSync(this@CheckListListingActivity)
-                    adapter.updateItem(id, isActive)
+                    val shouldSchedule = checklistRepo.updateChecklistStatus(id, isActive)
+                    if (shouldSchedule) {
+                        SyncScheduler.scheduleImmediateSync(this@CheckListListingActivity)
+                    }
                 }
             },
             onClick = { checklist ->
@@ -79,8 +81,12 @@ class CheckListListingActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (!Utils.isOnline(this)) return
         lifecycleScope.launch {
-            try { checklistRepo.refreshChecklistStatuses(reportId) } catch (_: Exception) {}
+            try {
+                checklistRepo.refreshChecklistStatuses(reportId)
+            } catch (_: Exception) {
+            }
         }
     }
 }

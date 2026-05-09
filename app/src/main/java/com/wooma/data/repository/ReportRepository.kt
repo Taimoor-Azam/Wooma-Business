@@ -75,6 +75,7 @@ class ReportRepository(private val context: Context) {
                         assessorLastName = entity.assessorLastName,
                         assessorEmail = entity.assessorEmail,
                         completionDate = entity.completionDate,
+                        coverImageStorageKey = entity.coverImageStorageKey,
                         isActive = entity.isActive,
                         isDeleted = entity.isDeleted,
                         updatedAt = entity.updatedAt

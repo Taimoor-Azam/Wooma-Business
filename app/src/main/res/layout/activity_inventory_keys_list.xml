@@ -56,7 +56,19 @@
             android:layout_marginEnd="@dimen/_8sdp"
             android:contentDescription="Sync status"
             android:src="@drawable/svg_synced"
-            android:visibility="visible" />
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tvEdit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_marginEnd="@dimen/_8sdp"
+            android:fontFamily="@font/sofiasans_bold"
+            android:text="Edit"
+            android:textColor="@color/green"
+            android:textSize="@dimen/_13ssp"
+            android:visibility="gone" />
 
         <ImageView
             android:id="@+id/ivAdd"
@@ -68,41 +80,32 @@
             app:tint="@color/black" />
     </LinearLayout>
 
-    <androidx.core.widget.NestedScrollView
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvMeters"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:layout_marginTop="@dimen/_8sdp"
+        android:clipToPadding="false"
+        android:orientation="vertical"
+        android:paddingBottom="@dimen/_10sdp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/topLayout">
+        app:layout_constraintTop_toBottomOf="@+id/topLayout"
+        app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:orientation="vertical">
-
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/rvMeters"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/_8sdp"
-                android:clipToPadding="false"
-                android:orientation="vertical"
-                android:paddingBottom="@dimen/_10sdp"
-                app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager" />
-
-            <TextView
-                android:id="@+id/tvEmpty"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="@dimen/_32sdp"
-                android:fontFamily="@font/sofiasans_regular"
-                android:gravity="center"
-                android:text="No record found"
-                android:textColor="@color/light_grey"
-                android:textSize="@dimen/_14ssp"
-                android:visibility="gone" />
-
-        </LinearLayout>
-    </androidx.core.widget.NestedScrollView>
+    <TextView
+        android:id="@+id/tvEmpty"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/_32sdp"
+        android:fontFamily="@font/sofiasans_regular"
+        android:gravity="center"
+        android:text="No record found"
+        android:textColor="@color/light_grey"
+        android:textSize="@dimen/_14ssp"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/topLayout" />
 </androidx.constraintlayout.widget.ConstraintLayout>
