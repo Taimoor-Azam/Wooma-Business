@@ -74,27 +74,28 @@ class PropertyRepository(private val context: Context) {
         dao.upsert(property.toEntity())
     }
 
-    suspend fun updateProperty(localId: String, request: PropertiesRequest) = withContext(Dispatchers.IO) {
-        val existing = dao.getById(localId) ?: dao.getByServerId(localId) ?: return@withContext
-        val targetLocalId = existing.id
-        val nextSyncStatus = SyncStatus.PENDING_UPDATE
-        dao.updateEditableFields(
-            id = targetLocalId,
-            address = request.address,
-            addressLine2 = request.address_line_2,
-            city = request.city,
-            postcode = request.postcode,
-            syncStatus = nextSyncStatus
-        )
-        if (!db.syncQueueDao().hasPendingForEntity("PROPERTY", targetLocalId)) {
-            db.syncQueueDao().enqueue(
-                SyncQueueEntity(
-                    entityType = "PROPERTY", operationType = "UPDATE",
-                    localEntityId = targetLocalId, payload = gson.toJson(request)
-                )
+    suspend fun updateProperty(localId: String, request: PropertiesRequest) =
+        withContext(Dispatchers.IO) {
+            val existing = dao.getById(localId) ?: dao.getByServerId(localId) ?: return@withContext
+            val targetLocalId = existing.id
+            val nextSyncStatus = SyncStatus.PENDING_UPDATE
+            dao.updateEditableFields(
+                id = targetLocalId,
+                address = request.address,
+                addressLine2 = request.address_line_2,
+                city = request.city,
+                postcode = request.postcode,
+                syncStatus = nextSyncStatus
             )
+            if (!db.syncQueueDao().hasPendingForEntity("PROPERTY", targetLocalId)) {
+                db.syncQueueDao().enqueue(
+                    SyncQueueEntity(
+                        entityType = "PROPERTY", operationType = "UPDATE",
+                        localEntityId = targetLocalId, payload = gson.toJson(request)
+                    )
+                )
+            }
         }
-    }
 
     suspend fun archiveProperty(localId: String) = withContext(Dispatchers.IO) {
         val existing = dao.getById(localId) ?: dao.getByServerId(localId) ?: return@withContext
@@ -123,7 +124,7 @@ class PropertyRepository(private val context: Context) {
         }
     }
 
-    suspend fun restoreProperty(localId: String) = withContext(Dispatchers.IO) {
+/*    suspend fun restoreProperty(localId: String) = withContext(Dispatchers.IO) {
         val existing = dao.getById(localId) ?: return@withContext
         dao.upsert(existing.copy(isActive = true, syncStatus = SyncStatus.PENDING_UPDATE))
         db.reportDao().restoreByProperty(localId)
@@ -135,5 +136,5 @@ class PropertyRepository(private val context: Context) {
                 )
             )
         }
-    }
+    }*/
 }
