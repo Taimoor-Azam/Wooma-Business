@@ -64,6 +64,9 @@ class InspectionRoomActivity : BaseActivity() {
     private var isHandlingEnter = false
     private var hasChanges = false
 
+    /** True when inspection cannot be edited (tenant review / completed / historical). */
+    private var isReadOnly = false
+
     private val inspectionRepo by lazy { InspectionRepository(this) }
     private val attachmentRepo by lazy { AttachmentRepository(this) }
     private val db by lazy { WoomaDatabase.getInstance(this) }
@@ -271,48 +274,50 @@ class InspectionRoomActivity : BaseActivity() {
         setContentView(binding.root)
         applyWindowInsetsToBinding(binding.root)
         cameraBinding = binding.cameraLayout
-        cameraBinding.rvRoomItems.layoutManager =
-            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        cameraBinding.rvRoomItems.adapter =
-            ImageAdapter(
-                allImages,
-                title = room?.name ?: "",
-                onDeleteItem = { item, onSuccess ->
-                    val roomId = room?.id ?: return@ImageAdapter
-                    lifecycleScope.launch {
-                        when (item) {
-                            is ImageItem.Local -> {
-                                // Not yet on server — always safe to delete locally
-                                attachmentRepo.deleteLocalAttachment(item, roomId, "ROOM")
-                            }
-                            is ImageItem.Remote -> {
-                                if (isNetworkAvailable()) {
-                                    // Online: remove from DB now (image disappears immediately)
-                                    // and trigger background sync to delete from server
-                                    attachmentRepo.deleteRemoteAttachment(item, roomId, "ROOM")
-                                    SyncScheduler.scheduleImmediateSync(this@InspectionRoomActivity)
-                                } else {
-                                    // Offline: keep in DB so image stays visible, queue the
-                                    // server delete — saveServerAttachments removes it from DB
-                                    // once the server confirms deletion on next online refresh
-                                    attachmentRepo.scheduleRemoteAttachmentDelete(item.id)
-                                }
-                            }
-                        }
-                        onSuccess()
-                    }
-                }
-            )
 
         room = intent.getParcelableExtra("room")
         reportId = intent.getStringExtra("reportId") ?: ""
         reportStatus = intent.getStringExtra("reportStatus") ?: ""
         showTimestamp = intent.getBooleanExtra("showTimestamp", true)
 
+        isReadOnly =
+            reportStatus == TenantReportStatus.COMPLETED.value ||
+                reportStatus == TenantReportStatus.HISTORICAL.value ||
+                reportStatus == TenantReportStatus.TENANT_REVIEW.value
+
+        cameraBinding.rvRoomItems.layoutManager =
+            LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        cameraBinding.rvRoomItems.adapter =
+            ImageAdapter(
+                allImages,
+                showDelete = !isReadOnly,
+                title = room?.name ?: "",
+                onDeleteItem = if (!isReadOnly) { item, onSuccess ->
+                    val roomId = room?.id ?: return@ImageAdapter
+                    lifecycleScope.launch {
+                        when (item) {
+                            is ImageItem.Local -> {
+                                attachmentRepo.deleteLocalAttachment(item, roomId, "ROOM")
+                            }
+                            is ImageItem.Remote -> {
+                                if (isNetworkAvailable()) {
+                                    attachmentRepo.deleteRemoteAttachment(item, roomId, "ROOM")
+                                    SyncScheduler.scheduleImmediateSync(this@InspectionRoomActivity)
+                                } else {
+                                    attachmentRepo.scheduleRemoteAttachmentDelete(item.id)
+                                }
+                            }
+                        }
+                        onSuccess()
+                    }
+                } else null
+            )
+
         binding.tvTitle.text = room?.name ?: ""
 
         // Camera
         cameraBinding.ivAddImage.setOnClickListener {
+            if (isReadOnly) return@setOnClickListener
             CameraActivity.pendingUris.clear()
             startActivityForResult(
                 Intent(this, CameraActivity::class.java)
@@ -322,8 +327,14 @@ class InspectionRoomActivity : BaseActivity() {
         }
 
         // All ok / Issues found toggles
-        binding.btnAllOk.setOnClickListener { setIssueState(false); hasChanges = true }
-        binding.btnIssuesFound.setOnClickListener { setIssueState(true); hasChanges = true }
+        binding.btnAllOk.setOnClickListener {
+            if (isReadOnly) return@setOnClickListener
+            setIssueState(false); hasChanges = true
+        }
+        binding.btnIssuesFound.setOnClickListener {
+            if (isReadOnly) return@setOnClickListener
+            setIssueState(true); hasChanges = true
+        }
 
         // Issue suggestions
         issueSuggestionsAdapter = SuggestionsAdapter(
@@ -351,7 +362,7 @@ class InspectionRoomActivity : BaseActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) {
-                if (isHandlingEnter) return
+                if (isHandlingEnter || isReadOnly) return
                 hasChanges = true
                 val fullText = s?.toString() ?: ""
                 if (fullText.contains('\n')) {
@@ -378,9 +389,15 @@ class InspectionRoomActivity : BaseActivity() {
         binding.tvPrioritySubtitleValue.visibility = View.VISIBLE
         binding.ivSelectedPriorityIcon.setImageResource(R.drawable.svg_observation)
         binding.ivSelectedPriorityIcon.visibility = View.VISIBLE
-        binding.spinnerPriority.setOnClickListener { showPriorityDropdown() }
+        binding.spinnerPriority.setOnClickListener {
+            if (isReadOnly) return@setOnClickListener
+            showPriorityDropdown()
+        }
 
-        binding.btnDone.setOnClickListener { upsertRoomInspectionApi() }
+        binding.btnDone.setOnClickListener {
+            if (isReadOnly) return@setOnClickListener
+            upsertRoomInspectionApi()
+        }
         binding.ivBack.setOnClickListener {
             if (hasChanges) showUnsavedChangesDialog { finish() } else finish()
         }
@@ -388,9 +405,6 @@ class InspectionRoomActivity : BaseActivity() {
         setIssueState(false)
         fetchRoomData()
 
-        val isReadOnly = reportStatus == TenantReportStatus.COMPLETED.value ||
-                reportStatus == TenantReportStatus.HISTORICAL.value ||
-                reportStatus == TenantReportStatus.TENANT_REVIEW.value
         if (isReadOnly) applyReadOnlyMode()
 
         val callback = object : OnBackPressedCallback(true) {
@@ -411,6 +425,7 @@ class InspectionRoomActivity : BaseActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (isReadOnly) return
         if (requestCode == CAMERA_REQUEST && resultCode == RESULT_OK) {
             val newUris = CameraActivity.pendingUris.toList()
             if (newUris.isEmpty()) return
@@ -447,13 +462,29 @@ class InspectionRoomActivity : BaseActivity() {
 
     private fun applyReadOnlyMode() {
         cameraBinding.ivAddImage.isEnabled = false
+        cameraBinding.ivAddImage.isClickable = false
         cameraBinding.ivAddImage.alpha = 0.5f
+
         binding.btnAllOk.isEnabled = false
+        binding.btnAllOk.isClickable = false
         binding.btnIssuesFound.isEnabled = false
-        binding.etIssueNote.isEnabled = false
+        binding.btnIssuesFound.isClickable = false
+
+        binding.etIssueNote.apply {
+            isEnabled = false
+            isFocusable = false
+            isFocusableInTouchMode = false
+            isCursorVisible = false
+            keyListener = null
+        }
+
         binding.spinnerPriority.isEnabled = false
+        binding.spinnerPriority.isClickable = false
         binding.spinnerPriority.alpha = 0.5f
-        binding.rvIssueSuggestions.isEnabled = false
+        binding.ivPriorityArrow.alpha = 0.5f
+
+        binding.rvIssueSuggestions.visibility = View.GONE
+
         binding.btnDone.visibility = View.GONE
     }
 
@@ -584,6 +615,8 @@ class InspectionRoomActivity : BaseActivity() {
     }
 
     private fun showPriorityDropdown() {
+        if (isReadOnly) return
+
         data class PriorityItem(
             val label: String,
             val value: String,
@@ -663,6 +696,7 @@ class InspectionRoomActivity : BaseActivity() {
     }
 
     private fun upsertRoomInspectionApi() {
+        if (isReadOnly) return
         val roomId = room?.id ?: return
         val note = if (isIssue) binding.etIssueNote.text.toString().ifEmpty { null } else null
         val priority = if (isIssue) selectedPriority else null

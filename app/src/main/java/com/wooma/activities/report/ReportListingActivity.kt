@@ -17,12 +17,16 @@ import com.wooma.data.local.mapper.toReport
 import com.wooma.data.network.showToast
 import com.wooma.data.repository.PropertyRepository
 import com.wooma.data.repository.ReportRepository
+import com.wooma.sync.ConnectivityObserver
 import com.wooma.databinding.ActivityReportListingBinding
 import com.wooma.model.AddReportResponse
 import com.wooma.model.PropertyReportType
 import com.wooma.model.Report
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import java.text.ParseException
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 class ReportListingActivity : BaseActivity() {
     private lateinit var binding: ActivityReportListingBinding
@@ -148,12 +152,24 @@ class ReportListingActivity : BaseActivity() {
                 }
 
                 reportRepo.observeByProperty(targetPropertyId).collect { entities ->
-                    val mapped = entities.map { it.toReport() }
+                    val mapped = entities.map { it.toReport() }.sortedForListing()
                     reports.clear()
                     reports.addAll(mapped)
                     adapter.updateList(reports)
                     binding.tvNoReportFound.visibility =
                         if (reports.isNotEmpty()) View.GONE else View.VISIBLE
+                }
+
+                launch {
+                    ConnectivityObserver(this@ReportListingActivity).observeConnectivity()
+                        .collect { online ->
+                            if (online && targetPropertyId.isNotEmpty()) {
+                                try {
+                                    reportRepo.refreshByProperty(targetPropertyId)
+                                } catch (_: Exception) {
+                                }
+                            }
+                        }
                 }
             }
         }
@@ -174,5 +190,41 @@ class ReportListingActivity : BaseActivity() {
         intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
         startActivity(intent)
         finish()
+    }
+
+    /**
+     * Newest [Report.completion_date] first. Reports with no completion date (e.g. in progress)
+     * are listed after completed ones, ordered by [Report.updated_at] then [Report.created_at].
+     */
+    private fun List<Report>.sortedForListing(): List<Report> {
+        val primaryFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+        val fallbackFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault())
+
+        fun parseInstantMillis(raw: String?): Long? {
+            if (raw.isNullOrBlank()) return null
+            return try {
+                primaryFormat.parse(raw)?.time
+            } catch (_: ParseException) {
+                try {
+                    fallbackFormat.parse(raw)?.time
+                } catch (_: ParseException) {
+                    null
+                }
+            }
+        }
+
+        val withCompletion = filter { !it.completion_date.isNullOrBlank() }
+            .sortedWith(
+                compareByDescending<Report> { parseInstantMillis(it.completion_date) ?: Long.MIN_VALUE }
+                    .thenByDescending { parseInstantMillis(it.updated_at) ?: Long.MIN_VALUE }
+            )
+
+        val withoutCompletion = filter { it.completion_date.isNullOrBlank() }
+            .sortedWith(
+                compareByDescending<Report> { parseInstantMillis(it.updated_at) ?: Long.MIN_VALUE }
+                    .thenByDescending { parseInstantMillis(it.created_at) ?: Long.MIN_VALUE }
+            )
+
+        return withCompletion + withoutCompletion
     }
 }

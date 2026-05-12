@@ -45,7 +45,7 @@ class PropertyRepository(private val context: Context) {
                 ?.filter { (it.id ?: "").isNotEmpty() && it.id !in pendingIds }
                 ?.forEach { prop ->
                     val entity = prop.toEntity()
-                    val updated = dao.updateFieldsFromListServer(
+                    val updated = dao.updateFromListServer(
                         id = entity.id,
                         address = entity.address,
                         addressLine2 = entity.addressLine2,
@@ -54,6 +54,8 @@ class PropertyRepository(private val context: Context) {
                         country = entity.country,
                         propertyType = entity.propertyType,
                         isActive = entity.isActive,
+                        noOfReports = entity.noOfReports,
+                        lastActivity = entity.lastActivity,
                         updatedAt = entity.updatedAt
                     )
                     if (updated == 0) dao.insertIgnore(entity)

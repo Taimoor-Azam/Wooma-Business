@@ -67,6 +67,12 @@ interface PendingUploadDao {
     )
     suspend fun migrateChecklistAnswerAttachmentEntityLocalId(oldLocalId: String, newLocalId: String)
 
+    @Query(
+        "UPDATE pending_uploads SET entityLocalId = :newId WHERE entityLocalId = :oldId " +
+            "AND entityType = 'ROOM_ITEM'"
+    )
+    suspend fun migrateRoomItemEntityLocalId(oldId: String, newId: String)
+
     @Query("UPDATE pending_uploads SET status = 'DONE', storageKey = :key, attachmentServerId = :attachmentId WHERE id = :id")
     suspend fun markDone(id: Long, key: String, attachmentId: String)
 

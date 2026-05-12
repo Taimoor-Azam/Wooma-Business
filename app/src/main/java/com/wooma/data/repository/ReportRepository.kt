@@ -55,13 +55,16 @@ class ReportRepository(private val context: Context) {
                 updatedAt = data.updated_at
             )
             if (rowsUpdated == 0) propertyDao.insertIgnore(data.toPropertyEntity())
-            // Guard: only sync reports when the API actually returned them
+
+            val pendingIds = reportDao.getPendingSyncReports()
+                .filter { it.propertyId == propertyId }
+                .map { it.id }.toSet()
+
+            // Sync reports from server (updates in place — never DELETE rows; archived → isDeleted=1).
             if (data.reports.isNotEmpty()) {
-                val pendingIds = db.reportDao().getPendingSyncReports()
-                    .filter { it.propertyId == propertyId }
-                    .map { it.id }.toSet()
-                // UPDATE in-place (no REPLACE, no CASCADE-delete of rooms) for each report
+                val serverIds = LinkedHashSet<String>()
                 for (report in data.reports) {
+                    serverIds.add(report.id)
                     if (report.id in pendingIds) continue
                     val entity = report.toEntity(propertyId)
                     val updated = reportDao.updateFromServer(
@@ -81,6 +84,14 @@ class ReportRepository(private val context: Context) {
                         updatedAt = entity.updatedAt
                     )
                     if (updated == 0) reportDao.insertIgnore(entity)
+                }
+                // Reports that exist locally + synced but are no longer returned (e.g. archived on web)
+                val visibleSyncedIds = reportDao.getSyncedVisibleReportIds(propertyId)
+                for (localId in visibleSyncedIds) {
+                    if (localId in pendingIds) continue
+                    if (localId !in serverIds) {
+                        reportDao.setDeletedAndSynced(localId)
+                    }
                 }
             }
         }

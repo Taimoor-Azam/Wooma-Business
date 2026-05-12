@@ -1,8 +1,8 @@
-
 package com.wooma.activities.report
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -13,12 +13,14 @@ import com.wooma.activities.BaseActivity
 import com.wooma.adapter.InventoryRoomItemsAdapter
 import com.wooma.data.local.WoomaDatabase
 import com.wooma.data.repository.RoomItemRepository
+import com.wooma.data.repository.RoomRepository
 import com.wooma.model.Attachment
 import kotlinx.coroutines.flow.combine
 import com.wooma.databinding.ActivityInventoryRoomsListBinding
 import com.wooma.model.PropertyReportType
 import com.wooma.model.RoomItem
 import com.wooma.model.enums.TenantReportStatus
+import com.wooma.customs.Utils
 import com.wooma.sync.SyncScheduler
 import com.wooma.sync.ConnectivityObserver
 import kotlinx.coroutines.launch
@@ -38,6 +40,7 @@ class InventoryRoomItemsListActivity : BaseActivity() {
     private var isEditMode = false
 
     private val roomItemRepo by lazy { RoomItemRepository(this) }
+    private val roomRepo by lazy { RoomRepository(this) }
     private val db by lazy { WoomaDatabase.getInstance(this) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -121,7 +124,7 @@ class InventoryRoomItemsListActivity : BaseActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 combine(
-                    roomItemRepo.observeItems(roomId),
+                    roomItemRepo.observeItems(reportId, roomId),
                     db.attachmentDao().observeByEntityType("ROOM_ITEM")
                 ) { items, allAttachments ->
                     items.map { item ->
@@ -207,15 +210,35 @@ class InventoryRoomItemsListActivity : BaseActivity() {
                     .collect { connected ->
                         isNetworkAvailable = connected
                         updateReorderAvailability()
+                        if (connected) {
+                            lifecycleScope.launch {
+                                try {
+                                    ensureReportItemsHydratedIfEmpty()
+                                    roomItemRepo.refreshItems(reportId, roomId)
+                                } catch (e: Exception) {
+                                    Log.e(TAG, "refresh after connectivity", e)
+                                }
+                            }
+                        }
                     }
             }
         }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                db.roomItemDao().observeUnsyncedCountByRoom(roomId).collect { unsyncedCount ->
+                db.roomItemDao().observeUnsyncedCountForReportRoom(reportId, roomId).collect { unsyncedCount ->
                     areAllRoomItemsSynced = unsyncedCount == 0
                     updateReorderAvailability()
+                }
+            }
+        }
+
+        lifecycleScope.launch {
+            if (Utils.isOnline(this@InventoryRoomItemsListActivity)) {
+                try {
+                    ensureReportItemsHydratedIfEmpty()
+                } catch (e: Exception) {
+                    Log.e(TAG, "bootstrap hydrate", e)
                 }
             }
         }
@@ -223,12 +246,28 @@ class InventoryRoomItemsListActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Offline: rely on Room DB + observeItems Flow only. Online: refresh from API for latest + images.
+        if (!Utils.isOnline(this)) return
         lifecycleScope.launch {
             try {
+                ensureReportItemsHydratedIfEmpty()
                 roomItemRepo.refreshItems(reportId, roomId)
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.e(TAG, "onResume refresh", e)
             }
         }
+    }
+
+    private suspend fun ensureReportItemsHydratedIfEmpty() {
+        if (!Utils.isOnline(this)) return
+        if (reportId.isBlank() || roomId.isBlank()) return
+        val count = db.roomItemDao().countVisibleItemsForReportRoom(reportId, roomId)
+        if (count > 0) return
+        roomRepo.fetchAndHydrateReport(reportId)
+    }
+
+    companion object {
+        private const val TAG = "InventoryRoomItems"
     }
 
     private fun addNewRoomItem(name: String) {

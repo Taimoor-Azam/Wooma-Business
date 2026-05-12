@@ -56,16 +56,21 @@ class ActivateAccountActivity : BaseActivity() {
 
         binding.btnContinue.setOnClickListener {
             if (isValid()) {
-                val fullPhoneNumber = binding.ccp.fullNumberWithPlus
                 val userBoard = UserOnBoardRequest(
                     binding.etFirstName.text.toString(),
                     binding.etLastName.text.toString(),
                     binding.etCompany.text.toString(),
-                    fullPhoneNumber
+                    phoneForApi()
                 )
                 onboardUserApi(userBoard)
             }
         }
+    }
+
+    /** Same E.164 behaviour as [com.wooma.activities.report.EditTenantActivity]. */
+    private fun phoneForApi(): String {
+        val national = binding.etPhone.text?.toString()?.trim().orEmpty()
+        return if (national.isEmpty()) "" else (binding.ccp.fullNumberWithPlus ?: "")
     }
 
     private fun updateCompanyNameFromNames() {
@@ -81,7 +86,7 @@ class ActivateAccountActivity : BaseActivity() {
         } else if (binding.etLastName.text.toString().isEmpty()) {
             showToast("last name is required")
             return false
-        } else if (binding.etPhone.text.toString().isEmpty()) {
+        } else if (binding.etPhone.text?.toString()?.trim().orEmpty().isEmpty()) {
             showToast("Phone number is required")
             return false
         } else if (binding.etCompany.text.toString().isEmpty()) {

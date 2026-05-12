@@ -21,6 +21,7 @@ import com.wooma.data.network.showToast
 import com.wooma.data.repository.PropertyRepository
 import com.wooma.databinding.FragmentPropertiesBinding
 import com.wooma.model.Property
+import com.wooma.sync.ConnectivityObserver
 import kotlinx.coroutines.launch
 
 class PropertiesFragment : Fragment() {
@@ -102,6 +103,19 @@ class PropertiesFragment : Fragment() {
                         binding.mainLayout.visibility = View.GONE
                         binding.bottomLayout.visibility = View.GONE
                         binding.emptyPropertyLayout.visibility = View.VISIBLE
+                    }
+                }
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                ConnectivityObserver(requireContext()).observeConnectivity().collect { online ->
+                    if (online) {
+                        try {
+                            repo.refreshActiveProperties()
+                        } catch (_: Exception) {
+                        }
                     }
                 }
             }

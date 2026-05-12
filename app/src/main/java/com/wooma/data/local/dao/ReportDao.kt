@@ -26,6 +26,10 @@ interface ReportDao {
     @Query("SELECT * FROM reports WHERE propertyId = :propertyId AND isDeleted = 0 ORDER BY createdAt DESC")
     suspend fun getByProperty(propertyId: String): List<ReportEntity>
 
+    /** Visible + fully synced rows — used to reconcile with server list without touching pending offline work. */
+    @Query("SELECT id FROM reports WHERE propertyId = :propertyId AND syncStatus = 'SYNCED' AND isDeleted = 0")
+    suspend fun getSyncedVisibleReportIds(propertyId: String): List<String>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(report: ReportEntity)
 

@@ -111,7 +111,7 @@
             android:textSize="@dimen/_12ssp" />
 
         <TextView
-            android:id="@+id/tvPhone"
+            android:id="@+id/tvEmailLabel"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/_8sdp"
@@ -163,23 +163,51 @@
                 android:textSize="@dimen/_11ssp" />
         </LinearLayout>
 
-        <androidx.appcompat.widget.AppCompatEditText
-            android:id="@+id/etPhone"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="@dimen/_4sdp"
             android:background="@drawable/bg_edittext"
-            android:hint="Enter Phone Number"
-            android:imeOptions="actionDone"
-            android:inputType="number"
-            android:maxLines="1"
-            android:paddingStart="@dimen/_10sdp"
-            android:paddingTop="@dimen/_10sdp"
-            android:paddingEnd="@dimen/_10sdp"
-            android:paddingBottom="@dimen/_10sdp"
-            android:textColor="@color/black"
-            android:textColorHint="@color/light_grey"
-            android:textSize="@dimen/_12ssp" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <com.hbb20.CountryCodePicker
+                android:id="@+id/ccp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:ccp_arrowColor="@color/black"
+                app:ccp_contentColor="@color/black"
+                app:ccp_defaultNameCode="GB"
+                app:ccp_showArrow="true"
+                app:ccp_showFlag="true"
+                app:ccp_showNameCode="true"
+                app:ccp_showPhoneCode="true"
+                app:ccp_textSize="@dimen/_12ssp" />
+
+            <View
+                android:layout_width="1dp"
+                android:layout_height="match_parent"
+                android:layout_marginTop="@dimen/_8sdp"
+                android:layout_marginBottom="@dimen/_8sdp"
+                android:background="@color/border_stroke" />
+
+            <androidx.appcompat.widget.AppCompatEditText
+                android:id="@+id/etPhone"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@android:color/transparent"
+                android:hint="Enter Phone Number"
+                android:imeOptions="actionDone"
+                android:inputType="phone"
+                android:maxLines="1"
+                android:paddingStart="@dimen/_10sdp"
+                android:paddingTop="@dimen/_10sdp"
+                android:paddingEnd="@dimen/_10sdp"
+                android:paddingBottom="@dimen/_10sdp"
+                android:textColor="@color/black"
+                android:textColorHint="@color/light_grey"
+                android:textSize="@dimen/_12ssp" />
+        </LinearLayout>
     </LinearLayout>
 
     <LinearLayout

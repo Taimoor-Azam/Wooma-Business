@@ -7,8 +7,10 @@ import android.content.Intent
 import android.widget.Toast
 import com.wooma.activities.auth.GetStartedActivity
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.wooma.activities.BaseActivity
 import com.wooma.model.ErrorResponse
+import com.wooma.model.RoomsResponse
 import com.wooma.storage.Prefs
 import com.wooma.model.RefreshTokenRequest
 import okhttp3.OkHttpClient
@@ -93,8 +95,13 @@ object RetrofitClient {
                 .readTimeout(30, TimeUnit.SECONDS)
                 .build()
 
-            val gson = com.google.gson.GsonBuilder()
+            val delegateGson = GsonBuilder().serializeNulls().create()
+            val gson = GsonBuilder()
                 .serializeNulls()
+                .registerTypeAdapter(
+                    RoomsResponse::class.java,
+                    RoomsResponseDeserializer(delegateGson)
+                )
                 .create()
 
             retrofit = Retrofit.Builder()

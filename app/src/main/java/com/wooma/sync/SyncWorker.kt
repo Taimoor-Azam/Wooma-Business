@@ -5,9 +5,11 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.google.gson.Gson
+import androidx.room.withTransaction
 import com.wooma.data.local.WoomaDatabase
 import com.wooma.data.local.entity.SyncStatus
 import com.wooma.data.network.RetrofitClient
+import com.wooma.data.repository.RoomItemRepository
 import com.wooma.model.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -15,6 +17,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.concurrent.atomic.AtomicBoolean
 
 class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
 
@@ -23,6 +26,21 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
     private val gson = Gson()
 
     override suspend fun doWork(): Result {
+        // Immediate sync (unique "wooma_sync_pipeline") and periodic sync ("wooma_periodic") both run this
+        // worker — they are different WorkManager unique chains and can execute in parallel. A second
+        // instance would reset the first's IN_PROGRESS rows and duplicate POSTs (e.g. rooms/bulk).
+        if (!globalSyncRunning.compareAndSet(false, true)) {
+            Log.d("SyncWorker", "Skipped — another SyncWorker is already running")
+            return Result.success()
+        }
+        try {
+            return runSync()
+        } finally {
+            globalSyncRunning.set(false)
+        }
+    }
+
+    private suspend fun runSync(): Result {
         var rounds = 0
         while (rounds++ < 25) {
             db.syncQueueDao().resetInProgressToPending()
@@ -32,27 +50,32 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
 
             var progressed = false
             for (entry in pending) {
+                // Snapshot can include rows already completed by an earlier entry in this same pass
+                // (e.g. ROOM CREATE bulk marks sibling room creates DONE). Skip stale items.
+                val liveEntry = db.syncQueueDao().getById(entry.id) ?: continue
+                if (liveEntry.status != "PENDING") continue
+
                 // Check parent dependency — skip until parent is DONE
-                if (entry.parentSyncId != null) {
-                    val parent = db.syncQueueDao().getById(entry.parentSyncId)
+                if (liveEntry.parentSyncId != null) {
+                    val parent = db.syncQueueDao().getById(liveEntry.parentSyncId)
                     if (parent?.status != "DONE") continue
                 }
 
-                db.syncQueueDao().updateStatus(entry.id, "IN_PROGRESS", null)
+                db.syncQueueDao().updateStatus(liveEntry.id, "IN_PROGRESS", null)
                 try {
-                    processEntry(entry)
-                    db.syncQueueDao().updateStatus(entry.id, "DONE", null)
+                    processEntry(liveEntry)
+                    db.syncQueueDao().updateStatus(liveEntry.id, "DONE", null)
                     progressed = true
                 } catch (e: CancellationException) {
-                    db.syncQueueDao().updateStatus(entry.id, "PENDING", null)
-                    Log.d("SyncWorker", "Sync cancelled for ${entry.entityType}/${entry.operationType}")
+                    db.syncQueueDao().updateStatus(liveEntry.id, "PENDING", null)
+                    Log.d("SyncWorker", "Sync cancelled for ${liveEntry.entityType}/${liveEntry.operationType}")
                     throw e
                 } catch (e: Exception) {
-                    Log.e("SyncWorker", "Failed to sync ${entry.entityType}/${entry.operationType}: ${e.message}")
-                    if (entry.retryCount >= 4) {
-                        db.syncQueueDao().updateStatus(entry.id, "FAILED", e.message)
+                    Log.e("SyncWorker", "Failed to sync ${liveEntry.entityType}/${liveEntry.operationType}: ${e.message}")
+                    if (liveEntry.retryCount >= 4) {
+                        db.syncQueueDao().updateStatus(liveEntry.id, "FAILED", e.message)
                     } else {
-                        db.syncQueueDao().requeueForRetry(entry.id)
+                        db.syncQueueDao().requeueForRetry(liveEntry.id)
                     }
                     progressed = true
                 }
@@ -61,6 +84,10 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             if (!progressed) break
         }
         return Result.success()
+    }
+
+    companion object {
+        private val globalSyncRunning = AtomicBoolean(false)
     }
 
     private suspend fun processEntry(entry: com.wooma.data.local.entity.SyncQueueEntity) {
@@ -274,12 +301,19 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
 
     // ─── ROOM ────────────────────────────────────────────────────────────────
 
+    /** One bulk POST covers every pending ROOM CREATE for this report — complete those rows so we don't retry POST. */
+    private suspend fun markAllPendingRoomCreatesDone(reportId: String) {
+        val pending = db.syncQueueDao().getPendingRoomCreatesByReport(reportId)
+        for (q in pending) {
+            db.syncQueueDao().updateStatus(q.id, "DONE", null)
+        }
+    }
+
     private suspend fun processRoom(entry: com.wooma.data.local.entity.SyncQueueEntity) =
         withContext(Dispatchers.IO) {
             val localId = entry.localEntityId
             when (entry.operationType) {
                 "CREATE" -> {
-                    val req = gson.fromJson(entry.payload, AddNewRoomsRequest::class.java)
                     val roomEntity = db.roomDao().getById(localId)
                         ?: throw Exception("Room $localId not found locally")
                     if (roomEntity.serverId != null) {
@@ -312,7 +346,10 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                             reportServerId = reportServerId,
                             localRooms = batchCandidates
                         )
-                        if (preMapped == batchCandidates.size) return@withContext
+                        if (preMapped == batchCandidates.size) {
+                            markAllPendingRoomCreatesDone(roomEntity.reportId)
+                            return@withContext
+                        }
                     }
 
                     val unresolvedBeforePost = batchCandidates.filter { (localRoomId, _) ->
@@ -338,6 +375,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                     if (mappedCount != batchCandidates.size) {
                         throw Exception("Created room(s) not found in server list")
                     }
+                    markAllPendingRoomCreatesDone(roomEntity.reportId)
                 }
                 "UPDATE" -> {
                     val req = gson.fromJson(entry.payload, UpdateRoomNameRequest::class.java)
@@ -444,50 +482,193 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
         return mappedCount
     }
 
+    /**
+     * Persists server PK + queue/pending migrations for one room-item CREATE after we know [serverId].
+     * [itemLocalPk] is the current [RoomItemEntity.id] (local temp id) before rekey.
+     */
+    private suspend fun applyRoomItemCreateServerBinding(queueId: Long, itemLocalPk: String, serverId: String) {
+        db.withTransaction {
+            db.roomItemDao().deleteRoomItemPrimaryKeyCollisionForRekey(serverId, itemLocalPk)
+            db.roomItemDao().rekeyRoomItemPrimaryKey(itemLocalPk, serverId)
+        }
+        db.attachmentDao().reattachToNewEntityId(itemLocalPk, serverId)
+        db.syncQueueDao().updateServerEntityId(itemLocalPk, "ROOM_ITEM", serverId)
+        db.pendingUploadDao().updateEntityServerId(itemLocalPk, "ROOM_ITEM", serverId)
+        db.syncQueueDao().migrateRoomItemLocalEntityId(itemLocalPk, serverId)
+        db.pendingUploadDao().migrateRoomItemEntityLocalId(itemLocalPk, serverId)
+        db.syncQueueDao().updateStatus(queueId, "DONE", null)
+    }
+
+    /**
+     * If the bulk POST already succeeded on a prior attempt but local finalize failed, match by name
+     * and finish without calling [addRoomItemsToReport] again.
+     */
+    private suspend fun tryFinalizeRoomItemCreatesFromServerWithoutPost(
+        reportServerId: String,
+        roomServerId: String,
+        pairs: List<Triple<Long, String, String>>,
+    ): Boolean {
+        val itemsResp = api.getRoomById(
+            roomServerId,
+            reportServerId,
+            include_items = true,
+            include_room_inspections = false
+        ).execute()
+        if (!itemsResp.isSuccessful) return false
+        val serverItems = itemsResp.body()?.data?.items
+        if (serverItems.isNullOrEmpty()) return false
+
+        val usedServerIds = mutableSetOf<String>()
+        val toBind = ArrayList<Triple<Long, String, String>>()
+
+        for ((queueId, itemLocalId, name) in pairs) {
+            val ent = db.roomItemDao().getById(itemLocalId)
+                ?: db.roomItemDao().getByLocalOrServerId(itemLocalId)
+                ?: return false
+            if (ent.syncStatus == SyncStatus.SYNCED && ent.serverId != null) {
+                db.syncQueueDao().updateStatus(queueId, "DONE", null)
+                continue
+            }
+            if (ent.syncStatus != SyncStatus.PENDING_CREATE || ent.isDeleted) return false
+            val pk = ent.id
+            val serverId = serverItems.asReversed()
+                .firstOrNull { item ->
+                    val sid = item.id?.trim().orEmpty()
+                    sid.isNotEmpty() && sid !in usedServerIds && item.name == name
+                }?.id?.trim().orEmpty()
+            if (serverId.isEmpty()) return false
+            usedServerIds.add(serverId)
+            toBind.add(Triple(queueId, pk, serverId))
+        }
+
+        for ((queueId, pk, serverId) in toBind) {
+            applyRoomItemCreateServerBinding(queueId, pk, serverId)
+        }
+        return true
+    }
+
     private suspend fun processRoomItem(entry: com.wooma.data.local.entity.SyncQueueEntity) =
         withContext(Dispatchers.IO) {
             val localId = entry.localEntityId
             when (entry.operationType) {
                 "CREATE" -> {
-                    val req = gson.fromJson(entry.payload, AddNewRoomItemsRequest::class.java)
-                    val itemEntity = db.roomItemDao().getById(localId)
-                        ?: return@withContext // Hard-deleted before sync; discard
-                    if (itemEntity.isDeleted) {
-                        db.roomItemDao().deleteById(localId)
+                    val anchorEntity = db.roomItemDao().getById(localId)
+                        ?: db.roomItemDao().getByLocalOrServerId(localId)
+                    if (anchorEntity == null) {
                         return@withContext
                     }
-                    val roomServerId = db.roomDao().getById(itemEntity.roomId)?.serverId
-                        ?: throw Exception("Room serverId not available for item $localId")
-                    val reportServerId = db.reportDao().getById(db.roomDao().getById(itemEntity.roomId)!!.reportId)?.serverId
-                        ?: throw Exception("Report serverId not found for item $localId")
+                    if (anchorEntity.syncStatus == SyncStatus.SYNCED && anchorEntity.serverId != null) {
+                        return@withContext
+                    }
+                    if (anchorEntity.isDeleted) {
+                        db.roomItemDao().deleteById(anchorEntity.id)
+                        return@withContext
+                    }
 
-                    val resp = api.addRoomItemsToReport(reportServerId, roomServerId, req).execute()
-                    if (!resp.isSuccessful) throw Exception("Item CREATE failed: ${resp.code()}")
+                    val roomLocalId = anchorEntity.roomId
+                    val batchEntries =
+                        db.syncQueueDao().getPendingRoomItemCreatesForRoom(roomLocalId, entry.id)
+                    val pairs = batchEntries.mapNotNull { q ->
+                        val ent = db.roomItemDao().getById(q.localEntityId)
+                            ?: db.roomItemDao().getByLocalOrServerId(q.localEntityId)
+                            ?: return@mapNotNull null
+                        if (ent.syncStatus != SyncStatus.PENDING_CREATE || ent.isDeleted) return@mapNotNull null
+                        val req = gson.fromJson(q.payload, AddNewRoomItemsRequest::class.java)
+                        val name = req.room_items.singleOrNull() ?: return@mapNotNull null
+                        Triple(q.id, ent.id, name)
+                    }
+                    if (pairs.isEmpty()) return@withContext
 
-                    // Find server ID
-                    val itemsResp = api.getRoomById(roomServerId, reportServerId, include_items = true, include_room_inspections = false).execute()
-                    val serverId = itemsResp.body()?.data?.items?.asReversed()
-                        ?.firstOrNull { it.name == itemEntity.name }?.id
-                        ?: throw Exception("Created item not found on server")
+                    val roomServerId = db.roomDao().getById(roomLocalId)?.serverId
+                        ?: throw Exception("Room serverId not available for room item batch")
+                    val reportServerId = db.reportDao().getById(db.roomDao().getById(roomLocalId)!!.reportId)?.serverId
+                        ?: throw Exception("Report serverId not found for room item batch")
 
-                    db.roomItemDao().promoteLocalId(localId, serverId)
-                    db.syncQueueDao().updateServerEntityId(localId, "ROOM_ITEM", serverId)
-                    db.pendingUploadDao().updateEntityServerId(localId, "ROOM_ITEM", serverId)
-                    db.attachmentDao().reattachToNewEntityId(localId, serverId)
+                    if (batchEntries.any { it.retryCount > 0 } &&
+                        tryFinalizeRoomItemCreatesFromServerWithoutPost(reportServerId, roomServerId, pairs)
+                    ) {
+                        return@withContext
+                    }
+
+                    val mergedNames = pairs.map { it.third }
+                    val mergedReq = AddNewRoomItemsRequest(room_items = mergedNames)
+                    var bulkPosted = false
+                    try {
+                        val resp = api.addRoomItemsToReport(reportServerId, roomServerId, mergedReq).execute()
+                        if (!resp.isSuccessful) throw Exception("Item CREATE (bulk) failed: ${resp.code()}")
+                        bulkPosted = true
+
+                        val itemsResp = api.getRoomById(
+                            roomServerId,
+                            reportServerId,
+                            include_items = true,
+                            include_room_inspections = false
+                        ).execute()
+                        if (!itemsResp.isSuccessful) {
+                            throw Exception("Refetch after bulk create failed: ${itemsResp.code()}")
+                        }
+                        val serverItems = itemsResp.body()?.data?.items
+                            ?: throw Exception("No items after bulk create")
+                        val usedServerIds = mutableSetOf<String>()
+                        for ((queueId, itemLocalPk, name) in pairs) {
+                            val serverId = serverItems.asReversed()
+                                .firstOrNull { item ->
+                                    val sid = item.id?.trim().orEmpty()
+                                    sid.isNotEmpty() && sid !in usedServerIds && item.name == name
+                                }?.id?.trim().orEmpty()
+                            if (serverId.isEmpty()) {
+                                throw Exception("Created item not found on server: $name")
+                            }
+                            usedServerIds.add(serverId)
+                            applyRoomItemCreateServerBinding(queueId, itemLocalPk, serverId)
+                        }
+                    } catch (e: Exception) {
+                        if (bulkPosted) {
+                            if (tryFinalizeRoomItemCreatesFromServerWithoutPost(
+                                    reportServerId,
+                                    roomServerId,
+                                    pairs,
+                                )
+                            ) {
+                                return@withContext
+                            }
+                            for ((queueId, _, _) in pairs) {
+                                db.syncQueueDao().bumpRetryResetPendingIfNotDone(queueId)
+                            }
+                        }
+                        throw e
+                    }
                 }
                 "UPDATE" -> {
                     val req = gson.fromJson(entry.payload, UpdateRoomItemRequest::class.java)
-                    val itemEntity = db.roomItemDao().getById(localId) ?: return@withContext
-                    val serverId = itemEntity.serverId ?: return@withContext
-                    val roomServerId = db.roomDao().getById(itemEntity.roomId)?.serverId ?: return@withContext
-                    val reportServerId = db.reportDao().getById(db.roomDao().getById(itemEntity.roomId)!!.reportId)?.serverId ?: return@withContext
+                    val roomItemRepo = RoomItemRepository(applicationContext)
+                    var itemEntity = db.roomItemDao().getById(localId)
+                        ?: throw Exception("ROOM_ITEM UPDATE: item not found $localId")
+                    if (itemEntity.serverId == null) {
+                        roomItemRepo.resolveRoomItemServerIdIfMissing(localId)
+                            ?: throw Exception("ROOM_ITEM UPDATE: cannot resolve server id for ${itemEntity.id}")
+                        itemEntity = db.roomItemDao().getById(localId)
+                            ?: throw Exception("ROOM_ITEM UPDATE: item missing after resolve $localId")
+                    }
+                    val serverId = itemEntity.serverId
+                        ?: throw Exception("ROOM_ITEM UPDATE: serverId still null $localId")
+                    val roomRow = db.roomDao().getById(itemEntity.roomId)
+                        ?: throw Exception("ROOM_ITEM UPDATE: room not found")
+                    val roomServerId = roomRow.serverId
+                        ?: throw Exception("ROOM_ITEM UPDATE: room serverId missing")
+                    val reportServerId = db.reportDao().getById(roomRow.reportId)?.serverId
+                        ?: throw Exception("ROOM_ITEM UPDATE: report serverId missing")
 
                     val resp = api.updateRoomItem(reportServerId, roomServerId, serverId, req).execute()
                     if (!resp.isSuccessful) throw Exception("Item UPDATE failed: ${resp.code()}")
                     db.roomItemDao().updateSyncStatus(localId, SyncStatus.SYNCED)
                 }
                 "DELETE" -> {
-                    val itemEntity = db.roomItemDao().getById(localId) ?: return@withContext
+                    var itemEntity = db.roomItemDao().getById(localId) ?: return@withContext
+                    if (itemEntity.serverId == null) {
+                        RoomItemRepository(applicationContext).resolveRoomItemServerIdIfMissing(localId)
+                        itemEntity = db.roomItemDao().getById(localId) ?: return@withContext
+                    }
                     val serverId = itemEntity.serverId
                     if (serverId == null) {
                         db.roomItemDao().deleteById(localId)

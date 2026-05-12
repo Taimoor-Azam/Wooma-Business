@@ -131,7 +131,7 @@
                 android:background="@android:color/transparent"
                 android:hint="Enter Phone Number"
                 android:imeOptions="actionNext"
-                android:inputType="number"
+                android:inputType="phone"
                 android:maxLines="1"
                 android:paddingStart="@dimen/_10sdp"
                 android:paddingTop="@dimen/_10sdp"

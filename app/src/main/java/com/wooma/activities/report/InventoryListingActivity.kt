@@ -429,6 +429,7 @@ class InventoryListingActivity : BaseActivity() {
                     val (entity, meters, keys, detectors, checklists) = core
                     val (meterAttachments, keyAttachments, detectorAttachments) = attachments
                     entity ?: return@collectLatest
+                    applyReportStatus(entity.status)
                     val meterIds = meters.map { it.id }.toSet()
                     val keyIds = keys.map { it.id }.toSet()
                     val detectorIds = detectors.map { it.id }.toSet()
@@ -514,7 +515,7 @@ class InventoryListingActivity : BaseActivity() {
                     .collect { isConnected ->
                         isNetworkAvailable = isConnected
                         if (isConnected) syncPendingCoverChangesIfOnline()
-                        if (adapter.isEditMode) {
+                        if (adapter.isEditMode && reportStatus == TenantReportStatus.IN_PROGRESS.value) {
                             adapter.setEditMode(true, canReorder = isConnected)
                         }
                         updateOnlineOnlyButtons(isConnected)
@@ -577,6 +578,14 @@ class InventoryListingActivity : BaseActivity() {
         }
     }
 
+    /** Keeps UI + adapter in sync when Room or API updates status (e.g. after CompleteReportActivity finishes). */
+    private fun applyReportStatus(newStatus: String) {
+        val changed = reportStatus != newStatus
+        reportStatus = newStatus
+        adapter.reportStatus = reportStatus
+        if (changed) updateViewAccToStatus()
+    }
+
     private fun navigateToReportListing() {
         startActivity(Intent(this, ReportListingActivity::class.java).apply {
             putExtra("propertyId", propertyId)
@@ -594,6 +603,10 @@ class InventoryListingActivity : BaseActivity() {
             binding.completedReportLayout.visibility = View.GONE
             binding.completedTenantSection.visibility = View.GONE
         } else {
+            if (adapter.isEditMode) {
+                adapter.setEditMode(false, canReorder = false)
+                binding.tvEditRooms.text = "Edit"
+            }
             binding.ivAddRoom.visibility = View.GONE
             binding.btnCompleteReport.visibility = View.GONE
             binding.tvEditRooms.visibility = View.GONE
@@ -602,11 +615,13 @@ class InventoryListingActivity : BaseActivity() {
 
     override fun onResume() {
         super.onResume()
+        lifecycleScope.launch {
+            db.reportDao().getById(reportId)?.let { applyReportStatus(it.status) }
+        }
         if (Utils.isOnline(this)) {
+            // Single refresh path: getReportById includes rooms + items and hydrates via hydrateRoomsAndItemsFromReport.
+            // A separate refreshRooms() duplicated the same merge and could multiply network/sync side effects.
             getReportByIdApi()
-            lifecycleScope.launch {
-                try { roomRepo.refreshRooms(reportId) } catch (_: Exception) {}
-            }
             syncPendingCoverChangesIfOnline()
         } else {
             lifecycleScope.launch {
@@ -676,28 +691,55 @@ class InventoryListingActivity : BaseActivity() {
             apiServiceClass = MyApi::class.java,
             context = this,
             showLoading = showLoading,
-            requestAction = { apiService -> apiService.getReportById(reportId, true, true, true) },
+            requestAction = { apiService ->
+                apiService.getReportById(
+                    id = reportId,
+                    include_rooms = true,
+                    include_items = true,
+                    include_counts = true,
+                    include_attachments = null
+                )
+            },
             listener = object : ApiResponseListener<ApiResponse<ReportData>> {
                 override fun onSuccess(response: ApiResponse<ReportData>) {
                     if (response.success) {
                         reportData = response.data
+                        // Persist rooms + room_items first so opening a room offline has data; log failures.
                         lifecycleScope.launch {
                             try {
                                 roomRepo.hydrateRoomsAndItemsFromReport(response.data, reportId)
-                            } catch (_: Exception) {
+                            } catch (e: Exception) {
+                                Log.e("InventoryListing", "hydrateRoomsAndItemsFromReport failed", e)
+                            }
+                            try {
+                                db.reportDao().updateCounts(
+                                    reportId,
+                                    response.data.counts.meters,
+                                    response.data.counts.keys,
+                                    response.data.counts.detectors,
+                                    response.data.counts.activeChecklists
+                                )
+                                db.reportDao().updateCoverImage(
+                                    reportId,
+                                    response.data.coverImageStorageKey
+                                )
+                                db.reportDao().updateCompletedInfo(
+                                    reportId,
+                                    response.data.pdfUrl,
+                                    response.data.status,
+                                    response.data.blankSpacesCount
+                                )
+                                db.reportDao().updateExpiryDates(
+                                    reportId,
+                                    response.data.tenantReviewExpiry,
+                                    response.data.extendReviewExpiry,
+                                    response.data.status
+                                )
+                            } catch (e: Exception) {
+                                Log.e("InventoryListing", "reportDao updates after hydrate failed", e)
                             }
                         }
-                        lifecycleScope.launch {
-                            db.reportDao().updateCounts(
-                                reportId,
-                                response.data.counts.meters,
-                                response.data.counts.keys,
-                                response.data.counts.detectors,
-                                response.data.counts.activeChecklists
-                            )
-                        }
-                        reportStatus = response.data.status
-                        updateViewAccToStatus()
+                        applyReportStatus(response.data.status)
 
                         val apiReportType = response.data.reportType
                         if (reportType == null) {
@@ -712,25 +754,6 @@ class InventoryListingActivity : BaseActivity() {
 
                         coverImageStorageKey = response.data.coverImageStorageKey
                         updateCoverImageView()
-
-                        lifecycleScope.launch {
-                            db.reportDao().updateCoverImage(
-                                reportId,
-                                response.data.coverImageStorageKey
-                            )
-                            db.reportDao().updateCompletedInfo(
-                                reportId,
-                                response.data.pdfUrl,
-                                response.data.status,
-                                response.data.blankSpacesCount
-                            )
-                            db.reportDao().updateExpiryDates(
-                                reportId,
-                                response.data.tenantReviewExpiry,
-                                response.data.extendReviewExpiry,
-                                response.data.status
-                            )
-                        }
 
                         adapter.showTimestamp = response.data.showTimestamp
 

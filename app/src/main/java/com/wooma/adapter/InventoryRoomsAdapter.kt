@@ -26,7 +26,7 @@ class InventoryRoomsAdapter(
     val context: Context,
     private val originalList: MutableList<RoomsResponse>,
     val reportId: String,
-    val reportStatus: String,
+    var reportStatus: String,
     var reportType: PropertyReportType? = null,
     var showTimestamp: Boolean = true,
     private val onDeleteRoom: ((roomId: String?) -> Unit)? = null,

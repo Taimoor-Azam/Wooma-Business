@@ -95,11 +95,25 @@ interface SyncQueueDao {
     @Query("UPDATE sync_queue SET status = :status, errorMessage = :msg WHERE id = :id")
     suspend fun updateStatus(id: Long, status: String, msg: String? = null)
 
-    @Query("UPDATE sync_queue SET status = 'PENDING', retryCount = retryCount + 1 WHERE id = :id")
+    /**
+     * Only reset rows still [IN_PROGRESS]. Batched handlers (e.g. ROOM_ITEM CREATE) may mark the
+     * current row [DONE] before a sibling throws; resetting [DONE] would resurrect queue work and
+     * duplicate server POSTs.
+     */
+    @Query(
+        "UPDATE sync_queue SET status = 'PENDING', retryCount = retryCount + 1 " +
+            "WHERE id = :id AND status = 'IN_PROGRESS'"
+    )
     suspend fun requeueForRetry(id: Long)
 
     @Query("UPDATE sync_queue SET serverEntityId = :serverId WHERE localEntityId = :localId AND entityType = :type")
     suspend fun updateServerEntityId(localId: String, type: String, serverId: String)
+
+    @Query(
+        "UPDATE sync_queue SET localEntityId = :newId WHERE localEntityId = :oldId " +
+            "AND entityType = 'ROOM_ITEM'"
+    )
+    suspend fun migrateRoomItemLocalEntityId(oldId: String, newId: String)
 
     @Query(
         "DELETE FROM sync_queue WHERE status = 'PENDING' AND entityType = :entityType " +
@@ -113,6 +127,27 @@ interface SyncQueueDao {
 
     @Query("DELETE FROM sync_queue WHERE localEntityId = :localId AND entityType = :entityType AND operationType = 'CREATE' AND status = 'PENDING'")
     suspend fun cancelPendingCreate(localId: String, entityType: String)
+
+    /**
+     * Pending room-item creates for one local room row, oldest first — used to merge into one bulk API call.
+     * [includeQueueId]: the row currently being processed is already [IN_PROGRESS]; include it so the batch is not empty.
+     */
+    @Query(
+        "SELECT sq.* FROM sync_queue sq " +
+            "INNER JOIN room_items ri ON ri.id = sq.localEntityId " +
+            "WHERE sq.entityType = 'ROOM_ITEM' " +
+            "AND sq.operationType = 'CREATE' " +
+            "AND ri.roomId = :roomLocalId " +
+            "AND (sq.status = 'PENDING' OR sq.id = :includeQueueId) " +
+            "ORDER BY sq.createdAt ASC, sq.id ASC"
+    )
+    suspend fun getPendingRoomItemCreatesForRoom(roomLocalId: String, includeQueueId: Long): List<SyncQueueEntity>
+
+    @Query(
+        "UPDATE sync_queue SET status = 'PENDING', retryCount = retryCount + 1 " +
+            "WHERE id = :id AND status != 'DONE'"
+    )
+    suspend fun bumpRetryResetPendingIfNotDone(id: Long)
 
     @Query("DELETE FROM sync_queue WHERE status = 'DONE'")
     suspend fun purgeDone()

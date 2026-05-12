@@ -41,6 +41,8 @@ data class RoomsResponse(
     val displayOrder: String? = null,
     var isSelected: Boolean = true,
     val isSyncing: Boolean = false,
+    /** API may send `items` or `room_items` (snake_case); Gson uses exact names by default. */
+    @SerializedName(value = "items", alternate = ["room_items"])
     val items: ArrayList<RoomItem>? = null,
     val inspection: ArrayList<RoomInspection>? = null,
     val attachments: ArrayList<OtherItemsAttachment>? = null
@@ -195,7 +197,9 @@ data class UpsertRoomInspectionRequest(
 
 data class Attachment(
     val id: String? = null,
+    @SerializedName(value = "url", alternate = ["signed_url"])
     val url: String? = null,
+    @SerializedName(value = "storageKey", alternate = ["storage_key"])
     val storageKey: String? = null
 ) : Parcelable {
 

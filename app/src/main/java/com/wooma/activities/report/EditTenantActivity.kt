@@ -43,7 +43,6 @@ class EditTenantActivity : BaseActivity() {
             binding.etFirstName.setText(intent.getStringExtra("firstName") ?: "")
             binding.etLastName.setText(intent.getStringExtra("lastName") ?: "")
             binding.etEmail.setText(intent.getStringExtra("email") ?: "")
-            binding.etPhone.setText(intent.getStringExtra("mobileNumber") ?: "")
 
             // Email not editable in edit mode
             binding.etEmail.isEnabled = false
@@ -67,11 +66,23 @@ class EditTenantActivity : BaseActivity() {
             binding.ivTenantDelete.visibility = View.GONE
         }
 
+        binding.ccp.registerCarrierNumberEditText(binding.etPhone)
+        val mobileFromIntent = intent.getStringExtra("mobileNumber") ?: ""
+        if (mobileFromIntent.isNotBlank()) {
+            try {
+                binding.ccp.setFullNumber(mobileFromIntent)
+            } catch (_: Exception) {
+                binding.etPhone.setText(mobileFromIntent)
+            }
+        } else {
+            binding.etPhone.setText("")
+        }
+
         binding.btnResend.setOnClickListener {
             val firstName = binding.etFirstName.text.toString().trim()
             val lastName = binding.etLastName.text.toString().trim()
             val email = binding.etEmail.text.toString().trim()
-            val mobile = binding.etPhone.text.toString().trim()
+            val mobile = phoneForApi()
 
             if (firstName.isEmpty()) { showToast("Please enter first name"); return@setOnClickListener }
             if (lastName.isEmpty()) { showToast("Please enter last name"); return@setOnClickListener }
@@ -85,6 +96,12 @@ class EditTenantActivity : BaseActivity() {
         }
 
         binding.ivBack.setOnClickListener { finish() }
+    }
+
+    /** Same E.164 behaviour as [com.wooma.adapter.AddTenantsAdapter]. */
+    private fun phoneForApi(): String {
+        val national = binding.etPhone.text?.toString()?.trim().orEmpty()
+        return if (national.isEmpty()) "" else (binding.ccp.fullNumberWithPlus ?: "")
     }
 
     private fun addTenantApi(firstName: String, lastName: String, email: String, mobile: String) {

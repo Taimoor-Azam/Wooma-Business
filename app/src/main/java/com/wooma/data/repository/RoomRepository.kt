@@ -4,9 +4,12 @@ import android.content.Context
 import com.google.gson.Gson
 import com.wooma.data.local.WoomaDatabase
 import com.wooma.data.local.mapper.toEntity
+import com.wooma.data.local.mapper.withStableIdIfMissing
+import com.wooma.data.local.entity.AttachmentEntity
 import com.wooma.data.local.entity.RoomEntity
 import com.wooma.data.local.entity.SyncQueueEntity
 import com.wooma.data.local.entity.SyncStatus
+import androidx.room.withTransaction
 import com.wooma.data.network.RetrofitClient
 import com.wooma.model.AddNewRoomsRequest
 import com.wooma.model.ReportData
@@ -36,6 +39,23 @@ class RoomRepository(private val ctx: Context) {
             mergeServerRoomsAndItems(reportId, rooms)
         }
 
+    suspend fun fetchAndHydrateReport(reportId: String) = withContext(Dispatchers.IO) {
+        val report = db.reportDao().getById(reportId) ?: return@withContext
+        val apiReportId = report.serverId
+            ?: report.id.takeIf { !it.startsWith("local_") }
+            ?: return@withContext
+        val resp = api.getReportById(
+            id = apiReportId,
+            include_rooms = true,
+            include_items = true,
+            include_counts = true,
+            include_attachments = null
+        ).execute()
+        if (!resp.isSuccessful) return@withContext
+        val data = resp.body()?.data ?: return@withContext
+        hydrateRoomsAndItemsFromReport(data, reportId)
+    }
+
     suspend fun refreshRooms(reportId: String) = withContext(Dispatchers.IO) {
         val serverId = db.reportDao().getById(reportId)?.serverId ?: return@withContext
         val resp = api.getInspectionRoomById(
@@ -54,7 +74,8 @@ class RoomRepository(private val ctx: Context) {
         for (room in rooms) {
             val serverRoomId = room.id ?: continue
 
-            val existingByServer = db.roomDao().getByServerId(serverRoomId)
+            val existingByServer =
+                db.roomDao().getByServerId(serverRoomId) ?: db.roomDao().getById(serverRoomId)
             val localRoomId = existingByServer?.id ?: serverRoomId
 
             // Preserve local unsynced room rows (create/update/delete) and only refresh synced rows.
@@ -95,23 +116,56 @@ class RoomRepository(private val ctx: Context) {
 
     private suspend fun mergeRoomItemsForRoom(localRoomId: String, room: RoomsResponse) {
         val incomingItems = room.items ?: return
+        // An empty list is often a partial/trimmed payload, not proof the server has zero items.
+        // Deleting all SYNCED rows here made inventory disappear offline after an online refresh.
+        if (incomingItems.isEmpty()) return
+        val normalizedItems = incomingItems.map { it.withStableIdIfMissing(localRoomId) }
         val unsyncedServerItemIds = db.roomItemDao().getUnsyncedByRoom(localRoomId)
             .mapNotNull { entity ->
                 entity.serverId ?: entity.id.takeIf { !it.startsWith("local_") }
             }
             .toSet()
 
-        val incomingEntities = incomingItems.map { it.toEntity(localRoomId) }
-        val entitiesToUpsert = incomingEntities.filter { it.id !in unsyncedServerItemIds }
-        if (entitiesToUpsert.isNotEmpty()) {
-            db.roomItemDao().upsertAll(entitiesToUpsert)
-        }
+        val incomingEntities = normalizedItems.map { it.toEntity(localRoomId) }
+        db.withTransaction {
+            val shadowServerIds = incomingEntities.map { it.id }.filter { it.isNotEmpty() }.distinct()
+            if (shadowServerIds.isNotEmpty()) {
+                db.roomItemDao().deleteShadowRowsForServerIds(localRoomId, shadowServerIds)
+            }
 
-        val serverItemIds = incomingEntities.map { it.id }
-        if (serverItemIds.isEmpty()) {
-            db.roomItemDao().deleteSyncedByRoom(localRoomId)
-        } else {
-            db.roomItemDao().deleteSyncedByRoomExcept(localRoomId, serverItemIds)
+            val entitiesToUpsert = incomingEntities.filter { it.id !in unsyncedServerItemIds }
+            if (entitiesToUpsert.isNotEmpty()) {
+                db.roomItemDao().upsertAll(entitiesToUpsert)
+            }
+
+            val upsertedItemIds = entitiesToUpsert.map { it.id }.toSet()
+            val attachmentRows = normalizedItems.zip(incomingEntities).flatMap { (item, entity) ->
+                if (entity.id !in upsertedItemIds) return@flatMap emptyList()
+                (item.attachments ?: emptyList()).mapNotNull { att ->
+                    if (att.storageKey.isNullOrEmpty()) return@mapNotNull null
+                    val attId = att.id ?: return@mapNotNull null
+                    AttachmentEntity(
+                        id = attId,
+                        serverId = attId,
+                        entityId = entity.id,
+                        entityType = "ROOM_ITEM",
+                        storageKey = att.storageKey,
+                        link = att.url,
+                        localUri = null,
+                        isUploaded = true
+                    )
+                }
+            }
+            if (attachmentRows.isNotEmpty()) {
+                db.attachmentDao().upsertAll(attachmentRows)
+            }
+
+            val serverItemIds = incomingEntities.map { it.id }
+            if (serverItemIds.isEmpty()) {
+                db.roomItemDao().deleteSyncedByRoom(localRoomId)
+            } else {
+                db.roomItemDao().deleteSyncedByRoomExcept(localRoomId, serverItemIds)
+            }
         }
     }
 

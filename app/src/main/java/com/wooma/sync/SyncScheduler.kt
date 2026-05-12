@@ -20,9 +20,11 @@ object SyncScheduler {
             .build()
 
         // Run in sequence to avoid races where image upload starts before entity CREATE assigns server IDs.
+        // KEEP avoids cancelling an in-flight sync; REPLACE could abort mid–rooms/bulk and leave rows
+        // PENDING so the replacement worker POSTs again.
         wm.beginUniqueWork(
             "wooma_sync_pipeline",
-            ExistingWorkPolicy.REPLACE,
+            ExistingWorkPolicy.KEEP,
             syncRequest
         ).then(uploadRequest).enqueue()
     }

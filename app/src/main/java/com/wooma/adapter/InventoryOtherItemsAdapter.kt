@@ -71,11 +71,14 @@ class InventoryOtherItemsAdapter(
             )
         )
 
-        if (item.label == "Meters" || item.label == "Keys" || item.label == "Detectors" || item.label == "Checklist") {
+        if (item.label == "Meters" || item.label == "Keys" || item.label == "Detectors" /*|| item.label == "Checklist"*/) {
             holder.ivSync.visibility = View.VISIBLE
             holder.ivSync.setImageResource(
                 if (item.isSyncing) R.drawable.svg_syncing else R.drawable.svg_synced
             )
+        } else if (item.label == "Checklist") {
+            holder.ivSync.visibility = View.VISIBLE
+            holder.ivSync.setImageResource(R.drawable.svg_synced)
         } else {
             holder.ivSync.visibility = View.GONE
         }

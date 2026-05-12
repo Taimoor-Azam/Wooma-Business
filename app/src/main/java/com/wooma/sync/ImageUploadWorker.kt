@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import com.wooma.data.local.WoomaDatabase
 import com.wooma.data.network.RetrofitClient
 import com.wooma.data.repository.AttachmentRepository
+import com.wooma.data.repository.RoomItemRepository
 import com.wooma.model.CreateAttachmentRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -141,6 +142,7 @@ class ImageUploadWorker(ctx: Context, params: WorkerParameters) : CoroutineWorke
         "DETECTOR"     -> db.detectorDao().getByLocalOrServerId(localId)?.serverId
         "ROOM"         -> db.roomDao().getById(localId)?.serverId
         "ROOM_ITEM"    -> db.roomItemDao().getById(localId)?.serverId
+            ?: RoomItemRepository(applicationContext).resolveRoomItemServerIdIfMissing(localId)
         "REPORT_COVER" -> {
             val report = db.reportDao().getById(localId)
             report?.serverId ?: localId.takeIf { !it.startsWith("local_") }

@@ -231,6 +231,7 @@ class CameraActivity : BaseActivity() {
                     sessionLocalUris.add(uri)
                     adapter.notifyItemInserted(images.size - 1)
                     updateCounter()
+                    scrollThumbnailsToLast(smooth = true)
 
                     if (isCoverImage) {
                         pendingUris.clear()
@@ -354,6 +355,18 @@ class CameraActivity : BaseActivity() {
         }
     }
 
+    /** Keeps the horizontal strip aligned with the most recently added thumbnail (camera or gallery). */
+    private fun scrollThumbnailsToLast(smooth: Boolean) {
+        if (isCoverImage) return
+        if (images.isEmpty()) return
+        val lastIndex = images.lastIndex
+        val rv = binding.recyclerImages
+        rv.post {
+            if (smooth) rv.smoothScrollToPosition(lastIndex)
+            else rv.scrollToPosition(lastIndex)
+        }
+    }
+
     private val coverGalleryLauncher =
         registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
             uri?.let {
@@ -438,9 +451,7 @@ class CameraActivity : BaseActivity() {
                     sessionLocalUris.addAll(processedUris)
                     adapter.notifyItemRangeInserted(startIndex, newItems.size)
                     updateCounter()
-                    if (images.isNotEmpty()) {
-                        binding.recyclerImages.scrollToPosition(images.size - 1)
-                    }
+                    scrollThumbnailsToLast(smooth = false)
                 }
 
                 if (uris.size > remainingSlots) {

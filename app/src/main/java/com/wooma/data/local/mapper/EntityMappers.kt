@@ -31,6 +31,8 @@ import com.wooma.model.Report
 import com.wooma.model.ReportType
 import com.wooma.model.RoomItem
 import com.wooma.model.Template
+import java.security.MessageDigest
+import kotlin.text.Charsets
 
 // ── Property ──────────────────────────────────────────────────────────────────
 
@@ -226,22 +228,42 @@ fun ReportEntity.toReport(): Report = Report(
 
 // ── Room Item ─────────────────────────────────────────────────────────────────
 
-fun RoomItem.toEntity(roomId: String): RoomItemEntity = RoomItemEntity(
-    id = id ?: "",
-    serverId = id,
-    roomId = roomId,
-    name = name ?: "",
-    generalCondition = general_condition,
-    generalCleanliness = general_cleanliness,
-    description = description,
-    note = note,
-    displayOrder = display_order,
-    isActive = is_active ?: true,
-    isDeleted = is_deleted ?: false,
-    createdAt = created_at ?: "",
-    updatedAt = updated_at ?: "",
-    syncStatus = SyncStatus.SYNCED
-)
+/** Tenant-report `items` often omit `id`; use a stable key so re-hydrate upserts the same row. */
+fun stableTenantReportItemId(roomId: String, displayOrder: String?, name: String?): String {
+    val raw = "$roomId|${displayOrder?.trim().orEmpty()}|${name?.trim().orEmpty().lowercase()}"
+    val digest = MessageDigest.getInstance("SHA-256").digest(raw.toByteArray(Charsets.UTF_8))
+    val hex = digest.joinToString("") { b -> "%02x".format(b) }.take(32)
+    return "tr_item_$hex"
+}
+
+fun RoomItem.withStableIdIfMissing(roomIdForItems: String): RoomItem =
+    if (!id.isNullOrBlank()) this else copy(id = stableTenantReportItemId(roomIdForItems, display_order, name))
+
+fun RoomItem.toEntity(roomId: String): RoomItemEntity {
+    val resolvedId = id?.trim().orEmpty().ifBlank {
+        stableTenantReportItemId(roomId, display_order, name)
+    }
+    val entityServerId = when {
+        resolvedId.startsWith("tr_item_") -> null
+        else -> resolvedId
+    }
+    return RoomItemEntity(
+        id = resolvedId,
+        serverId = entityServerId,
+        roomId = roomId,
+        name = name ?: "",
+        generalCondition = general_condition,
+        generalCleanliness = general_cleanliness,
+        description = description,
+        note = note,
+        displayOrder = display_order,
+        isActive = is_active ?: true,
+        isDeleted = is_deleted ?: false,
+        createdAt = created_at ?: "",
+        updatedAt = updated_at ?: "",
+        syncStatus = SyncStatus.SYNCED
+    )
+}
 
 fun RoomItemEntity.toRoomItem(): RoomItem = RoomItem(
     id = serverId ?: id,
