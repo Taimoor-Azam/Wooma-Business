@@ -179,11 +179,13 @@ class RoomItemRepository(private val ctx: Context) {
                 syncStatus = SyncStatus.PENDING_CREATE
             )
             db.roomItemDao().upsert(entity)
+            val parentRoomCreateId = db.syncQueueDao().getPendingRoomCreateQueueId(canonicalRoomId)
             db.syncQueueDao().enqueue(
                 SyncQueueEntity(
                     entityType = "ROOM_ITEM", operationType = "CREATE",
                     localEntityId = localId,
-                    payload = gson.toJson(AddNewRoomItemsRequest(room_items = listOf(name)))
+                    payload = gson.toJson(AddNewRoomItemsRequest(room_items = listOf(name))),
+                    parentSyncId = parentRoomCreateId
                 )
             )
         }

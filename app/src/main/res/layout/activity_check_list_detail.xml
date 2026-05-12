@@ -58,8 +58,10 @@
     </LinearLayout>
 
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/nestedScrollChecklist"
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:fillViewport="true"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -67,7 +69,7 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
+            android:layout_height="wrap_content"
             android:layout_marginStart="@dimen/_12sdp"
             android:layout_marginEnd="@dimen/_12sdp"
             android:orientation="vertical">
@@ -89,6 +91,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/_8sdp"
                 android:clipToPadding="false"
+                android:nestedScrollingEnabled="false"
                 android:orientation="vertical"
                 android:paddingBottom="@dimen/_10sdp"
                 android:visibility="gone"
@@ -111,6 +114,7 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="@dimen/_8sdp"
                 android:clipToPadding="false"
+                android:nestedScrollingEnabled="false"
                 android:orientation="vertical"
                 android:paddingBottom="@dimen/_10sdp"
                 android:visibility="gone"

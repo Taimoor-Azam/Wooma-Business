@@ -7,7 +7,6 @@ import android.text.TextWatcher
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.wooma.activities.BaseActivity
 import com.wooma.adapter.SelectRoomItemAdapter
-import com.wooma.customs.Utils
 import com.wooma.data.network.showToast
 import com.wooma.data.repository.RoomRepository
 import com.wooma.databinding.ActivitySelectRoomItemBinding
@@ -89,9 +88,8 @@ class SelectRoomActivity : BaseActivity() {
             for (roomName in checkedItems) {
                 roomRepo.addRoom(reportId, roomName)
             }
-            if (Utils.isOnline(this@SelectRoomActivity)) {
-                SyncScheduler.scheduleImmediateSync(this@SelectRoomActivity)
-            }
+            // WorkManager uses CONNECTED — enqueue always so sync runs when network is available (offline-first).
+            SyncScheduler.scheduleImmediateSync(this@SelectRoomActivity)
             showToast("Rooms added successfully")
             finish()
         }

@@ -304,7 +304,10 @@ class InventoryListingActivity : BaseActivity() {
 
         supportFragmentManager.setFragmentResultListener("sheet_key", this) { _, bundle ->
             val value = bundle.getString("added_room") ?: return@setFragmentResultListener
-            lifecycleScope.launch { roomRepo.addRoom(reportId, value) }
+            lifecycleScope.launch {
+                roomRepo.addRoom(reportId, value)
+                SyncScheduler.scheduleImmediateSync(this@InventoryListingActivity)
+            }
         }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
