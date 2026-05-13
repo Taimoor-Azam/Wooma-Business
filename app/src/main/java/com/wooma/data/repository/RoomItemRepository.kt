@@ -165,25 +165,41 @@ class RoomItemRepository(private val ctx: Context) {
         return if (value.isEmpty()) "\uFFFF" else value
     }
 
+    /** Preferred [RatingEntity.typeCode] for new offline items, from cached getRatings rows. */
+    private suspend fun defaultConditionAndCleanlinessTypeCodes(): Pair<String?, String?> {
+        val conditionList = db.ratingDao().getByCategory("condition")
+        val cleanlinessList = db.ratingDao().getByCategory("cleanliness")
+        val conditionCode =
+            conditionList.firstOrNull { it.isDefault }?.typeCode ?: conditionList.firstOrNull()?.typeCode
+        val cleanlinessCode =
+            cleanlinessList.firstOrNull { it.isDefault }?.typeCode ?: cleanlinessList.firstOrNull()?.typeCode
+        return conditionCode to cleanlinessCode
+    }
+
     suspend fun addItems(navRoomId: String, names: List<String>) {
         val canonicalRoomId = db.roomDao().getById(navRoomId)?.id
             ?: db.roomDao().getByServerId(navRoomId)?.id
             ?: return
         val now = System.currentTimeMillis().toString()
+        val (defaultCondition, defaultCleanliness) = defaultConditionAndCleanlinessTypeCodes()
         names.forEach { name ->
             val localId = "local_${UUID.randomUUID().toString().replace("-", "")}"
             val entity = RoomItemEntity(
                 id = localId, serverId = null, roomId = canonicalRoomId,
                 name = name, isDeleted = false,
+                generalCondition = defaultCondition,
+                generalCleanliness = defaultCleanliness,
                 createdAt = now, updatedAt = now,
                 syncStatus = SyncStatus.PENDING_CREATE
             )
             db.roomItemDao().upsert(entity)
+            val parentRoomCreateId = db.syncQueueDao().getPendingRoomCreateQueueId(canonicalRoomId)
             db.syncQueueDao().enqueue(
                 SyncQueueEntity(
                     entityType = "ROOM_ITEM", operationType = "CREATE",
                     localEntityId = localId,
-                    payload = gson.toJson(AddNewRoomItemsRequest(room_items = listOf(name)))
+                    payload = gson.toJson(AddNewRoomItemsRequest(room_items = listOf(name))),
+                    parentSyncId = parentRoomCreateId
                 )
             )
         }

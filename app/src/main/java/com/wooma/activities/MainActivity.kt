@@ -58,11 +58,12 @@ class MainActivity : BaseActivity() {
             try {
                 val response = RetrofitClient.getApi(this@MainActivity).getRatings().execute()
                 val data = response.body()?.data ?: return@launch
-                val entities = data.condition.map { r ->
+                val entities = data.condition.orEmpty().map { r ->
                     RatingEntity("condition_${r.type_code}", "condition", r.type_code, r.display_name, r.description, r.is_default, r.display_order)
-                } + data.cleanliness.map { r ->
+                } + data.cleanliness.orEmpty().map { r ->
                     RatingEntity("cleanliness_${r.type_code}", "cleanliness", r.type_code, r.display_name, r.description, r.is_default, r.display_order)
                 }
+                if (entities.isEmpty()) return@launch
                 WoomaDatabase.getInstance(this@MainActivity).ratingDao().upsertAll(entities)
             } catch (_: Exception) {}
         }

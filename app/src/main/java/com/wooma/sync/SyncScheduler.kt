@@ -15,18 +15,29 @@ object SyncScheduler {
         val syncRequest = OneTimeWorkRequestBuilder<SyncWorker>()
             .setConstraints(CONNECTED_CONSTRAINT)
             .build()
+
+        // KEEP on a chained unique work drops *all* new requests while Sync or ImageUpload is still
+        // enqueued/running — so adding rooms during a long upload never started another SyncWorker.
+        // Sync alone with APPEND_OR_REPLACE: queue another sync after the current one, or start fresh
+        // if nothing is running. Image uploads run from [SyncWorker] when a pass finishes (see there).
+        wm.enqueueUniqueWork(
+            "wooma_sync_immediate",
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
+            syncRequest
+        )
+    }
+
+    /** Called after a sync pass so new server IDs exist before uploads run. */
+    fun schedulePendingUploads(context: Context) {
+        val wm = WorkManager.getInstance(context)
         val uploadRequest = OneTimeWorkRequestBuilder<ImageUploadWorker>()
             .setConstraints(CONNECTED_CONSTRAINT)
             .build()
-
-        // Run in sequence to avoid races where image upload starts before entity CREATE assigns server IDs.
-        // KEEP avoids cancelling an in-flight sync; REPLACE could abort mid–rooms/bulk and leave rows
-        // PENDING so the replacement worker POSTs again.
-        wm.beginUniqueWork(
-            "wooma_sync_pipeline",
-            ExistingWorkPolicy.KEEP,
-            syncRequest
-        ).then(uploadRequest).enqueue()
+        wm.enqueueUniqueWork(
+            "wooma_image_upload",
+            ExistingWorkPolicy.APPEND_OR_REPLACE,
+            uploadRequest
+        )
     }
 
     fun schedulePeriodicSync(context: Context) {

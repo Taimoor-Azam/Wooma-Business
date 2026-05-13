@@ -23,6 +23,17 @@ interface SyncQueueDao {
     )
     suspend fun getPendingRoomCreatesByReport(reportId: String): List<SyncQueueEntity>
 
+    /**
+     * Oldest pending ROOM CREATE for this local room row — used so ROOM_ITEM CREATE waits until the room exists on server.
+     */
+    @Query(
+        "SELECT sq.id FROM sync_queue sq " +
+            "INNER JOIN rooms r ON r.id = sq.localEntityId " +
+            "WHERE sq.status = 'PENDING' AND sq.entityType = 'ROOM' AND sq.operationType = 'CREATE' " +
+            "AND sq.localEntityId = :roomLocalId ORDER BY sq.id ASC LIMIT 1"
+    )
+    suspend fun getPendingRoomCreateQueueId(roomLocalId: String): Long?
+
     @Query("SELECT COUNT(*) FROM sync_queue WHERE status = 'PENDING'")
     fun countPending(): Flow<Int>
 

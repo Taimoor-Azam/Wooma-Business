@@ -117,7 +117,7 @@ class InventoryRoomItemsAdapter(
                     else -> null
                 }
             }
-            ?.toMutableList<ImageItem>() ?: mutableListOf()
+            ?.toMutableList() ?: mutableListOf()
         holder.rvImages.visibility = if (imageItems.isEmpty()) View.GONE else View.VISIBLE
         holder.rvImages.layoutManager =
             LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)

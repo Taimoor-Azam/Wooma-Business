@@ -584,13 +584,21 @@ class InventoryRoomItemActivity : BaseActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == CAMERA_REQUEST && resultCode == RESULT_OK) {
-            val newUris = CameraActivity.pendingUris.toList()
-            allImages.removeAll { img -> img is ImageItem.Local && img.uri.path !in currentDbLocalPaths }
-            allImages.addAll(newUris.map { ImageItem.Local(it) })
+            val latestSessionImages = CameraActivity.resultImages.toList()
+
+            allImages.clear()
+            allImages.addAll(latestSessionImages)
             cameraBinding.rvRoomItems.adapter?.notifyDataSetChanged()
-            if (newUris.isNotEmpty()) hasChanges = true
+
             capturedUris.clear()
-            capturedUris.addAll(newUris)
+            capturedUris.addAll(
+                allImages
+                    .filterIsInstance<ImageItem.Local>()
+                    .map { it.uri }
+                    .filterNot { uri -> uri.path in currentDbLocalPaths }
+                    .distinctBy { it.toString() }
+            )
+            hasChanges = true
         }
     }
 

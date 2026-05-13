@@ -16,6 +16,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.room.withTransaction
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
@@ -34,8 +35,10 @@ import com.wooma.customs.AttachmentUploadHelper
 import com.wooma.customs.GridSpacingItemDecoration
 import com.wooma.customs.Utils
 import com.wooma.data.local.WoomaDatabase
+import com.wooma.data.local.entity.RatingEntity
 import com.wooma.data.local.entity.SyncStatus
 import com.wooma.data.local.entity.TenantReviewEntity
+import com.wooma.data.network.RetrofitClient
 import com.wooma.data.network.ApiClient
 import com.wooma.data.network.ApiResponseListener
 import com.wooma.data.network.MyApi
@@ -57,6 +60,7 @@ import com.wooma.model.enums.ReportTypes
 import com.wooma.model.enums.TenantReportStatus
 import com.wooma.model.ImageItem
 import com.wooma.sync.SyncScheduler
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -304,7 +308,10 @@ class InventoryListingActivity : BaseActivity() {
 
         supportFragmentManager.setFragmentResultListener("sheet_key", this) { _, bundle ->
             val value = bundle.getString("added_room") ?: return@setFragmentResultListener
-            lifecycleScope.launch { roomRepo.addRoom(reportId, value) }
+            lifecycleScope.launch {
+                roomRepo.addRoom(reportId, value)
+                SyncScheduler.scheduleImmediateSync(this@InventoryListingActivity)
+            }
         }
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -514,7 +521,10 @@ class InventoryListingActivity : BaseActivity() {
                     .observeConnectivity()
                     .collect { isConnected ->
                         isNetworkAvailable = isConnected
-                        if (isConnected) syncPendingCoverChangesIfOnline()
+                        if (isConnected) {
+                            scheduleRatingsRefreshIfOnline()
+                            syncPendingCoverChangesIfOnline()
+                        }
                         if (adapter.isEditMode && reportStatus == TenantReportStatus.IN_PROGRESS.value) {
                             adapter.setEditMode(true, canReorder = isConnected)
                         }
@@ -622,6 +632,7 @@ class InventoryListingActivity : BaseActivity() {
             // Single refresh path: getReportById includes rooms + items and hydrates via hydrateRoomsAndItemsFromReport.
             // A separate refreshRooms() duplicated the same merge and could multiply network/sync side effects.
             getReportByIdApi()
+            scheduleRatingsRefreshIfOnline()
             syncPendingCoverChangesIfOnline()
         } else {
             lifecycleScope.launch {
@@ -631,6 +642,61 @@ class InventoryListingActivity : BaseActivity() {
                     finish()
                 }
             }
+        }
+    }
+
+    /** Same source as [com.wooma.activities.MainActivity.fetchAndCacheRatings], when online on this screen. */
+    private fun scheduleRatingsRefreshIfOnline() {
+        if (!Utils.isOnline(this)) return
+        lifecycleScope.launch(Dispatchers.IO) {
+            refreshRatingsFromApiOrKeepLocal()
+        }
+    }
+
+    /**
+     * Refreshes condition/cleanliness rating rows when the API returns usable data.
+     * If `data` is null, both lists empty, or the HTTP call fails, the local `ratings` table is left unchanged.
+     * When both categories have at least one item, existing rows are cleared first so removed server options disappear locally.
+     */
+    private suspend fun refreshRatingsFromApiOrKeepLocal() {
+        try {
+            val response = RetrofitClient.getApi(this@InventoryListingActivity).getRatings().execute()
+            if (!response.isSuccessful) return
+            val data = response.body()?.data ?: return
+            val conditionItems = data.condition.orEmpty()
+            val cleanlinessItems = data.cleanliness.orEmpty()
+            if (conditionItems.isEmpty() && cleanlinessItems.isEmpty()) return
+
+            val entities = conditionItems.map { r ->
+                RatingEntity(
+                    "condition_${r.type_code}",
+                    "condition",
+                    r.type_code,
+                    r.display_name,
+                    r.description,
+                    r.is_default,
+                    r.display_order,
+                )
+            } + cleanlinessItems.map { r ->
+                RatingEntity(
+                    "cleanliness_${r.type_code}",
+                    "cleanliness",
+                    r.type_code,
+                    r.display_name,
+                    r.description,
+                    r.is_default,
+                    r.display_order,
+                )
+            }
+            if (entities.isEmpty()) return
+
+            db.withTransaction {
+                if (conditionItems.isNotEmpty() && cleanlinessItems.isNotEmpty()) {
+                    db.ratingDao().deleteAll()
+                }
+                db.ratingDao().upsertAll(entities)
+            }
+        } catch (_: Exception) {
         }
     }
 

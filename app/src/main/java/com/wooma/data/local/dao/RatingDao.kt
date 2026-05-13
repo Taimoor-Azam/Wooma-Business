@@ -10,6 +10,9 @@ interface RatingDao {
     @Query("SELECT * FROM ratings WHERE category = :category")
     suspend fun getByCategory(category: String): List<RatingEntity>
 
+    @Query("DELETE FROM ratings")
+    suspend fun deleteAll()
+
     @Upsert
     suspend fun upsertAll(ratings: List<RatingEntity>)
 }

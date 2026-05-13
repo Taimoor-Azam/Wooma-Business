@@ -211,6 +211,7 @@ class InventoryCheckListQuestionAdapter(
 
         holder.rvImages.layoutManager =
             LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+        holder.rvImages.isNestedScrollingEnabled = false
         val qid = questionId
         holder.rvImages.adapter =
             ImageAdapter(

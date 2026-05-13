@@ -181,7 +181,16 @@ class CheckListDetailActivity : BaseActivity() {
                 .distinctBy { it.toString() }
                 .also { CameraActivity.Companion.pendingUris.clear() }
             val qId = pendingCameraQuestionId
-            if (uris.isNotEmpty() && qId.isNotEmpty()) {
+            if (uris.isEmpty() || qId.isEmpty()) return
+
+            // NestedScrollView.onSizeChanged scrolls to the focused child; after camera return,
+            // notifyItemChanged can detach that child while focus still points at it → crash
+            // "parameter must be a descendant of this view".
+            window?.decorView?.findFocus()?.clearFocus()
+            binding.mainLayout.clearFocus()
+            binding.nestedScrollChecklist.clearFocus()
+
+            binding.nestedScrollChecklist.post {
                 questionAdapter.deliverPhotos(qId, uris)
                 saveAnswerAttachmentOffline(qId, uris)
             }
@@ -214,7 +223,9 @@ class CheckListDetailActivity : BaseActivity() {
     private fun saveAnswerAttachmentOffline(questionId: String, uris: List<Uri>) {
         lifecycleScope.launch {
             checklistRepo.saveAnswerAttachmentOffline(checklistId, questionId, uris)
-            questionAdapter.clearLocalPhotos(questionId)
+            binding.nestedScrollChecklist.post {
+                questionAdapter.clearLocalPhotos(questionId)
+            }
             SyncScheduler.scheduleImmediateSync(this@CheckListDetailActivity)
         }
     }

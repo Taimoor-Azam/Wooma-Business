@@ -9,6 +9,6 @@ data class RatingItem(
 )
 
 data class RatingsResponse(
-    val condition: List<RatingItem>,
-    val cleanliness: List<RatingItem>
+    val condition: List<RatingItem>? = null,
+    val cleanliness: List<RatingItem>? = null
 )

@@ -49,6 +49,7 @@ class SelectRoomItemActivity : BaseActivity() {
                 binding.tvAddCustom.alpha = if (hasText) 1f else 0.3f
                 binding.tvAddCustom.isClickable = hasText
             }
+
             override fun afterTextChanged(s: Editable?) {}
         })
 
@@ -65,6 +66,7 @@ class SelectRoomItemActivity : BaseActivity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 adapter.filter(s?.toString() ?: "")
             }
+
             override fun afterTextChanged(s: Editable?) {}
         })
 
@@ -94,6 +96,7 @@ class SelectRoomItemActivity : BaseActivity() {
 
     companion object {
         val PREDEFINED_ITEMS = listOf(
+            "General Overview",
             "Doors",
             "Front Door",
             "Back Door",

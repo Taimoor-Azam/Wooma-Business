@@ -131,11 +131,13 @@ class CameraActivity : BaseActivity() {
 
     private fun saveAndExit() {
         pendingUris.clear()
-        pendingUris.addAll(sessionLocalUris)
-
+        if (!isCoverImage) {
+            // Full strip (existing + this session). Parent screens must not rely on [sessionLocalUris]
+            // alone — it is empty when the user opens camera again and leaves without new captures.
+            pendingUris.addAll(images.filterIsInstance<ImageItem.Local>().map { it.uri })
+        }
         resultImages.clear()
         resultImages.addAll(images)
-
         setResult(RESULT_OK)
         finish()
     }

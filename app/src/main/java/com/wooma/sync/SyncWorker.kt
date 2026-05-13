@@ -7,6 +7,7 @@ import androidx.work.WorkerParameters
 import com.google.gson.Gson
 import androidx.room.withTransaction
 import com.wooma.data.local.WoomaDatabase
+import com.wooma.data.local.entity.RoomEntity
 import com.wooma.data.local.entity.SyncStatus
 import com.wooma.data.network.RetrofitClient
 import com.wooma.data.repository.RoomItemRepository
@@ -17,7 +18,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.RequestBody.Companion.toRequestBody
-import java.util.concurrent.atomic.AtomicBoolean
 
 class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
 
@@ -25,20 +25,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
     private val api = RetrofitClient.getApi(ctx)
     private val gson = Gson()
 
-    override suspend fun doWork(): Result {
-        // Immediate sync (unique "wooma_sync_pipeline") and periodic sync ("wooma_periodic") both run this
-        // worker — they are different WorkManager unique chains and can execute in parallel. A second
-        // instance would reset the first's IN_PROGRESS rows and duplicate POSTs (e.g. rooms/bulk).
-        if (!globalSyncRunning.compareAndSet(false, true)) {
-            Log.d("SyncWorker", "Skipped — another SyncWorker is already running")
-            return Result.success()
-        }
-        try {
-            return runSync()
-        } finally {
-            globalSyncRunning.set(false)
-        }
-    }
+    override suspend fun doWork(): Result = runSync()
 
     private suspend fun runSync(): Result {
         var rounds = 0
@@ -83,11 +70,49 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             db.syncQueueDao().purgeDone()
             if (!progressed) break
         }
+        SyncScheduler.schedulePendingUploads(applicationContext)
         return Result.success()
     }
 
-    companion object {
-        private val globalSyncRunning = AtomicBoolean(false)
+    /**
+     * REST paths use the server report UUID. Prefer [com.wooma.data.local.entity.ReportEntity.serverId];
+     * if empty (legacy row), fall back to a non-local primary id.
+     */
+    private suspend fun reportApiId(reportId: String): String {
+        val r = db.reportDao().getById(reportId)
+            ?: throw Exception("Report not found: $reportId")
+        val sid = r.serverId?.trim()?.takeIf { it.isNotEmpty() }
+        val pk = r.id.trim()
+        return when {
+            sid != null -> sid
+            pk.isNotEmpty() && !pk.startsWith("local_") -> pk
+            else -> throw Exception("Report serverId not yet available for report $reportId")
+        }
+    }
+
+    private suspend fun reportApiIdOrNull(reportId: String): String? = try {
+        reportApiId(reportId)
+    } catch (_: Exception) {
+        null
+    }
+
+    /** REST paths use the server room UUID. Prefer [RoomEntity.serverId]; else non-local primary key. */
+    private fun roomServerIdForApi(room: RoomEntity): String? {
+        val sid = room.serverId?.trim()?.takeIf { it.isNotEmpty() }
+        if (sid != null) return sid
+        val pk = room.id.trim()
+        return if (pk.isNotEmpty() && !pk.startsWith("local_")) pk else null
+    }
+
+    private fun roomServerIdForApiOrThrow(room: RoomEntity): String =
+        roomServerIdForApi(room) ?: throw Exception("Room serverId not yet available for room ${room.id}")
+
+    /** True when this room still needs a bulk CREATE on the server (local temp id, no server row yet). */
+    private fun roomNeedsBulkCreate(e: RoomEntity): Boolean {
+        if (e.syncStatus == SyncStatus.PENDING_DELETE) return false
+        if (!e.serverId.isNullOrBlank()) return false
+        val pk = e.id.trim()
+        return pk.isEmpty() || pk.startsWith("local_")
     }
 
     private suspend fun processEntry(entry: com.wooma.data.local.entity.SyncQueueEntity) {
@@ -126,7 +151,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                         db.meterDao().deleteById(localId)
                         return@withContext
                     }
-                    val reportServerId = db.reportDao().getById(meterEntity.reportId)?.serverId
+                    val reportServerId = reportApiId(meterEntity.reportId)
                         ?: throw Exception("Report serverId not yet available for meter $localId")
 
                     val resp = api.addNewMeter(reportServerId, req).execute()
@@ -149,7 +174,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                         ?: throw Exception("Meter $localId not found")
                     val serverId = meterEntity.serverId
                         ?: throw Exception("No serverId for METER UPDATE $localId")
-                    val reportServerId = db.reportDao().getById(meterEntity.reportId)?.serverId
+                    val reportServerId = reportApiId(meterEntity.reportId)
                         ?: throw Exception("Report serverId not found for meter $localId")
 
                     val resp = api.updateMeter(reportServerId, serverId, req).execute()
@@ -163,7 +188,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                         db.meterDao().deleteById(localId)
                         return@withContext
                     }
-                    val reportServerId = db.reportDao().getById(meterEntity.reportId)?.serverId
+                    val reportServerId = reportApiId(meterEntity.reportId)
                         ?: throw Exception("Report serverId not found for meter $localId")
 
                     val resp = api.deleteMeter(reportServerId, serverId).execute()
@@ -189,7 +214,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                         db.keyDao().deleteById(localId)
                         return@withContext
                     }
-                    val reportServerId = db.reportDao().getById(keyEntity.reportId)?.serverId
+                    val reportServerId = reportApiId(keyEntity.reportId)
                         ?: throw Exception("Report serverId not yet available for key $localId")
 
                     val resp = api.addNewKey(reportServerId, req).execute()
@@ -211,7 +236,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                         ?: throw Exception("Key $localId not found")
                     val serverId = keyEntity.serverId
                         ?: throw Exception("No serverId for KEY UPDATE $localId")
-                    val reportServerId = db.reportDao().getById(keyEntity.reportId)?.serverId
+                    val reportServerId = reportApiId(keyEntity.reportId)
                         ?: throw Exception("Report serverId not found for key $localId")
 
                     val resp = api.updateKey(reportServerId, serverId, req).execute()
@@ -225,7 +250,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                         db.keyDao().deleteById(localId)
                         return@withContext
                     }
-                    val reportServerId = db.reportDao().getById(keyEntity.reportId)?.serverId
+                    val reportServerId = reportApiId(keyEntity.reportId)
                         ?: throw Exception("Report serverId not found for key $localId")
 
                     val resp = api.deleteKey(reportServerId, serverId).execute()
@@ -251,7 +276,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                         db.detectorDao().deleteById(localId)
                         return@withContext
                     }
-                    val reportServerId = db.reportDao().getById(detEntity.reportId)?.serverId
+                    val reportServerId = reportApiId(detEntity.reportId)
                         ?: throw Exception("Report serverId not yet available for detector $localId")
 
                     val resp = api.addNewDetector(reportServerId, req).execute()
@@ -273,7 +298,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                         ?: throw Exception("Detector $localId not found")
                     val serverId = detEntity.serverId
                         ?: throw Exception("No serverId for DETECTOR UPDATE $localId")
-                    val reportServerId = db.reportDao().getById(detEntity.reportId)?.serverId
+                    val reportServerId = reportApiId(detEntity.reportId)
                         ?: throw Exception("Report serverId not found for detector $localId")
 
                     val resp = api.updateDetector(reportServerId, serverId, req).execute()
@@ -287,7 +312,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                         db.detectorDao().deleteById(localId)
                         return@withContext
                     }
-                    val reportServerId = db.reportDao().getById(detEntity.reportId)?.serverId
+                    val reportServerId = reportApiId(detEntity.reportId)
                         ?: throw Exception("Report serverId not found for detector $localId")
 
                     val resp = api.deleteDetector(reportServerId, serverId).execute()
@@ -316,18 +341,24 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 "CREATE" -> {
                     val roomEntity = db.roomDao().getById(localId)
                         ?: throw Exception("Room $localId not found locally")
-                    if (roomEntity.serverId != null) {
-                        // Already promoted in a previous attempt; do not POST again.
+                    if (!roomNeedsBulkCreate(roomEntity)) {
+                        if (roomEntity.serverId.isNullOrBlank() &&
+                            roomEntity.id.trim().isNotEmpty() &&
+                            !roomEntity.id.startsWith("local_")
+                        ) {
+                            db.roomDao().promoteLocalId(roomEntity.id, roomEntity.id.trim())
+                        }
                         db.roomDao().updateSyncStatus(localId, SyncStatus.SYNCED)
                         return@withContext
                     }
-                    val reportServerId = db.reportDao().getById(roomEntity.reportId)?.serverId
-                        ?: throw Exception("Report serverId not yet available for room $localId")
+                    val reportServerId = reportApiId(roomEntity.reportId)
                     val pendingCreates = db.syncQueueDao().getPendingRoomCreatesByReport(roomEntity.reportId)
                     val queueEntriesForBatch = (listOf(entry) + pendingCreates).distinctBy { it.id }
                     val batchCandidates = queueEntriesForBatch.mapNotNull { q ->
                         val e = db.roomDao().getById(q.localEntityId) ?: return@mapNotNull null
-                        if (e.syncStatus == SyncStatus.PENDING_DELETE || e.serverId != null) return@mapNotNull null
+                        if (e.syncStatus == SyncStatus.PENDING_DELETE || !roomNeedsBulkCreate(e)) {
+                            return@mapNotNull null
+                        }
                         val payloadName = runCatching {
                             gson.fromJson(q.payload, AddNewRoomsRequest::class.java)
                                 .rooms.firstOrNull()?.trim().orEmpty()
@@ -353,7 +384,8 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                     }
 
                     val unresolvedBeforePost = batchCandidates.filter { (localRoomId, _) ->
-                        db.roomDao().getById(localRoomId)?.serverId == null
+                        val r = db.roomDao().getById(localRoomId) ?: return@filter false
+                        roomNeedsBulkCreate(r)
                     }
                     val namesToCreate = unresolvedBeforePost.map { it.second }
                     if (namesToCreate.isNotEmpty()) {
@@ -381,10 +413,8 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                     val req = gson.fromJson(entry.payload, UpdateRoomNameRequest::class.java)
                     val roomEntity = db.roomDao().getById(localId)
                         ?: throw Exception("Room $localId not found")
-                    val serverId = roomEntity.serverId
-                        ?: throw Exception("No serverId for ROOM UPDATE $localId")
-                    val reportServerId = db.reportDao().getById(roomEntity.reportId)?.serverId
-                        ?: throw Exception("Report serverId not found for room $localId")
+                    val serverId = roomServerIdForApiOrThrow(roomEntity)
+                    val reportServerId = reportApiId(roomEntity.reportId)
 
                     val resp = api.updateRoomName(reportServerId, serverId, req).execute()
                     if (!resp.isSuccessful) throw Exception("Room UPDATE failed: ${resp.code()}")
@@ -392,13 +422,11 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                 }
                 "DELETE" -> {
                     val roomEntity = db.roomDao().getById(localId) ?: return@withContext
-                    val serverId = roomEntity.serverId ?: run {
-                        // Never synced — just delete from local DB
+                    val serverId = roomServerIdForApi(roomEntity) ?: run {
                         db.roomDao().deleteById(localId)
                         return@withContext
                     }
-                    val reportServerId = db.reportDao().getById(roomEntity.reportId)?.serverId
-                        ?: throw Exception("Report serverId not found for room $localId")
+                    val reportServerId = reportApiId(roomEntity.reportId)
 
                     val resp = api.deleteRoom(reportServerId, serverId).execute()
                     if (!resp.isSuccessful && resp.code() != 404) {
@@ -410,10 +438,8 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                     val req = gson.fromJson(entry.payload, ReorderRoomRequest::class.java)
                     val roomEntity = db.roomDao().getById(localId)
                         ?: throw Exception("Room $localId not found")
-                    val serverId = roomEntity.serverId
-                        ?: throw Exception("No serverId for ROOM REORDER $localId")
-                    val reportServerId = db.reportDao().getById(roomEntity.reportId)?.serverId
-                        ?: throw Exception("Report serverId not found for room $localId")
+                    val serverId = roomServerIdForApiOrThrow(roomEntity)
+                    val reportServerId = reportApiId(roomEntity.reportId)
 
                     val resp = api.reorderRoom(reportServerId, serverId, req).execute()
                     if (!resp.isSuccessful) throw Exception("Room REORDER failed: ${resp.code()}")
@@ -468,7 +494,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
         var mappedCount = 0
         for ((localId, name) in localRooms) {
             val local = db.roomDao().getById(localId) ?: continue
-            if (local.serverId != null) {
+            if (roomServerIdForApi(local) != null) {
                 mappedCount++
                 continue
             }
@@ -579,10 +605,10 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                     }
                     if (pairs.isEmpty()) return@withContext
 
-                    val roomServerId = db.roomDao().getById(roomLocalId)?.serverId
-                        ?: throw Exception("Room serverId not available for room item batch")
-                    val reportServerId = db.reportDao().getById(db.roomDao().getById(roomLocalId)!!.reportId)?.serverId
-                        ?: throw Exception("Report serverId not found for room item batch")
+                    val roomRowForBatch = db.roomDao().getById(roomLocalId)
+                        ?: throw Exception("Room not found for room item batch: $roomLocalId")
+                    val roomServerId = roomServerIdForApiOrThrow(roomRowForBatch)
+                    val reportServerId = reportApiId(roomRowForBatch.reportId)
 
                     if (batchEntries.any { it.retryCount > 0 } &&
                         tryFinalizeRoomItemCreatesFromServerWithoutPost(reportServerId, roomServerId, pairs)
@@ -654,10 +680,8 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                         ?: throw Exception("ROOM_ITEM UPDATE: serverId still null $localId")
                     val roomRow = db.roomDao().getById(itemEntity.roomId)
                         ?: throw Exception("ROOM_ITEM UPDATE: room not found")
-                    val roomServerId = roomRow.serverId
-                        ?: throw Exception("ROOM_ITEM UPDATE: room serverId missing")
-                    val reportServerId = db.reportDao().getById(roomRow.reportId)?.serverId
-                        ?: throw Exception("ROOM_ITEM UPDATE: report serverId missing")
+                    val roomServerId = roomServerIdForApiOrThrow(roomRow)
+                    val reportServerId = reportApiId(roomRow.reportId)
 
                     val resp = api.updateRoomItem(reportServerId, roomServerId, serverId, req).execute()
                     if (!resp.isSuccessful) throw Exception("Item UPDATE failed: ${resp.code()}")
@@ -674,8 +698,9 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
                         db.roomItemDao().deleteById(localId)
                         return@withContext
                     }
-                    val roomServerId = db.roomDao().getById(itemEntity.roomId)?.serverId ?: return@withContext
-                    val reportServerId = db.reportDao().getById(db.roomDao().getById(itemEntity.roomId)!!.reportId)?.serverId ?: return@withContext
+                    val roomRowDel = db.roomDao().getById(itemEntity.roomId) ?: return@withContext
+                    val roomServerId = roomServerIdForApi(roomRowDel) ?: return@withContext
+                    val reportServerId = reportApiIdOrNull(roomRowDel.reportId) ?: return@withContext
 
                     val resp = api.deleteRoomItem(reportServerId, roomServerId, serverId).execute()
                     if (!resp.isSuccessful && resp.code() != 404) throw Exception("Item DELETE failed")
@@ -689,15 +714,16 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
             val localId = entry.localEntityId
             val req = gson.fromJson(entry.payload, UpsertRoomInspectionRequest::class.java)
             val inspection = db.roomInspectionDao().getById(localId) ?: return@withContext
-            val roomServerId = db.roomDao().getById(inspection.roomId)?.serverId ?: return@withContext
-            
+            val roomRowInsp = db.roomDao().getById(inspection.roomId) ?: return@withContext
+            val roomServerId = roomServerIdForApi(roomRowInsp) ?: return@withContext
+
             val updatedReq = req.copy(room_id = roomServerId)
             val resp = api.upsertRoomInspection(updatedReq).execute()
             if (!resp.isSuccessful) throw Exception("Inspection UPSERT failed")
             
             // Refetch to get server ID if it was CREATE
             if (inspection.serverId == null) {
-                val reportServerId = db.reportDao().getById(db.roomDao().getById(inspection.roomId)!!.reportId)?.serverId ?: return@withContext
+                val reportServerId = reportApiIdOrNull(roomRowInsp.reportId) ?: return@withContext
                 val roomsResp = api.getRoomById(roomServerId, reportServerId, false, true).execute()
                 val serverId = roomsResp.body()?.data?.inspection?.firstOrNull()?.id
                 if (serverId != null) {
@@ -766,8 +792,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
     private suspend fun processReportCover(entry: com.wooma.data.local.entity.SyncQueueEntity) =
         withContext(Dispatchers.IO) {
             if (entry.operationType != "DELETE") return@withContext
-            val reportEntity = db.reportDao().getById(entry.localEntityId) ?: return@withContext
-            val serverId = reportEntity.serverId ?: return@withContext
+            val serverId = reportApiIdOrNull(entry.localEntityId) ?: return@withContext
             val patchJson = """{"cover_image_storage_key":null}"""
             val resp = api.updateReport(
                 serverId,
@@ -809,8 +834,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
 
     private suspend fun processReport(entry: com.wooma.data.local.entity.SyncQueueEntity) =
         withContext(Dispatchers.IO) {
-            val reportEntity = db.reportDao().getById(entry.localEntityId) ?: return@withContext
-            val serverId = reportEntity.serverId ?: return@withContext
+            val serverId = reportApiIdOrNull(entry.localEntityId) ?: return@withContext
             when (entry.operationType) {
                 "ARCHIVE" -> {
                     val resp = api.archiveReport(serverId).execute()
@@ -826,8 +850,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
 
     private suspend fun processReportAssessor(entry: com.wooma.data.local.entity.SyncQueueEntity) =
         withContext(Dispatchers.IO) {
-            val reportEntity = db.reportDao().getById(entry.localEntityId) ?: return@withContext
-            val serverId = reportEntity.serverId ?: return@withContext
+            val serverId = reportApiIdOrNull(entry.localEntityId) ?: return@withContext
             val req = gson.fromJson(entry.payload, com.wooma.model.ChangeAssessor::class.java)
             val resp = api.changeAssessor(serverId, req).execute()
             if (!resp.isSuccessful) throw Exception("Assessor UPDATE failed: ${resp.code()}")
@@ -836,8 +859,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
 
     private suspend fun processReportDate(entry: com.wooma.data.local.entity.SyncQueueEntity) =
         withContext(Dispatchers.IO) {
-            val reportEntity = db.reportDao().getById(entry.localEntityId) ?: return@withContext
-            val serverId = reportEntity.serverId ?: return@withContext
+            val serverId = reportApiIdOrNull(entry.localEntityId) ?: return@withContext
             val req = gson.fromJson(entry.payload, com.wooma.model.ChangeDateRequest::class.java)
             val resp = api.changeDate(serverId, req).execute()
             if (!resp.isSuccessful) throw Exception("Date UPDATE failed: ${resp.code()}")
@@ -846,8 +868,7 @@ class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, 
 
     private suspend fun processReportType(entry: com.wooma.data.local.entity.SyncQueueEntity) =
         withContext(Dispatchers.IO) {
-            val reportEntity = db.reportDao().getById(entry.localEntityId) ?: return@withContext
-            val serverId = reportEntity.serverId ?: return@withContext
+            val serverId = reportApiIdOrNull(entry.localEntityId) ?: return@withContext
             val req = gson.fromJson(entry.payload, com.wooma.model.changeReportType::class.java)
             val resp = api.changeReportType(serverId, req).execute()
             if (!resp.isSuccessful) throw Exception("Type UPDATE failed: ${resp.code()}")
